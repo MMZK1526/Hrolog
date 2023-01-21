@@ -1,4 +1,6 @@
 module Main where
 
+import Program
+
 main :: IO ()
-main = putStrLn "Hello, Haskell!"
+main = print p1
