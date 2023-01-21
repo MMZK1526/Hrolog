@@ -20,15 +20,15 @@ p1 = Program { _predicates = S.fromList [bird, flies, animal]
     plane   = Constant "plane"
     hawk    = Constant "hawk"
     sparrow = Constant "sparrow"
-    x       = VariableAtom "X"
-    c1      = Clause (Just $ PredicateAtom bird [ConstantAtom penguin]) []
-    c2      = Clause (Just $ PredicateAtom bird [x])
-                     [PredicateAtom flies [x], PredicateAtom animal [x]]
-    c3      = Clause (Just $ PredicateAtom flies [ConstantAtom plane]) []
-    c4      = Clause (Just $ PredicateAtom flies [ConstantAtom hawk]) []
-    c5      = Clause (Just $ PredicateAtom flies [ConstantAtom sparrow]) []
-    c6      = Clause (Just $ PredicateAtom animal [ConstantAtom hawk]) []
-    c7      = Clause (Just $ PredicateAtom animal [ConstantAtom sparrow]) []
+    x       = VariableTerm "X"
+    c1      = Clause (Just $ Atom bird [ConstantTerm penguin]) []
+    c2      = Clause (Just $ Atom bird [x])
+                     [Atom flies [x], Atom animal [x]]
+    c3      = Clause (Just $ Atom flies [ConstantTerm plane]) []
+    c4      = Clause (Just $ Atom flies [ConstantTerm hawk]) []
+    c5      = Clause (Just $ Atom flies [ConstantTerm sparrow]) []
+    c6      = Clause (Just $ Atom animal [ConstantTerm hawk]) []
+    c7      = Clause (Just $ Atom animal [ConstantTerm sparrow]) []
 
 data Predicate = Predicate { _predicateName :: String, _predicateArity :: Int }
   deriving (Eq, Ord)
@@ -36,9 +36,11 @@ data Predicate = Predicate { _predicateName :: String, _predicateArity :: Int }
 newtype Constant = Constant { _constantName :: String }
   deriving (Eq, Ord)
 
-data Atom = ConstantAtom  Constant
-          | VariableAtom  String
-          | PredicateAtom Predicate [Atom]
+data Term = ConstantTerm Constant
+          | VariableTerm String
+  deriving (Eq, Ord)
+
+data Atom = Atom Predicate [Term]
   deriving (Eq, Ord)
 
 data Clause = Clause { _clauseHead :: Maybe Atom, _clauseBody :: [Atom] }
@@ -57,11 +59,14 @@ instance Show Constant where
   show :: Constant -> String
   show = _constantName
 
+instance Show Term where
+  show :: Term -> String
+  show (ConstantTerm c) = show c
+  show (VariableTerm v) = v
+
 instance Show Atom where
   show :: Atom -> String
-  show (ConstantAtom c) = show c
-  show (VariableAtom v) = v
-  show (PredicateAtom p as)
+  show (Atom p as)
     = concat [_predicateName p, "(", intercalate ", " (show <$> as), ")"]
 
 instance Show Clause where
@@ -85,11 +90,11 @@ isProgramLegal Program {..}
     indentifierLegal name   = not (null name) && isLower (head name)
                            && all isAlphaNum (tail name)
     atomLegal a             = case a of
-      ConstantAtom c     -> c `elem` _constants
-      VariableAtom v     -> not (null v) && isUpper (head v)
-                         && all isAlphaNum (tail v)
-      PredicateAtom p as -> _predicateArity p == length as
+      -- ConstantTerm c     -> c `elem` _constants
+      -- VariableTerm v     -> not (null v) && isUpper (head v)
+      --                    && all isAlphaNum (tail v)
+      Atom p as -> _predicateArity p == length as
                          && p `elem` _predicates
-                         && all atomLegal as
+                        --  && all atomLegal as
     clauseLegal Clause {..} = maybe True atomLegal _clauseHead
                       && all atomLegal _clauseBody
