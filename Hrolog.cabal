@@ -20,7 +20,8 @@ executable Hrolog
     main-is:          Main.hs
     other-modules:
         Parser,
-        Program
+        Program,
+        Utility
     other-extensions:
         InstanceSigs,
         RecordWildCards
