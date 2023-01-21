@@ -89,12 +89,12 @@ isProgramLegal Program {..}
   where
     indentifierLegal name   = not (null name) && isLower (head name)
                            && all isAlphaNum (tail name)
-    atomLegal a             = case a of
-      -- ConstantTerm c     -> c `elem` _constants
-      -- VariableTerm v     -> not (null v) && isUpper (head v)
-      --                    && all isAlphaNum (tail v)
-      Atom p as -> _predicateArity p == length as
-                         && p `elem` _predicates
-                        --  && all atomLegal as
+    termLegal term          = case term of
+      ConstantTerm c -> c `elem` _constants
+      VariableTerm v -> not (null v) && isUpper (head v)
+                     && all isAlphaNum (tail v)
+    atomLegal (Atom p as)   =  _predicateArity p == length as
+                           && p `elem` _predicates
+                           && all termLegal as
     clauseLegal Clause {..} = maybe True atomLegal _clauseHead
                       && all atomLegal _clauseBody
