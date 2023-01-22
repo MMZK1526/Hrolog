@@ -19,7 +19,8 @@ type Parser  = Parsec Void String
 
 parseT :: Monad m
        => ParserT m a -> String -> m (Either String a)
-parseT parser str = left errorBundlePretty <$> P.runParserT parser "Hrolog" str
+parseT parser str = left errorBundlePretty
+                <$> P.runParserT (parser <* P.eof) "Hrolog" str
 
 parse :: Parser a -> String -> Either String a
 parse = (runIdentity .) . parseT
@@ -31,10 +32,13 @@ char :: Monad m => Char -> ParserT m Char
 char = L.lexeme space . P.char
 
 identifier :: Monad m => ParserT m String
-identifier = L.lexeme space $ liftM2 (:) P.lowerChar (P.many P.alphaNumChar)
+identifier = L.lexeme space
+           $ liftM2 (:) (P.lowerChar P.<|> P.digitChar)
+                        (P.many (P.alphaNumChar P.<?> "identifier"))
 
 variable :: Monad m => ParserT m String
-variable = L.lexeme space $ liftM2 (:) P.upperChar (P.many P.alphaNumChar)
+variable = L.lexeme space
+         $ liftM2 (:) P.upperChar (P.many (P.alphaNumChar P.<?> "variable"))
 
 constant :: Monad m => ParserT (StateT Program m) Constant
 constant = do
@@ -45,7 +49,7 @@ constant = do
 
 term :: Monad m => ParserT (StateT Program m) Term
 term = P.choice [ ConstantTerm <$> constant
-                , VariableTerm <$> variable ]
+                , VariableTerm <$> variable ] P.<?> "term"
 
 atom :: Monad m => ParserT (StateT Program m) Atom
 atom = do
@@ -53,5 +57,5 @@ atom = do
   ts   <- P.choice [ P.between (char '(') (char ')') (P.sepBy term (char ','))
                    , pure [] ]
   let pd = Predicate name (length ts)
-  lift $ modify' (\p-> p { _predicates = S.insert pd (_predicates p) })
+  lift $ modify' (\p -> p { _predicates = S.insert pd (_predicates p) })
   return $ Atom pd ts
