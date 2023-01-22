@@ -80,7 +80,8 @@ instance Show Clause where
 
 instance Show Program where
   show :: Program -> String
-  show Program {..} = concat [unlines (show <$> _clauses), csStr, psStr]
+  show Program {..}
+    = intercalate "\n" [unlines (show <$> _clauses), csStr ++ psStr]
     where
       csStr = case S.toList _constants of
         [] -> ""

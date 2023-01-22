@@ -15,10 +15,10 @@ extra-doc-files:    CHANGELOG.md
 common warnings
     ghc-options: -Wall
 
-executable Hrolog
+
+library
     import:           warnings
-    main-is:          Main.hs
-    other-modules:
+    exposed-modules:
         Parser,
         Program,
         Utility
@@ -27,8 +27,39 @@ executable Hrolog
         RecordWildCards
     build-depends:
         base,
-        containers ^>=0.6.5.1,
+        containers >=0.6,
         megaparsec >=8,
         transformers >=0.5
     hs-source-dirs:   src
     default-language: Haskell2010
+
+
+executable Hrolog
+    import:           warnings
+    main-is:          Main.hs
+    other-modules:
+        Parser,
+        Program,
+        Utility
+    build-depends:
+        base,
+        containers >=0.6,
+        megaparsec >=8,
+        transformers >=0.5
+    hs-source-dirs:   src
+    default-language: Haskell2010
+
+
+test-suite test
+    import:           warnings
+    default-language: Haskell2010
+    hs-source-dirs:   test
+    type:             exitcode-stdio-1.0
+    main-is:          Test.hs
+    build-depends:
+        base,
+        containers >=0.6,
+        megaparsec >=8,
+        transformers >=0.5,
+        HUnit,
+        Hrolog
