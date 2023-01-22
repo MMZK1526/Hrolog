@@ -17,10 +17,13 @@ import           Data.Void
 type ParserT = ParsecT Void String
 type Parser  = Parsec Void String
 
+parseProgram :: String -> Either String Program
+parseProgram str = evalState (parseT program str) emptyProgram
+
 parseT :: Monad m
        => ParserT m a -> String -> m (Either String a)
 parseT parser str = left errorBundlePretty
-                <$> P.runParserT (parser <* P.eof) "Hrolog" str
+                <$> P.runParserT (space >> parser <* P.eof) "Hrolog" str
 
 parse :: Parser a -> String -> Either String a
 parse = (runIdentity .) . parseT
@@ -30,6 +33,9 @@ space = L.space P.space1 (L.skipLineComment "#") P.empty
 
 char :: Monad m => Char -> ParserT m Char
 char = L.lexeme space . P.char
+
+string :: Monad m => String -> ParserT m String
+string = L.lexeme space . P.string
 
 identifier :: Monad m => ParserT m String
 identifier = L.lexeme space
@@ -54,8 +60,20 @@ term = P.choice [ ConstantTerm <$> constant
 atom :: Monad m => ParserT (StateT Program m) Atom
 atom = do
   name <- identifier
-  ts   <- P.choice [ P.between (char '(') (char ')') (P.sepBy term (char ','))
-                   , pure [] ]
+  ts   <- P.option []
+                   (P.between (char '(') (char ')') (P.sepBy term (char ',')))
   let pd = Predicate name (length ts)
   lift $ modify' (\p -> p { _predicates = S.insert pd (_predicates p) })
   return $ Atom pd ts
+
+clause :: Monad m => ParserT (StateT Program m) Clause
+clause = liftM2 Clause
+                (P.optional atom)
+                (P.option [] (string "<-" >> P.sepBy atom (char ',')))
+      <* char '.'
+
+program :: Monad m => ParserT (StateT Program m) Program
+program = do
+  cs <- P.many clause
+  p  <- lift get
+  return $ p { _clauses = cs }

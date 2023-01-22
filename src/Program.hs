@@ -75,7 +75,8 @@ instance Show Clause where
     where
       bodyStr = case _clauseBody of
         [] -> ""
-        cs -> " <- " ++ intercalate ", " (show <$> cs)
+        cs -> concat [ maybe "" (const " ") _clauseHead, "<- "
+                     , intercalate ", " (show <$> cs) ]
 
 instance Show Program where
   show :: Program -> String
@@ -83,10 +84,10 @@ instance Show Program where
     where
       csStr = case S.toList _constants of
         [] -> ""
-        cs -> concat ["Constants: ", intercalate ", " (show <$> cs), "\n"]
+        cs -> concat ["Constants: ", intercalate ", " (show <$> cs), ".\n"]
       psStr = case S.toList _predicates of
         [] -> ""
-        ps -> concat ["Predicates: ", intercalate ", " (show <$> ps), "\n"]
+        ps -> concat ["Predicates: ", intercalate ", " (show <$> ps), ".\n"]
 
 emptyProgram :: Program
 emptyProgram = Program S.empty S.empty []

@@ -3,9 +3,7 @@ module Main where
 import Parser
 import Program
 
-import Control.Monad.Trans.State
-
 main :: IO ()
-main = case runState (parseT atom "lt(1, 2)") emptyProgram of
-  (Left err, _)  -> putStrLn err
-  (Right ast, p) -> print ast >> print p
+main = case parseProgram "even(0).\n <- odd(1).\n <- even(X), odd(X)." of
+  Left err  -> putStrLn err
+  Right ast -> print ast
