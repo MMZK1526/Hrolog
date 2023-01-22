@@ -1,5 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
-
 module Parser where
 
 import           Control.Arrow
@@ -26,25 +24,34 @@ parseT parser str = left errorBundlePretty <$> P.runParserT parser "Hrolog" str
 parse :: Parser a -> String -> Either String a
 parse = (runIdentity .) . parseT
 
-spaceLexer :: Monad m => ParserT m ()
-spaceLexer = L.space P.space1 (L.skipLineComment "#") P.empty
+space :: Monad m => ParserT m ()
+space = L.space P.space1 (L.skipLineComment "#") P.empty
 
-identifierParser :: Monad m => ParserT m String
-identifierParser = L.lexeme spaceLexer
-                 $ liftM2 (:) P.lowerChar (P.many P.alphaNumChar)
+char :: Monad m => Char -> ParserT m Char
+char = L.lexeme space . P.char
 
-variableParser :: Monad m => ParserT m String
-variableParser = L.lexeme spaceLexer
-               $ liftM2 (:) P.upperChar (P.many P.alphaNumChar)
+identifier :: Monad m => ParserT m String
+identifier = L.lexeme space $ liftM2 (:) P.lowerChar (P.many P.alphaNumChar)
 
-constantParser :: Monad m => ParserT (StateT Program m) Constant
-constantParser = do
-  name <- identifierParser
-  let result = Constant name
-  lift $ modify' (\p@Program {..}
-    -> p { _constants = S.insert result _constants })
-  return result
+variable :: Monad m => ParserT m String
+variable = L.lexeme space $ liftM2 (:) P.upperChar (P.many P.alphaNumChar)
 
-termParser :: Monad m => ParserT (StateT Program m) Term
-termParser = P.choice [ ConstantTerm <$> constantParser
-                      , VariableTerm <$> variableParser ]
+constant :: Monad m => ParserT (StateT Program m) Constant
+constant = do
+  name <- identifier
+  let c = Constant name
+  lift $ modify' (\p -> p { _constants = S.insert c (_constants p) })
+  return c
+
+term :: Monad m => ParserT (StateT Program m) Term
+term = P.choice [ ConstantTerm <$> constant
+                , VariableTerm <$> variable ]
+
+atom :: Monad m => ParserT (StateT Program m) Atom
+atom = do
+  name <- identifier
+  ts   <- P.choice [ P.between (char '(') (char ')') (P.sepBy term (char ','))
+                   , pure [] ]
+  let pd = Predicate name (length ts)
+  lift $ modify' (\p-> p { _predicates = S.insert pd (_predicates p) })
+  return $ Atom pd ts
