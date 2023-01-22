@@ -79,7 +79,17 @@ instance Show Clause where
 
 instance Show Program where
   show :: Program -> String
-  show Program {..} = unlines (show <$> _clauses)
+  show Program {..} = concat [unlines (show <$> _clauses), csStr, psStr]
+    where
+      csStr = case S.toList _constants of
+        [] -> ""
+        cs -> concat ["Constants: ", intercalate ", " (show <$> cs), "\n"]
+      psStr = case S.toList _predicates of
+        [] -> ""
+        ps -> concat ["Predicates: ", intercalate ", " (show <$> ps), "\n"]
+
+emptyProgram :: Program
+emptyProgram = Program S.empty S.empty []
 
 isProgramLegal :: Program -> Bool
 isProgramLegal Program {..}
