@@ -100,7 +100,7 @@ genVariable = runState . worker 1 26
          | otherwise -> (chr (ord 'a' + r - 37) :) <$> worker 0 62 (l - 1)
 
 genConstant :: Int -> StdGen -> (Constant, StdGen)
-genConstant = (first Constant .) . runState . worker 1 26
+genConstant = (first Constant .) . runState . worker 1 36
   where
     worker _ _ 0 = pure ""
     worker m n l = do
