@@ -14,7 +14,13 @@ unifyTerm (ConstantTerm c) (ConstantTerm c')
 unifyAtom :: Atom -> Atom -> Maybe (Map String Term)
 unifyAtom (Atom p ts) (Atom p' ts')
     | p /= p'   = Nothing
-    | otherwise = undefined
+    | otherwise = foldl addToMap (Just empty) (zip ts ts')
+    where
+        addToMap mm (t, t') = do
+            m <- mm
+            let nt  = substituteTerm m t
+            let nt' = substituteTerm m t' 
+            unifyTerm nt nt'
 
 substituteTerm :: Map String Term -> Term -> Term
 substituteTerm m t@(VariableTerm x) = fromMaybe t (Data.Map.lookup x m)
