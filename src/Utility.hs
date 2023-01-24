@@ -8,19 +8,19 @@ unifyTerm :: Term -> Term -> Maybe (Map String Term)
 unifyTerm (VariableTerm x) t'@(ConstantTerm _) = Just (singleton x t') 
 unifyTerm t t'@(VariableTerm _) = unifyTerm t' t
 unifyTerm (ConstantTerm c) (ConstantTerm c')
-    | c == c'   = Just empty
-    | otherwise = Nothing
+  | c == c'   = Just empty
+  | otherwise = Nothing
 
 unifyAtom :: Atom -> Atom -> Maybe (Map String Term)
 unifyAtom (Atom p ts) (Atom p' ts')
-    | p /= p'   = Nothing
-    | otherwise = foldl addToMap (Just empty) (zip ts ts')
-    where
-        addToMap mm (t, t') = do
-            m <- mm
-            let nt  = substituteTerm m t
-            let nt' = substituteTerm m t' 
-            unifyTerm nt nt'
+  | p /= p'   = Nothing
+  | otherwise = foldl addToMap (Just empty) (zip ts ts')
+  where
+    addToMap mm (t, t') = do
+      m <- mm
+      let nt  = substituteTerm m t
+      let nt' = substituteTerm m t' 
+      unifyTerm nt nt'
 
 substituteTerm :: Map String Term -> Term -> Term
 substituteTerm m t@(VariableTerm x) = fromMaybe t (Data.Map.lookup x m)
