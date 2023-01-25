@@ -18,7 +18,9 @@ main = runTestTTAndExit
                 , canParseConstant
                 , genConstsAreValid
                 , canParseTerm
-                , genTermsAreValid ]
+                , genTermsAreValid
+                , canParseAtom
+                , genAtomsAreValid ]
 
 canParseVariable :: Test
 canParseVariable
@@ -75,6 +77,34 @@ genTermsAreValid
       let parseTerm str = evalState (parseT term str) emptyProgram
       assertValid ("Valid terms " ++ show t) (Just t) (parseTerm (show t))
 
+canParseAtom :: Test
+canParseAtom
+  = TestLabel "Can parse atom" . TestCase $ do
+      let parseAtom str = evalState (parseT atom str) emptyProgram
+      assertValid "Empty string" Nothing (parseAtom "")
+      assertValid "Constant predicate"
+                  (Just $ Atom (Predicate "allGood" 0) []) (parseAtom "allGood")
+      assertValid "0-ary predicate"
+                  (Just $ Atom (Predicate "foo" 0) []) (parseAtom "foo ( )")
+      assertValid "unary predicate"
+                  (Just $ Atom (Predicate "flies" 1) [VariableTerm "X"])
+                  (parseAtom "flies(X)")
+      assertValid "binary predicate"
+                  ( Just $ Atom (Predicate "mother" 2)
+                                [ ConstantTerm $ Constant "qeii" 
+                                , ConstantTerm $ Constant "kciii" ] )
+                  (parseAtom "mother(qeii, kciii)")
+      assertValid "Missing parenthesis" Nothing (parseAtom "foo(")
+      assertValid "Bad separator" Nothing (parseAtom "foo(x; y)")
+
+genAtomsAreValid :: Test
+genAtomsAreValid
+  = TestLabel "Generated atoms are valid" . TestCase
+  . forM_ [1..3] $ \a -> forM_ [1..3] $ \l -> forM_ [0..114] $ \g -> do
+      let t             = fst $ genAtom a l (mkStdGen g)
+      let parseAtom str = evalState (parseT atom str) emptyProgram
+      assertValid ("Valid atoms " ++ show t) (Just t) (parseAtom (show t))
+
 
 --------------------------------------------------------------------------------
 -- Helpers
@@ -117,7 +147,20 @@ genTerm l gen
   where
     (r, gen') = randomR @Int (0, 1) gen
 
-randomRS :: Monad m => Random a => RandomGen s => a -> a -> StateT s m a
+genAtom :: Int -> Int -> StdGen -> (Atom, StdGen)
+genAtom a l = runState worker
+  where
+    worker = do
+      a'                    <- randomRS 0 a
+      (Constant pName, gen) <- genConstant l <$> get
+      put gen
+      ts                    <- replicateM a' $ do
+        (t, gen') <- genTerm l <$> get
+        put gen'
+        return t
+      return $ Atom (Predicate pName a') ts
+
+randomRS :: Random a => Monad m => RandomGen s => a -> a -> StateT s m a
 randomRS a b = do
   (n, gen') <- randomR (a, b) <$> get
   put gen' $> n
