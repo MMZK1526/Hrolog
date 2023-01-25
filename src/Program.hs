@@ -1,4 +1,5 @@
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Program where
@@ -23,6 +24,21 @@ data Atom = Atom Predicate [Term]
 
 data Clause = Clause { _clauseHead :: Maybe Atom, _clauseBody :: [Atom] }
   deriving (Eq, Ord)
+
+pattern EmptyClause :: Clause
+pattern EmptyClause <- emptyClause
+
+pattern (:<-) :: Atom -> [Atom] -> Clause
+pattern h :<- b <- Clause (Just h) b
+
+pattern (:?<-) :: Maybe Atom -> [Atom] -> Clause
+pattern mh :?<- b <- Clause mh b
+
+pattern Constraint :: [Atom] -> Clause
+pattern Constraint b <- Clause Nothing b
+
+pattern Fact :: Atom -> Clause
+pattern Fact h <- Clause (Just h) []
 
 data Program = Program { _predicates :: Set Predicate
                        , _constants  :: Set Constant
@@ -67,6 +83,9 @@ instance Show Program where
       psStr = case S.toList _predicates of
         [] -> ""
         ps -> concat ["Predicates: ", intercalate ", " (show <$> ps), ".\n"]
+
+emptyClause :: Clause
+emptyClause = Clause Nothing []
 
 emptyProgram :: Program
 emptyProgram = Program S.empty S.empty []
