@@ -36,7 +36,7 @@ genVarsAreValid
   = TestLabel "Generated variables are valid" . TestCase
   . forM_ [1..7] $ \l -> forM_ [0..114] $ \g -> do
       let v = fst $ genVariable l (mkStdGen g)
-      assertValid ("Valid variable " ++ show v) (Just v) (parse variable v)
+      assertValid ("Valid variable " ++ pp v) (Just v) (parse variable v)
 
 canParseConstant :: Test
 canParseConstant
@@ -54,8 +54,8 @@ genConstsAreValid
   . forM_ [1..7] $ \l -> forM_ [0..114] $ \g -> do
       let c                 = fst $ genConstant l (mkStdGen g)
       let parseConstant str = evalState (parseT constant str) emptyProgram
-      assertValid ("Valid constant " ++ show c)
-                  (Just c) (parseConstant (show c))
+      assertValid ("Valid constant " ++ pp c)
+                  (Just c) (parseConstant (pp c))
 
 canParseTerm :: Test
 canParseTerm
@@ -75,7 +75,7 @@ genTermsAreValid
   . forM_ [1..7] $ \l -> forM_ [0..114] $ \g -> do
       let t             = fst $ genTerm l (mkStdGen g)
       let parseTerm str = evalState (parseT term str) emptyProgram
-      assertValid ("Valid terms " ++ show t) (Just t) (parseTerm (show t))
+      assertValid ("Valid terms " ++ pp t) (Just t) (parseTerm (pp t))
 
 canParseAtom :: Test
 canParseAtom
@@ -103,14 +103,15 @@ genAtomsAreValid
   . forM_ [1..3] $ \a -> forM_ [1..3] $ \l -> forM_ [0..114] $ \g -> do
       let t             = fst $ genAtom a l (mkStdGen g)
       let parseAtom str = evalState (parseT atom str) emptyProgram
-      assertValid ("Valid atoms " ++ show t) (Just t) (parseAtom (show t))
+      assertValid ("Valid atoms " ++ pp t) (Just t) (parseAtom (pp t))
 
 
 --------------------------------------------------------------------------------
 -- Helpers
 --------------------------------------------------------------------------------
 
-assertValid :: (Eq a, Show a) => String -> Maybe a -> Either e a -> Assertion
+assertValid :: Eq a => PP a => Show a
+            => String -> Maybe a -> Either e a -> Assertion
 assertValid str Nothing act = case act of
     Left _  -> pure ()
     Right _ -> assertFailure str

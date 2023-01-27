@@ -23,7 +23,9 @@ library
         Program,
         Utility
     other-extensions:
+        FlexibleInstances,
         InstanceSigs,
+        PatternSynonyms,
         RecordWildCards
     build-depends:
         base,

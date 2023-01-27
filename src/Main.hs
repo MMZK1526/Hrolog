@@ -13,4 +13,4 @@ foo = "proud(X) <- parent(X, Y), newborn(Y).\n\
 main :: IO ()
 main = case parseProgram foo of
   Left err  -> putStrLn err
-  Right ast -> print ast
+  Right ast -> pprint ast
