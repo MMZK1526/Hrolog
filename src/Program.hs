@@ -11,14 +11,14 @@ import           Data.Set (Set)
 import qualified Data.Set as S
 
 class PP a where
-  pp :: a -> String
+  pShow :: a -> String
 
-  pprint :: a -> IO ()
-  pprint = putStrLn . pp
+  pPrint :: a -> IO ()
+  pPrint = putStrLn . pShow
 
 instance PP String where
-  pp :: String -> String
-  pp = show
+  pShow :: String -> String
+  pShow = show
 
 data Predicate = Predicate { _predicateName :: String, _predicateArity :: Int }
   deriving (Eq, Ord, Show)
@@ -57,43 +57,43 @@ data Program = Program { _predicates :: Set Predicate
   deriving (Eq, Ord, Show)
 
 instance PP Predicate where
-  pp :: Predicate -> String
-  pp Predicate {..} = concat [_predicateName, "/", show _predicateArity]
+  pShow :: Predicate -> String
+  pShow Predicate {..} = concat [_predicateName, "/", show _predicateArity]
 
 instance PP Constant where
-  pp :: Constant -> String
-  pp = _constantName
+  pShow :: Constant -> String
+  pShow = _constantName
 
 instance PP Term where
-  pp :: Term -> String
-  pp (ConstantTerm c) = pp c
-  pp (VariableTerm v) = v
+  pShow :: Term -> String
+  pShow (ConstantTerm c) = pShow c
+  pShow (VariableTerm v) = v
 
 instance PP Atom where
-  pp :: Atom -> String
-  pp (Atom p as)
-    = concat [_predicateName p, "(", intercalate ", " (pp <$> as), ")"]
+  pShow :: Atom -> String
+  pShow (Atom p as)
+    = concat [_predicateName p, "(", intercalate ", " (pShow <$> as), ")"]
 
 instance PP Clause where
-  pp :: Clause -> String
-  pp Clause {..} = concat [maybe "" pp _clauseHead, bodyStr, "."]
+  pShow :: Clause -> String
+  pShow Clause {..} = concat [maybe "" pShow _clauseHead, bodyStr, "."]
     where
       bodyStr = case _clauseBody of
         [] -> ""
         cs -> concat [ maybe "" (const " ") _clauseHead, "<- "
-                     , intercalate ", " (pp <$> cs) ]
+                     , intercalate ", " (pShow <$> cs) ]
 
 instance PP Program where
-  pp :: Program -> String
-  pp Program {..}
-    = intercalate "\n" [unlines (pp <$> _clauses), csStr ++ psStr]
+  pShow :: Program -> String
+  pShow Program {..}
+    = intercalate "\n" [unlines (pShow <$> _clauses), csStr ++ psStr]
     where
       csStr = case S.toList _constants of
         [] -> ""
-        cs -> concat ["Constants: ", intercalate ", " (pp <$> cs), ".\n"]
+        cs -> concat ["Constants: ", intercalate ", " (pShow <$> cs), ".\n"]
       psStr = case S.toList _predicates of
         [] -> ""
-        ps -> concat ["Predicates: ", intercalate ", " (pp <$> ps), ".\n"]
+        ps -> concat ["Predicates: ", intercalate ", " (pShow <$> ps), ".\n"]
 
 emptyClause :: Clause
 emptyClause = Clause Nothing []

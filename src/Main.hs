@@ -14,5 +14,5 @@ foo = "proud(X) <- parent(X, Y), newborn(Y).\n\
 main :: IO ()
 main = case parseProgram foo of
   Left err  -> putStrLn err
-  Right ast -> pprint ast
+  Right ast -> pPrint ast
       >> print (solve ast (Atom (Predicate {_predicateName = "newborn", _predicateArity = 1}) [VariableTerm "X"]))

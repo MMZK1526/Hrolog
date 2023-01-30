@@ -38,7 +38,7 @@ genVarsAreValid
   = TestLabel "Generated variables are valid" . TestCase
   . forM_ [1..7] $ \l -> forM_ [0..114] $ \g -> do
       let v = fst $ genVariable l (mkStdGen g)
-      assertValid ("Valid variable " ++ pp v) (Just v) (parse variable v)
+      assertValid ("Valid variable " ++ pShow v) (Just v) (parse variable v)
 
 canParseConstant :: Test
 canParseConstant
@@ -56,8 +56,8 @@ genConstsAreValid
   . forM_ [1..7] $ \l -> forM_ [0..114] $ \g -> do
       let c                 = fst $ genConstant l (mkStdGen g)
       let parseConstant str = evalState (parseT constant str) emptyProgram
-      assertValid ("Valid constant " ++ pp c)
-                  (Just c) (parseConstant (pp c))
+      assertValid ("Valid constant " ++ pShow c)
+                  (Just c) (parseConstant (pShow c))
 
 canParseTerm :: Test
 canParseTerm
@@ -77,7 +77,7 @@ genTermsAreValid
   . forM_ [1..7] $ \l -> forM_ [0..114] $ \g -> do
       let t             = fst $ genTerm l (mkStdGen g)
       let parseTerm str = evalState (parseT term str) emptyProgram
-      assertValid ("Valid terms " ++ pp t) (Just t) (parseTerm (pp t))
+      assertValid ("Valid terms " ++ pShow t) (Just t) (parseTerm (pShow t))
 
 canParseAtom :: Test
 canParseAtom
@@ -106,7 +106,7 @@ genAtomsAreValid
   . forM_ [1..3] $ \a -> forM_ [1..3] $ \l -> forM_ [0..114] $ \g -> do
       let t             = fst $ genAtom a l (mkStdGen g)
       let parseAtom str = evalState (parseT atom str) emptyProgram
-      assertValid ("Valid atoms " ++ pp t) (Just t) (parseAtom (pp t))
+      assertValid ("Valid atoms " ++ pShow t) (Just t) (parseAtom (pShow t))
 
 canParseClause :: Test
 canParseClause
@@ -135,7 +135,7 @@ genClausesAreValid
   . forM_ [1..3] $ \a -> forM_ [1..3] $ \l -> forM_ [0..114] $ \g -> do
       let c               = fst $ genClause a l (mkStdGen g)
       let parseClause str = evalState (parseT clause str) emptyProgram
-      assertValid ("Valid atoms " ++ pp c) (Just c) (parseClause (pp c))
+      assertValid ("Valid atoms " ++ pShow c) (Just c) (parseClause (pShow c))
 
 
 --------------------------------------------------------------------------------
