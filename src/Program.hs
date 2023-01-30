@@ -15,6 +15,11 @@ class PP a where
 
   pPrint :: a -> IO ()
   pPrint = putStrLn . pShow
+  {-# INLINE pPrint #-}
+
+  pPrint' :: a -> IO ()
+  pPrint' = putStr . pShow
+  {-# INLINE pPrint' #-}
 
 instance PP String where
   pShow :: String -> String
