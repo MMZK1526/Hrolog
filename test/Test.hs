@@ -20,7 +20,9 @@ main = runTestTTAndExit
                 , canParseTerm
                 , genTermsAreValid
                 , canParseAtom
-                , genAtomsAreValid ]
+                , genAtomsAreValid
+                , canParseClause
+                , genClausesAreValid ]
 
 canParseVariable :: Test
 canParseVariable
@@ -86,16 +88,17 @@ canParseAtom
                   (Just $ Atom (Predicate "allGood" 0) []) (parseAtom "allGood")
       assertValid "0-ary predicate"
                   (Just $ Atom (Predicate "foo" 0) []) (parseAtom "foo ( )")
-      assertValid "unary predicate"
+      assertValid "Unary predicate"
                   (Just $ Atom (Predicate "flies" 1) [VariableTerm "X"])
                   (parseAtom "flies(X)")
-      assertValid "binary predicate"
+      assertValid "Binary predicate"
                   ( Just $ Atom (Predicate "mother" 2)
-                                [ ConstantTerm $ Constant "qeii" 
+                                [ ConstantTerm $ Constant "qeii"
                                 , ConstantTerm $ Constant "kciii" ] )
                   (parseAtom "mother(qeii, kciii)")
       assertValid "Missing parenthesis" Nothing (parseAtom "foo(")
       assertValid "Bad separator" Nothing (parseAtom "foo(x; y)")
+      assertValid "Capital predicate name" Nothing (parseAtom "Foo(x; y)")
 
 genAtomsAreValid :: Test
 genAtomsAreValid
@@ -104,6 +107,35 @@ genAtomsAreValid
       let t             = fst $ genAtom a l (mkStdGen g)
       let parseAtom str = evalState (parseT atom str) emptyProgram
       assertValid ("Valid atoms " ++ pp t) (Just t) (parseAtom (pp t))
+
+canParseClause :: Test
+canParseClause
+  = TestLabel "Can parse clause" . TestCase $ do
+      let parseClause str = evalState (parseT clause str) emptyProgram
+      assertValid "Empty string" Nothing (parseClause "")
+      assertValid "Empty clause" (Just $ Clause Nothing []) (parseClause ".")
+      assertValid "Fact"
+                  (Just $ Clause (Just $ Atom (Predicate "allGood" 0) []) [])
+                  (parseClause "allGood.")
+      assertValid "Constraint"
+                  (Just $ Clause Nothing [Atom (Predicate "foo" 0) []])
+                  (parseClause "  <-foo ( ).")
+      assertValid "Definite Clause"
+                  ( Just $ Clause ( Just $ Atom (Predicate "parent" 2)
+                                                [ VariableTerm "X"
+                                                , VariableTerm "Y" ] )
+                           [ Atom (Predicate "father" 2)
+                                  [ VariableTerm "X", VariableTerm "Y" ] ] )
+                  (parseClause "parent(X, Y) <- father(X, Y).")
+      assertValid "Missing period" Nothing (parseClause "bad(A, B)")
+
+genClausesAreValid :: Test
+genClausesAreValid
+  = TestLabel "Generated clauses are valid" . TestCase
+  . forM_ [1..3] $ \a -> forM_ [1..3] $ \l -> forM_ [0..114] $ \g -> do
+      let c               = fst $ genClause a l (mkStdGen g)
+      let parseClause str = evalState (parseT clause str) emptyProgram
+      assertValid ("Valid atoms " ++ pp c) (Just c) (parseClause (pp c))
 
 
 --------------------------------------------------------------------------------
@@ -149,17 +181,33 @@ genTerm l gen
     (r, gen') = randomR @Int (0, 1) gen
 
 genAtom :: Int -> Int -> StdGen -> (Atom, StdGen)
-genAtom a l = runState worker
+genAtom arity len = runState worker
   where
     worker = do
-      a'                    <- randomRS 0 a
-      (Constant pName, gen) <- genConstant l <$> get
+      arity'                <- randomRS 0 arity
+      (Constant pName, gen) <- genConstant len <$> get
       put gen
-      ts                    <- replicateM a' $ do
-        (t, gen') <- genTerm l <$> get
+      ts                    <- replicateM arity' $ do
+        (t, gen') <- genTerm len <$> get
         put gen'
         return t
-      return $ Atom (Predicate pName a') ts
+      return $ Atom (Predicate pName arity') ts
+
+genClause :: Int -> Int -> StdGen -> (Clause, StdGen)
+genClause arity len = runState worker
+  where
+    worker = do
+      noHead <- even <$> randomRS @Int 0 1
+      mHead  <- if noHead then pure Nothing else do
+        (at, gen) <- genAtom arity len <$> get
+        put gen
+        return $ Just at
+      len'   <- randomRS 0 len
+      body   <- replicateM len' $ do
+        (at, gen) <- genAtom arity len <$> get
+        put gen
+        return at
+      return $ Clause mHead body
 
 randomRS :: Random a => Monad m => RandomGen s => a -> a -> StateT s m a
 randomRS a b = do
