@@ -2,6 +2,7 @@ module Main where
 
 import Parser
 import Program
+import Solver (solve)
 
 foo :: String
 foo = "proud(X) <- parent(X, Y), newborn(Y).\n\
@@ -14,3 +15,4 @@ main :: IO ()
 main = case parseProgram foo of
   Left err  -> putStrLn err
   Right ast -> pprint ast
+      >> print (solve ast (Atom (Predicate {_predicateName = "newborn", _predicateArity = 1}) [VariableTerm "X"]))
