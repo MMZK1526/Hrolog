@@ -13,10 +13,8 @@ solve = solve' M.empty
 solve' :: Map String Term -> Program -> Atom -> [Map String Term]
 -- solve' = undefined
 solve' _ (Program _ _ cs) t =
-  catMaybes
-    ( do
-        Clause {P._clauseHead = h, P._clauseBody = _} <- cs
-        case h of
-            Nothing -> return Nothing
-            Just t' -> return (unifyAtom t t')
-    )
+  catMaybes $ do
+    Clause {P._clauseHead = h, P._clauseBody = _} <- cs
+    return $ case h of
+      Nothing -> Nothing
+      Just t' -> (unifyAtom t t')
