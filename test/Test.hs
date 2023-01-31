@@ -151,6 +151,7 @@ assertValid str (Just a) act = case act of
     Left _   -> assertFailure str
     Right a' -> assertEqual str a a'
 
+-- | Generate a variable with the given length.
 genVariable :: Int -> StdGen -> (String, StdGen)
 genVariable = runState . worker 1 26
   where
@@ -162,6 +163,7 @@ genVariable = runState . worker 1 26
          | r <= 36   -> (chr (ord '0' + r - 27) :) <$> worker 0 62 (l - 1)
          | otherwise -> (chr (ord 'a' + r - 37) :) <$> worker 0 62 (l - 1)
 
+-- | Generate a @Constant@ with the given length.
 genConstant :: Int -> StdGen -> (Constant, StdGen)
 genConstant = (first Constant .) . runState . worker 1 36
   where
@@ -173,6 +175,7 @@ genConstant = (first Constant .) . runState . worker 1 36
          | r <= 36   -> (chr (ord '0' + r - 27) :) <$> worker 0 62 (l - 1)
          | otherwise -> (chr (ord 'A' + r - 37) :) <$> worker 0 62 (l - 1)
 
+-- | Generate a @Variable@ with the given length.
 genTerm :: Int -> StdGen -> (Term, StdGen)
 genTerm l gen
   | r == 0    = first ConstantTerm $ genConstant l gen'
@@ -180,34 +183,52 @@ genTerm l gen
   where
     (r, gen') = randomR @Int (0, 1) gen
 
+-- | Generate an @Atom@ with the given arity and the maximum length in the names
+-- for the predicate and arguments.
 genAtom :: Int -> Int -> StdGen -> (Atom, StdGen)
 genAtom arity len = runState worker
   where
     worker = do
-      arity'                <- randomRS 0 arity
-      (Constant pName, gen) <- genConstant len <$> get
+      len'                  <- randomRS 1 (max 1 len)
+      (Constant pName, gen) <- genConstant len' <$> get
       put gen
-      ts                    <- replicateM arity' $ do
-        (t, gen') <- genTerm len <$> get
+      ts                    <- replicateM arity $ do
+        len''     <- randomRS 1 (max 1 len)
+        (t, gen') <- genTerm len'' <$> get
         put gen'
         return t
-      return $ Atom (Predicate pName arity') ts
+      return $ Atom (Predicate pName arity) ts
 
+-- | Generate a @Clause@ with the given body length, and the arity and length
+-- of each atoms are at most "arity" and "len".
 genClause :: Int -> Int -> StdGen -> (Clause, StdGen)
 genClause arity len = runState worker
   where
     worker = do
       noHead <- even <$> randomRS @Int 0 1
       mHead  <- if noHead then pure Nothing else do
-        (at, gen) <- genAtom arity len <$> get
+        arity'    <- randomRS 0 arity
+        (at, gen) <- genAtom arity' len <$> get
         put gen
         return $ Just at
-      len'   <- randomRS 0 len
-      body   <- replicateM len' $ do
-        (at, gen) <- genAtom arity len <$> get
+      body   <- replicateM len $ do
+        arity'    <- randomRS 0 arity
+        (at, gen) <- genAtom arity' len <$> get
         put gen
         return at
       return $ Clause mHead body
+
+-- | Generate a @Clause@ with the given number of clauses, and all other
+-- parameters are upper-bounded by "maxParam".
+genProgram :: Int -> Int -> StdGen -> (Program, StdGen)
+genProgram lineCount maxParam = runState worker
+  where
+    worker = fmap mkProgram <$> replicateM lineCount $ do
+      arity    <- randomRS 0 maxParam
+      len      <- randomRS 0 maxParam
+      (c, gen) <- genClause arity len <$> get
+      put gen
+      return c
 
 randomRS :: Random a => Monad m => RandomGen s => a -> a -> StateT s m a
 randomRS a b = do

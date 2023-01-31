@@ -106,6 +106,9 @@ emptyClause = Clause Nothing []
 emptyProgram :: Program
 emptyProgram = Program S.empty S.empty []
 
+mkProgram :: [Clause] -> Program
+mkProgram = Program S.empty S.empty
+
 isProgramLegal :: Program -> Bool
 isProgramLegal Program {..}
   = all indentifierLegal ( S.union (S.map _constantName _constants)
