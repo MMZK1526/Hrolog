@@ -21,6 +21,7 @@ library
     exposed-modules:
         Parser,
         Program,
+        Solver,
         Utility
     other-extensions:
         FlexibleInstances,
@@ -42,6 +43,7 @@ executable Hrolog
     other-modules:
         Parser,
         Program,
+        Solver,
         Utility
     build-depends:
         base,
