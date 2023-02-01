@@ -24,8 +24,10 @@ library
         Solver,
         Utility
     other-extensions:
+        FlexibleContexts,
         FlexibleInstances,
         InstanceSigs,
+        MultiParamTypeClasses,
         PatternSynonyms,
         RecordWildCards
     build-depends:

@@ -1,5 +1,7 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -10,20 +12,32 @@ import           Data.List
 import           Data.Set (Set)
 import qualified Data.Set as S
 
-class PP a where
-  pShow :: a -> String
+class PP p a where
+  pShowF :: p -> a -> String
 
-  pPrint :: a -> IO ()
-  pPrint = putStrLn . pShow
-  {-# INLINE pPrint #-}
+  pPrintF :: p -> a -> IO ()
+  pPrintF = (putStrLn .) . pShowF
+  {-# INLINE pPrintF #-}
 
-  pPrint' :: a -> IO ()
-  pPrint' = putStr . pShow
-  {-# INLINE pPrint' #-}
+  pPrintF' :: p -> a -> IO ()
+  pPrintF' = (putStr .) . pShowF
+  {-# INLINE pPrintF' #-}
 
-instance PP String where
-  pShow :: String -> String
-  pShow = show
+pShow :: PP () a => a -> String
+pShow = pShowF ()
+{-# INLINE pShow #-}
+
+pPrint :: PP () a => a -> IO ()
+pPrint = pPrintF ()
+{-# INLINE pPrint #-}
+
+pPrint' :: PP () a => a -> IO ()
+pPrint' = pPrintF' ()
+{-# INLINE pPrint' #-}
+
+instance PP () String where
+  pShowF :: () -> String -> String
+  pShowF = const show
 
 data Predicate = Predicate { _predicateName :: String, _predicateArity :: Int }
   deriving (Eq, Ord, Show)
@@ -61,36 +75,36 @@ data Program = Program { _predicates :: Set Predicate
                        , _clauses    :: [Clause] }
   deriving (Eq, Ord, Show)
 
-instance PP Predicate where
-  pShow :: Predicate -> String
-  pShow Predicate {..} = concat [_predicateName, "/", show _predicateArity]
+instance PP () Predicate where
+  pShowF :: () -> Predicate -> String
+  pShowF _ Predicate {..} = concat [_predicateName, "/", show _predicateArity]
 
-instance PP Constant where
-  pShow :: Constant -> String
-  pShow = _constantName
+instance PP () Constant where
+  pShowF :: () -> Constant -> String
+  pShowF = const _constantName
 
-instance PP Term where
-  pShow :: Term -> String
-  pShow (ConstantTerm c) = pShow c
-  pShow (VariableTerm v) = v
+instance PP () Term where
+  pShowF :: () -> Term -> String
+  pShowF _ (ConstantTerm c) = pShow c
+  pShowF _ (VariableTerm v) = v
 
-instance PP Atom where
-  pShow :: Atom -> String
-  pShow (Atom p as)
+instance PP () Atom where
+  pShowF :: () -> Atom -> String
+  pShowF _ (Atom p as)
     = concat [_predicateName p, "(", intercalate ", " (pShow <$> as), ")"]
 
-instance PP Clause where
-  pShow :: Clause -> String
-  pShow Clause {..} = concat [maybe "" pShow _clauseHead, bodyStr, "."]
+instance PP () Clause where
+  pShowF :: () -> Clause -> String
+  pShowF _ Clause {..} = concat [maybe "" pShow _clauseHead, bodyStr, "."]
     where
       bodyStr = case _clauseBody of
         [] -> ""
         cs -> concat [ maybe "" (const " ") _clauseHead, "<- "
                      , intercalate ", " (pShow <$> cs) ]
 
-instance PP Program where
-  pShow :: Program -> String
-  pShow Program {..}
+instance PP () Program where
+  pShowF :: () -> Program -> String
+  pShowF _ Program {..}
     = intercalate "\n" [unlines (pShow <$> _clauses), csStr ++ psStr]
     where
       csStr = case S.toList _constants of

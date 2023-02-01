@@ -142,8 +142,7 @@ genClausesAreValid
 -- Helpers
 --------------------------------------------------------------------------------
 
-assertValid :: Eq a => PP a => Show a
-            => String -> Maybe a -> Either e a -> Assertion
+assertValid :: Eq a => Show a => String -> Maybe a -> Either e a -> Assertion
 assertValid str Nothing act = case act of
     Left _  -> pure ()
     Right _ -> assertFailure str
