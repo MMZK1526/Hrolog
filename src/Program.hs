@@ -12,6 +12,8 @@ import           Data.List
 import           Data.Set (Set)
 import qualified Data.Set as S
 
+data PPOp = Verbose | Succinct
+
 class PP p a where
   pShowF :: p -> a -> String
 
@@ -104,9 +106,15 @@ instance PP () Clause where
 
 instance PP () Program where
   pShowF :: () -> Program -> String
-  pShowF _ Program {..}
-    = intercalate "\n" [unlines (pShow <$> _clauses), csStr ++ psStr]
+  pShowF = const $ pShowF Verbose
+
+instance PP PPOp Program where
+  pShowF :: PPOp -> Program -> String
+  pShowF vbLvl Program {..} = case vbLvl of
+    Succinct -> clStr
+    Verbose  -> intercalate "\n" [clStr, csStr, psStr]
     where
+      clStr = unlines (pShow <$> _clauses)
       csStr = case S.toList _constants of
         [] -> ""
         cs -> concat ["Constants: ", intercalate ", " (pShow <$> cs), ".\n"]
