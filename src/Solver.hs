@@ -11,9 +11,10 @@ solve = solve' M.empty
 solve' :: Map String Term -> Program -> [Atom] -> [Map String Term]
 solve' sub _ []                      = [sub]
 solve' _ p@(Program _ _ cs) (t : ts) = do
-  Clause { _clauseHead = h, _clauseBody = _ } <- cs
+  Clause { _clauseHead = h, _clauseBody = b } <- cs
   case h of
     Nothing -> []
-    Just t' -> case unifyAtom t t' of
-      Nothing -> []
-      Just sub' -> error (show sub') >> solve' sub' p (substituteAtom sub' <$> ts)
+    Just t' -> do
+      case unifyAtom t t' of
+        Nothing   -> []
+        Just sub' -> solve' sub' p (substituteAtom sub' <$> (b ++ ts))

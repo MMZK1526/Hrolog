@@ -59,33 +59,36 @@ unifyAtom (Atom p ts) (Atom p' ts')
           Just v  -> M.insert var (VariableTerm v) sub
     worker us (t, t')         = do
       mUnified <- unifyTerm t t'
-      unified  <- mUnified
-      let n    = _usNode us
-      let vMap = _usVarMap us
-      let nMap = _usNodeMap us
-      case unified of
-        (var, ConstantTerm c) -> case vMap M.!? var of
-          Nothing -> return us { _usNode    = n + 1
-                               , _usVarMap  = M.insert var n vMap
-                               , _usNodeMap = IM.insert n (mkCUN c var) nMap }
-          Just n' -> guard (Just c == _unValue (nMap IM.! n')) $> us
-        (var, VariableTerm v) -> case (vMap M.!? var, vMap M.!? v) of
-          (Just n', Just n'') -> if n' == n''
-            then pure us
-            else do
-              un' <- mergeUN (nMap IM.! n') (nMap IM.! n'')
-              return us { _usNodeMap = IM.insert n' un'
-                                     $ IM.insert n'' un' nMap }
-          (Nothing, Nothing)  -> do
-            return us { _usNode    = n + 1
-                      , _usVarMap  = M.insert var n $ M.insert v n vMap
-                      , _usNodeMap = IM.insert n (mkUN [var, v]) nMap }
-          (Just n', Nothing)  -> do
-            return us { _usVarMap  = M.insert v n' vMap
-                      , _usNodeMap = IM.adjust (addUN v) n' nMap }
-          (Nothing, Just n'') -> do
-            return us { _usVarMap  = M.insert var n'' vMap
-                      , _usNodeMap = IM.adjust (addUN var) n'' nMap }
+      case mUnified of
+        Nothing      -> pure us
+        Just unified -> do
+          let n    = _usNode us
+          let vMap = _usVarMap us
+          let nMap = _usNodeMap us
+          case unified of
+            (var, ConstantTerm c) -> case vMap M.!? var of
+              Nothing -> do
+                return us { _usNode    = n + 1
+                          , _usVarMap  = M.insert var n vMap
+                          , _usNodeMap = IM.insert n (mkCUN c var) nMap }
+              Just n' -> guard (Just c == _unValue (nMap IM.! n')) $> us
+            (var, VariableTerm v) -> case (vMap M.!? var, vMap M.!? v) of
+              (Just n', Just n'') -> if n' == n''
+                then pure us
+                else do
+                  un' <- mergeUN (nMap IM.! n') (nMap IM.! n'')
+                  return us { _usNodeMap = IM.insert n' un'
+                                        $ IM.insert n'' un' nMap }
+              (Nothing, Nothing)  -> do
+                return us { _usNode    = n + 1
+                          , _usVarMap  = M.insert var n $ M.insert v n vMap
+                          , _usNodeMap = IM.insert n (mkUN [var, v]) nMap }
+              (Just n', Nothing)  -> do
+                return us { _usVarMap  = M.insert v n' vMap
+                          , _usNodeMap = IM.adjust (addUN v) n' nMap }
+              (Nothing, Just n'') -> do
+                return us { _usVarMap  = M.insert var n'' vMap
+                          , _usNodeMap = IM.adjust (addUN var) n'' nMap }
 
 substituteTerm :: Map String Term -> Term -> Term
 substituteTerm m t@(VariableTerm x) = fromMaybe t (M.lookup x m)
