@@ -22,7 +22,8 @@ main = runTestTTAndExit
                 , canParseAtom
                 , genAtomsAreValid
                 , canParseClause
-                , genClausesAreValid ]
+                , genClausesAreValid
+                , genProgramsAreValid ]
 
 canParseVariable :: Test
 canParseVariable
@@ -135,7 +136,15 @@ genClausesAreValid
   . forM_ [1..3] $ \a -> forM_ [1..3] $ \l -> forM_ [0..114] $ \g -> do
       let c               = fst $ genClause a l (mkStdGen g)
       let parseClause str = evalState (parseT clause str) emptyProgram
-      assertValid ("Valid atoms " ++ pShow c) (Just c) (parseClause (pShow c))
+      assertValid ("Valid clauses " ++ pShow c) (Just c) (parseClause (pShow c))
+
+genProgramsAreValid :: Test
+genProgramsAreValid
+  = TestLabel "Generated programs are valid" . TestCase
+  . forM_ [1..3] $ \a -> forM_ [1..3] $ \l -> forM_ [0..114] $ \g -> do
+      let c = fst $ genProgram a l (mkStdGen g)
+      assertValid ("Valid programs " ++ pShowF Succinct c)
+                  (Just c) (parseProgram (pShow c))
 
 
 --------------------------------------------------------------------------------

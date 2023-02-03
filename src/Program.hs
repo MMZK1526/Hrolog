@@ -122,15 +122,20 @@ instance PP PPOp Program where
         [] -> ""
         ps -> concat ["Predicates: ", intercalate ", " (pShow <$> ps), ".\n"]
 
+-- | The empty @Clause@ (failure).
 emptyClause :: Clause
 emptyClause = Clause Nothing []
 
+-- | The empty @Program@ (entails nothing).
 emptyProgram :: Program
 emptyProgram = Program S.empty S.empty []
 
+-- | Turn a list of @Clause@s into a @Program@ by calculating the set of
+-- predicates and constants. (TODO)
 mkProgram :: [Clause] -> Program
 mkProgram = Program S.empty S.empty
 
+-- | Check if the @Program@ specification is consistent.
 isProgramLegal :: Program -> Bool
 isProgramLegal Program {..}
   = all indentifierLegal ( S.union (S.map _constantName _constants)
