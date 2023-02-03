@@ -3,6 +3,7 @@ module Main where
 import Parser
 import Program
 import Solver
+import Utility
 
 foo :: String
 foo = "proud(X) <- parent(X, Y), newborn(Y).\n\
@@ -19,13 +20,11 @@ proudQuery :: Atom
 proudQuery = Atom (Predicate {_predicateName = "proud", _predicateArity = 1})
                    [VariableTerm "Z"]
 
-newbornQuery :: Atom
-newbornQuery = Atom (Predicate {_predicateName = "newborn", _predicateArity = 1})
-                   [ConstantTerm $ Constant "mary"]
-
 main :: IO ()
 main = case parseProgram foo of
   Left err  -> putStrLn err
   Right ast -> do
     pPrint ast
-    print (solve ast [proudQuery])
+    let subs = head $ solve ast [proudQuery]
+    let result = foldl (flip substituteTerm) (VariableTerm "Z") subs
+    putStrLn $ "The solution for 'Z' is " ++ pShow result
