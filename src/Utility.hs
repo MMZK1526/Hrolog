@@ -39,9 +39,9 @@ emptyUS :: UnifyState
 emptyUS = UnifyState 0 M.empty IM.empty
 
 unifyTerm :: Term -> Term -> Maybe (Maybe (String, Term))
-unifyTerm (VariableTerm x) t'@(ConstantTerm _) = Just $ Just (x, t')
-unifyTerm t t'@(VariableTerm _)                = unifyTerm t' t
-unifyTerm (ConstantTerm c) (ConstantTerm c')   = Nothing <$ guard (c == c')
+unifyTerm (VariableTerm x) t'                = Just $ Just (x, t')
+unifyTerm t t'@(VariableTerm _)              = unifyTerm t' t
+unifyTerm (ConstantTerm c) (ConstantTerm c') = Nothing <$ guard (c == c')
 
 unifyAtom :: Atom -> Atom -> Maybe (Map String Term)
 unifyAtom (Atom p ts) (Atom p' ts')
