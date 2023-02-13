@@ -1,0 +1,3 @@
+succ(1, 0). succ(2, 1). succ(3, 2).
+lt(X, Y) <- succ(X, Y).
+lt(X, Y) <- succ(X, Z), lt(Z, Y).

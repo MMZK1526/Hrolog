@@ -5,26 +5,21 @@ import Program
 import Solver
 import Utility
 
-foo :: String
-foo = "proud(X) <- parent(X, Y), newborn(Y).\n\
-      \parent(X, Y) <- father(X, Y).\n\
-      \parent(X, Y) <- mother(X, Y).\n\
-      \father(adam, mary).\n\
-      \newborn(mary).\n"
 
-fatherQuery :: Atom
-fatherQuery = Atom (Predicate {_predicateName = "father", _predicateArity = 2})
-                   [VariableTerm "X", VariableTerm "Y"]
-
-proudQuery :: Atom
-proudQuery = Atom (Predicate {_predicateName = "proud", _predicateArity = 1})
-                   [VariableTerm "Z"]
+query :: String
+query = "lt(X, Y), lt(Y, Z)."
 
 main :: IO ()
-main = case parseProgram " <- 9()." of
-  Left err  -> putStrLn err
-  Right ast -> do
-    pPrint ast
-    let subs = head $ solve ast [proudQuery]
-    let result = foldl (flip substituteTerm) (VariableTerm "Z") subs
-    putStrLn $ "The solution for 'Z' is " ++ pShow result
+main = do
+  src <- readFile "test/programs/simpleNumbers.hrolog"
+  case parseProgram src of
+    Left err  -> putStrLn err
+    Right ast -> do
+      pPrint ast
+      let subs = head $ solve ast (let Right q = parsePQuery query in q)
+      let x    = foldl (flip substituteTerm) (VariableTerm "X") subs
+      let y    = foldl (flip substituteTerm) (VariableTerm "Y") subs
+      let z    = foldl (flip substituteTerm) (VariableTerm "Z") subs
+      putStrLn $ "The solution for 'X' is " ++ pShow x
+      putStrLn $ "The solution for 'Y' is " ++ pShow y
+      putStrLn $ "The solution for 'Z' is " ++ pShow z

@@ -10,6 +10,7 @@ maintainer:         yc4120@ic.ac.uk
 -- copyright:
 build-type:         Simple
 extra-doc-files:    CHANGELOG.md
+extra-source-files: test/programs/simpleNumbers.hrolog
 
 
 common warnings

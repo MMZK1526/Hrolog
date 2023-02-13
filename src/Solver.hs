@@ -9,7 +9,7 @@ solve :: Program -> [Atom] -> [[Map String Term]]
 solve = solve' M.empty
 
 solve' :: Map String Term -> Program -> [Atom] -> [[Map String Term]]
-solve' _ _ []                          = [[]]
+solve' sub _ []                        = [[sub]]
 solve' sub p@(Program _ _ cs) (t : ts) = do
   Clause { _clauseHead = h, _clauseBody = b } <- cs
   case h of

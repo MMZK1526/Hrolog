@@ -20,6 +20,9 @@ type Parser  = Parsec Void String
 parseProgram :: String -> Either String Program
 parseProgram str = evalState (parseT program str) emptyProgram
 
+parsePQuery :: String -> Either String [Atom]
+parsePQuery str = evalState (parseT pQuery str) emptyProgram
+
 parseT :: Monad m
        => ParserT m a -> String -> m (Either String a)
 parseT parser str = left errorBundlePretty
@@ -71,6 +74,9 @@ clause = liftM2 Clause
                 (P.optional atom)
                 (P.option [] (string "<-" >> P.sepBy atom (char ',')))
       <* char '.'
+
+pQuery :: Monad m => ParserT (StateT Program m) [Atom]
+pQuery = P.sepBy atom (char ',') <* char '.'
 
 program :: Monad m => ParserT (StateT Program m) Program
 program = do
