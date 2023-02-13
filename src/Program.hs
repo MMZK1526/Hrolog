@@ -7,6 +7,9 @@
 
 module Program where
 
+import           Control.Monad
+import           Control.Monad.Trans.State
+import           Data.Bifunctor
 import           Data.Char
 import           Data.List
 import           Data.Set (Set)
@@ -131,9 +134,19 @@ emptyProgram :: Program
 emptyProgram = Program S.empty S.empty []
 
 -- | Turn a list of @Clause@s into a @Program@ by calculating the set of
--- predicates and constants. (TODO)
+-- predicates and constants.
 mkProgram :: [Clause] -> Program
-mkProgram = Program S.empty S.empty
+mkProgram cs
+  = uncurry Program (execState (forM_ cs workClause) (S.empty, S.empty)) cs
+  where
+    workClause (Clause mHead body) = do
+      forM_ mHead workAtom
+      forM_ body workAtom
+    workAtom (Atom p ts)           = do
+      modify (first (S.insert p))
+      forM_ ts workTerm
+    workTerm (ConstantTerm c)      = modify (second (S.insert c))
+    workTerm _                     = pure ()
 
 -- | Check if the @Program@ specification is consistent.
 isProgramLegal :: Program -> Bool

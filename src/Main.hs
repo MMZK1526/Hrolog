@@ -21,7 +21,7 @@ proudQuery = Atom (Predicate {_predicateName = "proud", _predicateArity = 1})
                    [VariableTerm "Z"]
 
 main :: IO ()
-main = case parseProgram foo of
+main = case parseProgram " <- 9()." of
   Left err  -> putStrLn err
   Right ast -> do
     pPrint ast
