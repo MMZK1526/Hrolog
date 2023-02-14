@@ -11,14 +11,20 @@ import           Utility
 -- solution.
 solve :: Program -> PQuery -> [(Map String Term, [Map String Term])]
 solve (Program _ _ _ cs) (PQuery vars query)
-  = findVarSub <$> worker M.empty query
+  = findVarSub <$> worker (1 :: Int) M.empty query
   where
-    findVarSub subs = (M.fromList ((\v -> (v, foldl (flip substituteTerm) (VariableTerm v) subs)) <$> S.toList vars), subs)
-    worker sub []       = [[sub]]
-    worker sub (t : ts) = do
+    subVar subs v   = (v, foldl (flip substituteTerm) (VariableTerm v) subs)
+    findVarSub subs = (M.fromList (subVar subs <$> S.toList vars), subs)
+
+    worker _ sub []          = [[sub]]
+    worker step sub (t : ts) = do
       Clause { _clauseHead = h, _clauseBody = b } <- cs
       case h of
         Nothing -> []
-        Just t' -> case unifyAtom t t' of
-          Nothing   -> []
-          Just sub' -> (sub :) <$> worker sub' (substituteAtom sub' <$> (b ++ ts))
+        Just t' -> do
+          let rename = renameAtom (show step ++ "#")
+          case unifyAtom t (rename t') of
+            Nothing   -> []
+            Just sub' -> (sub :)
+                     <$> worker (step + 1) sub'
+                                (substituteAtom sub' <$> (rename <$> b ++ ts))

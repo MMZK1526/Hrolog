@@ -4,7 +4,6 @@ import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.State
 import           Parser
-import           Program
 import           Solver.Prolog
 
 testQuery :: String
@@ -18,8 +17,7 @@ runProlog = do
     Left pErr     -> do
       lift $ putStrLn "Error parsing the program!"
       lift $ putStrLn pErr
-    Right program -> do
-      lift $ pPrint program
+    Right prog -> do
       lift $ putStrLn (concat ["Program ", show path, " loaded."])
       let queryFeedback = forever $ do
             input <- lift getLine
@@ -28,7 +26,7 @@ runProlog = do
                 lift $ putStrLn "Error parsing the query!"
                 lift $ putStrLn qErr
               Right query -> do
-                let (subs, _) = head $ solve program query
+                let (subs, _) = head $ solve prog query
                 lift $ putStrLn $ "Solution: " ++ show subs
       queryFeedback
 

@@ -22,21 +22,26 @@ data UnifyState = UnifyState { _usNode    :: Int
 
 mkCUN :: Constant -> String -> UnifyNode
 mkCUN c var = UnifyNode (Just c) (S.singleton var)
+{-# INLINE mkCUN #-}
 
 mkUN :: [String] -> UnifyNode
 mkUN = UnifyNode Nothing . S.fromList
+{-# INLINE mkUN #-}
 
 mergeUN :: UnifyNode -> UnifyNode -> Maybe UnifyNode
 mergeUN un un' = do
   guard (fromMaybe True $ liftM2 (==) (_unValue un) (_unValue un'))
   return $ UnifyNode (_unValue un <|> _unValue un')
                      (S.union (_unVars un) (_unVars un'))
+{-# INLINE mergeUN #-}
 
 addUN :: String -> UnifyNode -> UnifyNode
 addUN var un = un { _unVars = S.insert var (_unVars un) }
+{-# INLINE addUN #-}
 
 emptyUS :: UnifyState
 emptyUS = UnifyState 0 M.empty IM.empty
+{-# INLINE emptyUS #-}
 
 unifyTerm :: Term -> Term -> Maybe (Maybe (String, Term))
 unifyTerm (VariableTerm x) t'                = Just $ Just (x, t')
@@ -78,7 +83,7 @@ unifyAtom (Atom p ts) (Atom p' ts')
                 else do
                   un' <- mergeUN (nMap IM.! n') (nMap IM.! n'')
                   return us { _usNodeMap = IM.insert n' un'
-                                        $ IM.insert n'' un' nMap }
+                                         $ IM.insert n'' un' nMap }
               (Nothing, Nothing)  -> do
                 return us { _usNode    = n + 1
                           , _usVarMap  = M.insert var n $ M.insert v n vMap
@@ -93,6 +98,17 @@ unifyAtom (Atom p ts) (Atom p' ts')
 substituteTerm :: Map String Term -> Term -> Term
 substituteTerm m t@(VariableTerm x) = fromMaybe t (M.lookup x m)
 substituteTerm _ t                  = t
+{-# INLINE substituteTerm #-}
 
 substituteAtom :: Map String Term -> Atom -> Atom
 substituteAtom m (Atom p ts) = Atom p (map (substituteTerm m) ts)
+{-# INLINE substituteAtom #-}
+
+renameTerm :: String -> Term -> Term
+renameTerm pre (VariableTerm x) = VariableTerm $ pre ++ x
+renameTerm _ t                  = t
+{-# INLINE renameTerm #-}
+
+renameAtom :: String -> Atom -> Atom
+renameAtom pre (Atom p ts) = Atom p (map (renameTerm pre) ts)
+{-# INLINE renameAtom #-}
