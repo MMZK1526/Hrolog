@@ -21,10 +21,10 @@ solve (Program _ _ _ cs) (PQuery vars query)
       (mH :?<- b) <- cs
       case mH of
         Nothing -> []
-        Just t' -> do
+        Just a' -> do
           let rename = renameAtom (show step ++ "#")
-          case unifyAtom t (rename t') of
+          case unifyAtom t (rename a') of
             Nothing   -> []
             Just sub' -> (sub :)
                      <$> worker (step + 1) sub'
-                                (substituteAtom sub' <$> (rename <$> b ++ ts))
+                                (substituteAtom sub' <$> (map rename b ++ ts))
