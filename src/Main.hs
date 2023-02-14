@@ -16,7 +16,9 @@ main = do
     Left err  -> putStrLn err
     Right ast -> do
       pPrint ast
-      let subs = head $ solve ast (let Right q = parsePQuery query in q)
+      putStrLn $ "Query is " ++ query
+      let Right q = parsePQuery query
+      let subs = head $ solve ast q
       let x    = foldl (flip substituteTerm) (VariableTerm "X") subs
       let y    = foldl (flip substituteTerm) (VariableTerm "Y") subs
       let z    = foldl (flip substituteTerm) (VariableTerm "Z") subs
