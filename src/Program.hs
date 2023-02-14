@@ -11,6 +11,8 @@ import           Control.Monad
 import           Control.Monad.Trans.State
 import           Data.Char
 import           Data.List
+import           Data.Map (Map)
+import qualified Data.Map as M
 import           Data.Set (Set)
 import qualified Data.Set as S
 
@@ -66,7 +68,7 @@ pattern (:<-) :: Atom -> [Atom] -> Clause
 pattern h :<- b <- Clause (Just h) b
 
 pattern (:?<-) :: Maybe Atom -> [Atom] -> Clause
-pattern mh :?<- b <- Clause mh b
+pattern mH :?<- b <- Clause mH b
 
 pattern Constraint :: [Atom] -> Clause
 pattern Constraint b <- Clause Nothing b
@@ -81,6 +83,9 @@ data Program = Program { _predicates :: Set Predicate
   deriving (Eq, Ord, Show)
 
 data PQuery = PQuery (Set String) [Atom]
+  deriving (Eq, Ord, Show)
+
+newtype Solution = Solution (Map String Term)
   deriving (Eq, Ord, Show)
 
 instance PP () Predicate where
@@ -134,6 +139,12 @@ instance PP PPOp Program where
 instance PP () PQuery where
   pShowF :: () -> PQuery -> String
   pShowF _ (PQuery _ as) = intercalate ", " (pShow <$> as) ++ "."
+
+instance PP () Solution where
+  pShowF :: () -> Solution -> String
+  pShowF () (Solution sMap) = concatMap showEntry (M.toAscList sMap)
+    where
+      showEntry (v, t) = concat [v, " = ", pShow t, ";\n"]
 
 -- | The empty @Clause@ (failure).
 emptyClause :: Clause
