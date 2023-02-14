@@ -7,7 +7,7 @@ import Utility
 
 
 query :: String
-query = "lt(X, Y), lt(Y, Z)."
+query = "gt(X, Y), gt(Y, Z)."
 
 main :: IO ()
 main = do
@@ -16,8 +16,8 @@ main = do
     Left err  -> putStrLn err
     Right ast -> do
       pPrint ast
-      putStrLn $ "Query is " ++ query
       let Right q = parsePQuery query
+      putStrLn $ "Query is " ++ pShow q
       let subs = head $ solve ast q
       let x    = foldl (flip substituteTerm) (VariableTerm "X") subs
       let y    = foldl (flip substituteTerm) (VariableTerm "Y") subs

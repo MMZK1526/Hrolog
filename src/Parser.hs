@@ -20,7 +20,7 @@ type Parser  = Parsec Void String
 parseProgram :: String -> Either String Program
 parseProgram str = evalState (parseT program str) emptyProgram
 
-parsePQuery :: String -> Either String [Atom]
+parsePQuery :: String -> Either String PQuery
 parsePQuery str = evalState (parseT pQuery str) emptyProgram
 
 parseT :: Monad m
@@ -75,11 +75,11 @@ clause = liftM2 Clause
                 (P.option [] (string "<-" >> P.sepBy atom (char ',')))
       <* char '.'
 
-pQuery :: Monad m => ParserT (StateT Program m) [Atom]
-pQuery = P.sepBy atom (char ',') <* char '.'
-
 program :: Monad m => ParserT (StateT Program m) Program
 program = do
   cs <- P.many clause
   p  <- lift get
   return $ p { _clauses = cs }
+
+pQuery :: Monad m => ParserT (StateT Program m) PQuery
+pQuery = fmap PQuery $ P.sepBy atom (char ',') <* char '.'

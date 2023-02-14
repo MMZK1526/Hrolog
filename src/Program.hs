@@ -80,6 +80,9 @@ data Program = Program { _predicates :: Set Predicate
                        , _clauses    :: [Clause] }
   deriving (Eq, Ord, Show)
 
+newtype PQuery = PQuery [Atom]
+  deriving (Eq, Ord, Show)
+
 instance PP () Predicate where
   pShowF :: () -> Predicate -> String
   pShowF _ Predicate {..} = concat [_predicateName, "/", show _predicateArity]
@@ -124,6 +127,10 @@ instance PP PPOp Program where
       psStr = case S.toList _predicates of
         [] -> ""
         ps -> concat ["Predicates: ", intercalate ", " (pShow <$> ps), ".\n"]
+
+instance PP () PQuery where
+  pShowF :: () -> PQuery -> String
+  pShowF _ (PQuery as) = intercalate ", " (pShow <$> as) ++ "."
 
 -- | The empty @Clause@ (failure).
 emptyClause :: Clause
