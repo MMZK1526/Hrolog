@@ -3,11 +3,9 @@ module Main where
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.State
-import qualified Data.Map as M
 import           Parser
 import           Program
 import           Solver.Prolog
-import           Utility
 
 testQuery :: String
 testQuery = "gt(X, Y), gt(Y, Z)."
@@ -21,6 +19,7 @@ runProlog = do
       lift $ putStrLn "Error parsing the program!"
       lift $ putStrLn pErr
     Right program -> do
+      lift $ pPrint program
       lift $ putStrLn (concat ["Program ", show path, " loaded."])
       let queryFeedback = forever $ do
             input <- lift getLine
@@ -30,12 +29,7 @@ runProlog = do
                 lift $ putStrLn qErr
               Right query -> do
                 let (subs, _) = head $ solve program query
-                let x    = subs M.! "X"
-                let y    = subs M.! "Y"
-                let z    = subs M.! "Z"
-                lift $ putStrLn $ "The solution for 'X' is " ++ pShow x
-                lift $ putStrLn $ "The solution for 'Y' is " ++ pShow y
-                lift $ putStrLn $ "The solution for 'Z' is " ++ pShow z
+                lift $ putStrLn $ "Solution: " ++ show subs
       queryFeedback
 
 main :: IO ()

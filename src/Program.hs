@@ -118,12 +118,15 @@ instance PP PPOp Program where
   pShowF :: PPOp -> Program -> String
   pShowF vbLvl Program {..} = case vbLvl of
     Succinct -> clStr
-    Verbose  -> intercalate "\n" [clStr, csStr, psStr]
+    Verbose  -> intercalate "\n" [clStr, csStr, vsStr, psStr]
     where
       clStr = unlines (pShow <$> _clauses)
       csStr = case S.toList _constants of
         [] -> ""
         cs -> concat ["Constants: ", intercalate ", " (pShow <$> cs), ".\n"]
+      vsStr = case S.toList _variables of
+        [] -> ""
+        vs -> concat ["Variables: ", intercalate ", " vs, ".\n"]
       psStr = case S.toList _predicates of
         [] -> ""
         ps -> concat ["Predicates: ", intercalate ", " (pShow <$> ps), ".\n"]
