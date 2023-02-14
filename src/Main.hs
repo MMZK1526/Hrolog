@@ -28,8 +28,8 @@ runProlog = do
                 lift $ putStrLn qErr
               Right query -> do
                 let (subs, _) = head $ solve prog query
-                lift $ putStrLn $ "\nSolution:\n" ++ pShow subs
+                lift $ subs `seq` putStrLn ("\nSolution:\n" ++ pShow subs)
       queryFeedback
 
 main :: IO ()
-main = void $ runStateT runProlog "test/programs/simpleNumbers.hrolog"
+main = void $ runStateT runProlog "test/programs/kangxi.hrolog"

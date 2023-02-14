@@ -1,0 +1,28 @@
+# 鳌拜说大清的心头之患是吴三桂
+enemy(wuSangui) <- honest(oboi).
+honest(oboi) <- enemy(wuSangui).
+
+# 吴三桂说大清的心头之患是葛尔丹
+enemy(galdan) <- honest(wuSangui).
+honest(wuSangui) <- enemy(galdan).
+
+# 葛尔丹说吴三桂是胡说八道
+lying(wuSangui) <- honest(galdan).
+honest(galdan) <- lying(wuSangui).
+
+# 索额图说大清的心腹之患不是我
+enemy(songgotu) <- lying(songgotu).
+lying(songgotu) <- enemy(songgotu).
+
+# 祖宗告诉朕只有一人说了真话
+lying(X) <- diff(X, Y), honest(Y).
+truth <- honest(oboi).
+truth <- honest(wuSangui).
+truth <- honest(galdan).
+truth <- honest(songgotu).
+
+diff(X, Y) <- !same(X, Y).
+same(X, X).
+
+# 大清的心头之患是谁？
+# ?truth, enemy(X).
