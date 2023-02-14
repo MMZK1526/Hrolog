@@ -45,9 +45,12 @@ identifier = L.lexeme space
            $ liftM2 (:) (P.lowerChar P.<|> P.digitChar)
                         (P.many (P.alphaNumChar P.<?> "identifier"))
 
-variable :: Monad m => ParserT m String
-variable = L.lexeme space
-         $ liftM2 (:) P.upperChar (P.many (P.alphaNumChar P.<?> "variable"))
+variable :: Monad m => ParserT (StateT Program m) String
+variable = do
+  v <- L.lexeme space
+     $ liftM2 (:) P.upperChar (P.many (P.alphaNumChar P.<?> "variable"))
+  lift $ modify' (\p -> p { _variables = S.insert v (_variables p) })
+  return v
 
 constant :: Monad m => ParserT (StateT Program m) Constant
 constant = do
@@ -82,4 +85,7 @@ program = do
   return $ p { _clauses = cs }
 
 pQuery :: Monad m => ParserT (StateT Program m) PQuery
-pQuery = fmap PQuery $ P.sepBy atom (char ',') <* char '.'
+pQuery = do
+  as <- P.sepBy atom (char ',') <* char '.'
+  cs <- lift $ gets _constants
+  return $ PQuery undefined as

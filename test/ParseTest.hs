@@ -28,18 +28,20 @@ main = runTestTTAndExit
 canParseVariable :: Test
 canParseVariable
   = TestLabel "Can parse variable" . TestCase $ do
-      assertValid "Empty string" Nothing (parse variable "")
-      assertValid "Uppercase letter" (Just "A") (parse variable "A")
-      assertValid "Uppercase word" (Just "Abc") (parse variable "Abc")
-      assertValid "Lowercase" Nothing (parse variable "abc")
-      assertValid "Underscore" Nothing (parse variable "_")
+      let parseVariable str = evalState (parseT variable str) emptyProgram
+      assertValid "Empty string" Nothing (parseVariable "")
+      assertValid "Uppercase letter" (Just "A") (parseVariable "A")
+      assertValid "Uppercase word" (Just "Abc") (parseVariable "Abc")
+      assertValid "Lowercase" Nothing (parseVariable "abc")
+      assertValid "Underscore" Nothing (parseVariable "_")
 
 genVarsAreValid :: Test
 genVarsAreValid
   = TestLabel "Generated variables are valid" . TestCase
   . forM_ [1..7] $ \l -> forM_ [0..114] $ \g -> do
-      let v = fst $ genVariable l (mkStdGen g)
-      assertValid ("Valid variable " ++ show v) (Just v) (parse variable v)
+      let v                 = fst $ genVariable l (mkStdGen g)
+      let parseVariable str = evalState (parseT variable str) emptyProgram
+      assertValid ("Valid variable " ++ show v) (Just v) (parseVariable v)
 
 canParseConstant :: Test
 canParseConstant

@@ -9,7 +9,6 @@ module Program where
 
 import           Control.Monad
 import           Control.Monad.Trans.State
-import           Data.Bifunctor
 import           Data.Char
 import           Data.List
 import           Data.Set (Set)
@@ -77,10 +76,11 @@ pattern Fact h <- Clause (Just h) []
 
 data Program = Program { _predicates :: Set Predicate
                        , _constants  :: Set Constant
+                       , _variables  :: Set String
                        , _clauses    :: [Clause] }
   deriving (Eq, Ord, Show)
 
-newtype PQuery = PQuery [Atom]
+data PQuery = PQuery (Set String) [Atom]
   deriving (Eq, Ord, Show)
 
 instance PP () Predicate where
@@ -130,7 +130,7 @@ instance PP PPOp Program where
 
 instance PP () PQuery where
   pShowF :: () -> PQuery -> String
-  pShowF _ (PQuery as) = intercalate ", " (pShow <$> as) ++ "."
+  pShowF _ (PQuery _ as) = intercalate ", " (pShow <$> as) ++ "."
 
 -- | The empty @Clause@ (failure).
 emptyClause :: Clause
@@ -138,38 +138,45 @@ emptyClause = Clause Nothing []
 
 -- | The empty @Program@ (entails nothing).
 emptyProgram :: Program
-emptyProgram = Program S.empty S.empty []
+emptyProgram = Program S.empty S.empty S.empty []
 
 -- | Turn a list of @Clause@s into a @Program@ by calculating the set of
 -- predicates and constants.
 mkProgram :: [Clause] -> Program
 mkProgram cs
-  = uncurry Program (execState (forM_ cs workClause) (S.empty, S.empty)) cs
+  = execState (forM_ cs workClause) (Program S.empty S.empty S.empty cs)
   where
     workClause (Clause mHead body) = do
       forM_ mHead workAtom
       forM_ body workAtom
     workAtom (Atom p ts)           = do
-      modify (first (S.insert p))
+      prog@Program {..} <- get
+      put $ prog { _predicates = S.insert p _predicates }
       forM_ ts workTerm
-    workTerm (ConstantTerm c)      = modify (second (S.insert c))
-    workTerm _                     = pure ()
+    workTerm (ConstantTerm c)      = do
+      prog@Program {..} <- get
+      put $ prog { _constants = S.insert c _constants }
+    workTerm (VariableTerm v)      = do
+      prog@Program {..} <- get
+      put $ prog { _variables = S.insert v _variables }
 
 -- | Check if the @Program@ specification is consistent.
 isProgramLegal :: Program -> Bool
 isProgramLegal Program {..}
   = all indentifierLegal ( S.union (S.map _constantName _constants)
                                    (S.map _predicateName _predicates) )
+ && all variableLegal _variables
  && all clauseLegal _clauses
   where
     indentifierLegal name   = not (null name) && isLower (head name)
                            && all isAlphaNum (tail name)
+    variableLegal var       = not (null var) && isUpper (head var)
+                           && all isAlphaNum (tail var)
     termLegal term          = case term of
       ConstantTerm c -> c `elem` _constants
-      VariableTerm v -> not (null v) && isUpper (head v)
-                     && all isAlphaNum (tail v)
+      VariableTerm v -> v `elem` _variables
     atomLegal (Atom p as)   =  _predicateArity p == length as
                            && p `elem` _predicates
                            && all termLegal as
     clauseLegal Clause {..} = maybe True atomLegal _clauseHead
-                      && all atomLegal _clauseBody
+                           && all atomLegal _clauseBody
