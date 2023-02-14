@@ -22,7 +22,7 @@ library
     exposed-modules:
         Parser,
         Program,
-        Solver,
+        Solver.Prolog,
         Utility
     other-extensions:
         FlexibleContexts,
@@ -46,7 +46,7 @@ executable Hrolog
     other-modules:
         Parser,
         Program,
-        Solver,
+        Solver.Prolog,
         Utility
     build-depends:
         base,

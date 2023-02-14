@@ -1,4 +1,4 @@
-module Solver where
+module Solver.Prolog where
 
 import           Data.Map (Map)
 import qualified Data.Map as M

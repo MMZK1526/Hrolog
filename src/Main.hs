@@ -2,9 +2,8 @@ module Main where
 
 import Parser
 import Program
-import Solver
+import Solver.Prolog
 import Utility
-
 
 query :: String
 query = "gt(X, Y), gt(Y, Z)."
