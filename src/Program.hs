@@ -144,7 +144,9 @@ instance PP () PQuery where
 
 instance PP () Solution where
   pShowF :: () -> Solution -> String
-  pShowF () (Solution sMap) = concatMap showEntry (M.toAscList sMap)
+  pShowF () (Solution sMap)
+    | M.null sMap = "Valid\n"
+    | otherwise   = concatMap showEntry (M.toAscList sMap)
     where
       showEntry (v, t) = concat [v, " = ", pShow t, ";\n"]
 

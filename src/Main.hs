@@ -27,9 +27,13 @@ runProlog = do
                 lift $ putStrLn "Error parsing the query!"
                 lift $ putStrLn qErr
               Right query -> do
-                let (subs, _) = head $ solve prog query
-                lift $ subs `seq` putStrLn ("\nSolution:\n" ++ pShow subs)
+                let solutions = solve prog query
+                case solutions of
+                  []              -> lift $ putStrLn "No fresh solution.\n"
+                  ((subs, _) : _) -> do
+                    let solStr = pShow subs
+                    solStr `seq` lift $ putStrLn ("\nSolution:\n" ++ solStr)
       queryFeedback
 
 main :: IO ()
-main = void $ runStateT runProlog "test/programs/simpleNumbers.hrolog"
+main = void $ runStateT runProlog "test/programs/firstBranchTerminates.hrolog"

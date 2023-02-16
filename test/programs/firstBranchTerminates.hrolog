@@ -1,0 +1,4 @@
+# The first solution terminates while the second does not.
+
+a.
+a <- a.
