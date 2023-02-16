@@ -32,4 +32,4 @@ runProlog = do
       queryFeedback
 
 main :: IO ()
-main = void $ runStateT runProlog "test/programs/kangxi.hrolog"
+main = void $ runStateT runProlog "test/programs/simpleNumbers.hrolog"
