@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -82,7 +83,8 @@ data Program = Program { _predicates :: Set Predicate
                        , _clauses    :: [Clause] }
   deriving (Eq, Ord, Show)
 
-data PQuery = PQuery (Set String) [Atom]
+data PQuery = PQuery { _pqVariables :: Set String
+                     , _pqAtoms     :: [Atom] }
   deriving (Eq, Ord, Show)
 
 newtype Solution = Solution (Map String Term)
@@ -155,7 +157,7 @@ emptyProgram :: Program
 emptyProgram = Program S.empty S.empty S.empty []
 
 -- | Turn a list of @Clause@s into a @Program@ by calculating the set of
--- predicates and constants.
+-- predicates, constants, and variables.
 mkProgram :: [Clause] -> Program
 mkProgram cs
   = execState (forM_ cs workClause) (Program S.empty S.empty S.empty cs)
@@ -173,6 +175,16 @@ mkProgram cs
     workTerm (VariableTerm v)      = do
       prog@Program {..} <- get
       put $ prog { _variables = S.insert v _variables }
+
+-- | Turn a list of @Atom@s into a @PQuery@ by calculating the set of variables.
+mkPQuery :: [Atom] -> PQuery
+mkPQuery as
+  = execState (forM_ as worker) (PQuery S.empty as)
+  where
+    worker (Atom _ ts) = forM_ ts $ \case
+      VariableTerm v ->
+        modify (\q -> q { _pqVariables = S.insert v (_pqVariables q) })
+      _              -> pure ()
 
 -- | Check if the @Program@ specification is consistent.
 isProgramLegal :: Program -> Bool

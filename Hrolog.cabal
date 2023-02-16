@@ -28,6 +28,7 @@ library
         FlexibleContexts,
         FlexibleInstances,
         InstanceSigs,
+        LambdaCase,
         MultiParamTypeClasses,
         PatternSynonyms,
         RecordWildCards
