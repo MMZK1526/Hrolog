@@ -1,15 +1,15 @@
 cabal-version:      3.0
 name:               Hrolog
 version:            0.1.0.0
--- synopsis:
--- description:
+synopsis:           An implementation of Prolog-style deduction and abduction
+description:        See README
 license:            MIT
 license-file:       LICENSE
 author:             mmzk1526
 maintainer:         yc4120@ic.ac.uk
 -- copyright:
 build-type:         Simple
-extra-doc-files:    CHANGELOG.md
+extra-doc-files:    CHANGELOG.md, README.md
 extra-source-files: test/programs/simpleNumbers.hrolog
 
 

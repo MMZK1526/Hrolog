@@ -1,4 +1,4 @@
-# The first solution terminates while the second does not.
+# The first solution terminates while the entire search space does not.
 
 a.
 a <- a.
