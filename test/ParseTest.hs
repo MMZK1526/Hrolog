@@ -23,7 +23,9 @@ main = runTestTTAndExit
                 , genAtomsAreValid
                 , canParseClause
                 , genClausesAreValid
-                , genProgramsAreValid ]
+                , genProgramsAreValid
+                , canParsePQuery
+                , genPQueriesAreValid ]
 
 canParseVariable :: Test
 canParseVariable
@@ -148,6 +150,37 @@ genProgramsAreValid
       assertValid ("Valid program " ++ show c)
                   (Just c) (parseProgram (pShowF Succinct c))
 
+canParsePQuery :: Test
+canParsePQuery
+  = TestLabel "Can parse Prolog query" . TestCase $ do
+      assertValid "Empty string" Nothing (parsePQuery "")
+      assertValid "Empty query" (Just $ mkPQuery []) (parsePQuery ".")
+      assertValid "Propositional atom"
+                  ( Just $ mkPQuery [Atom (Predicate "me" 0) []] )
+                  (parsePQuery "me.")
+      assertValid "Singleton query"
+                  ( Just $ mkPQuery [ Atom (Predicate "gt" 1)
+                                           [ConstantTerm (Constant "a")] ] )
+                  (parsePQuery "gt(a).")
+      assertValid "Long query"
+                  ( Just $ mkPQuery [ Atom (Predicate "gt" 1)
+                                           [ConstantTerm (Constant "a")]
+                                    , Atom (Predicate "foo" 2)
+                                           [ VariableTerm "B"
+                                           , ConstantTerm (Constant "c") ] ] )
+                  (parsePQuery "gt(a), foo(B, c).")
+      assertValid "Missing period" Nothing (parsePQuery "gt(a)")
+      assertValid "Missing parenthesis" Nothing (parsePQuery "gt(a")
+      assertValid "Capital letter predicate" Nothing (parsePQuery "Bad(apple)")
+
+genPQueriesAreValid :: Test
+genPQueriesAreValid
+  = TestLabel "Generated prolog queries are valid" . TestCase
+  . forM_ [1..3] $ \k -> forM_ [1..3] $ \l -> forM_ [0..114] $ \g -> do
+      let c = fst $ genPQuery k l (mkStdGen g)
+      assertValid ("Valid prolog query " ++ show c)
+                  (Just c) (parsePQuery (pShow c))
+
 
 --------------------------------------------------------------------------------
 -- Helpers
@@ -239,6 +272,17 @@ genProgram lineCount maxParam = runState worker
       (c, gen) <- genClause arity len <$> get
       put gen
       return c
+
+-- | Generate an @PQuery@ with @count@ @Atoms@a and all other parameters are
+-- upper-bounded by "maxParam".
+genPQuery :: Int -> Int -> StdGen -> (PQuery, StdGen)
+genPQuery count maxParam = runState worker
+  where
+    worker = fmap mkPQuery . replicateM count $ do
+      arity <- randomRS 0 maxParam
+      (a, gen) <- genAtom arity maxParam <$> get
+      put gen
+      return a
 
 randomRS :: Random a => Monad m => RandomGen s => a -> a -> StateT s m a
 randomRS a b = do
