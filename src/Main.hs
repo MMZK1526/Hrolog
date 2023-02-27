@@ -27,7 +27,8 @@ runProlog = do
                 lift $ putStrLn "Error parsing the query!"
                 lift $ putStrLn qErr
               Right query -> do
-                let solutions = solve prog query
+                -- let solutions = solve prog query
+                solutions <- lift $ solveIO prog query
                 case solutions of
                   []              -> lift $ putStrLn "No fresh solution.\n"
                   ((subs, _) : _) -> do

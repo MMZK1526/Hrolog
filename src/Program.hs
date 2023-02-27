@@ -105,8 +105,9 @@ instance PP () Term where
 
 instance PP () Atom where
   pShowF :: () -> Atom -> String
-  pShowF _ (Atom p as)
-    = concat [_predicateName p, "(", intercalate ", " (pShow <$> as), ")"]
+  pShowF _ (Atom p as) = case _predicateArity p of
+    0 -> _predicateName p
+    _ -> concat [_predicateName p, "(", intercalate ", " (pShow <$> as), ")"]
 
 instance PP () Clause where
   pShowF :: () -> Clause -> String
