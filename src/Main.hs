@@ -37,4 +37,4 @@ runProlog = do
       queryFeedback
 
 main :: IO ()
-main = void $ runStateT runProlog "test/programs/firstBranchTerminates.hrolog"
+main = void $ runStateT runProlog "test/programs/simpleNumbers.hrolog"
