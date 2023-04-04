@@ -17,8 +17,11 @@ import qualified Data.Map as M
 import           Data.Set (Set)
 import qualified Data.Set as S
 
+-- | Pretty printing options.
 data PPOp = Verbose | Succinct
 
+-- | Pretty printing class. The first parameter is the pretty printing option.
+-- Used as an alternative to the "Show" class.
 class PP p a where
   pShowF :: p -> a -> String
 
@@ -46,47 +49,68 @@ instance PP () String where
   pShowF :: () -> String -> String
   pShowF = const show
 
+-- | A Hrolog predicate with its name and arity.
 data Predicate = Predicate { _predicateName :: String, _predicateArity :: Int }
   deriving (Eq, Ord, Show)
 
+-- | A Hrolog constant, starting with a capital letter.
 newtype Constant = Constant { _constantName :: String }
   deriving (Eq, Ord, Show)
 
+-- | A Hrolog term, either a constant or a variable.
 data Term = ConstantTerm Constant
           | VariableTerm String
   deriving (Eq, Ord, Show)
 
+-- | A Hrolog atom, consisting of a predicate and a list of terms as arguments.
 data Atom = Atom Predicate [Term]
   deriving (Eq, Ord, Show)
 
+-- | A Hrolog clause, consisting of an optional head and a list of bodies.
+--
+-- It represents @[H] <- B1, B2, ..., Bn@.
 data Clause = Clause { _clauseHead :: Maybe Atom, _clauseBody :: [Atom] }
   deriving (Eq, Ord, Show)
 
+-- | The pattern for the empty clause []. It is used to represent failure.
 pattern EmptyClause :: Clause
 pattern EmptyClause <- emptyClause
 
+-- | The pattern for a clause with a head and a list of bodies.
 pattern (:<-) :: Atom -> [Atom] -> Clause
 pattern h :<- b <- Clause (Just h) b
 
+-- | The pattern for a clause with an optional head and a list of bodies.
 pattern (:?<-) :: Maybe Atom -> [Atom] -> Clause
 pattern mH :?<- b <- Clause mH b
 
+-- | The pattern for a constraint with no head.
 pattern Constraint :: [Atom] -> Clause
 pattern Constraint b <- Clause Nothing b
 
+-- | The pattern for a fact with no body.
 pattern Fact :: Atom -> Clause
 pattern Fact h <- Clause (Just h) []
 
+-- | The data type for a Hrolog program, consisting of a series of clauses.
+-- It also contains the set of predicates, constants, and variables used in the
+-- program.
 data Program = Program { _predicates :: Set Predicate
                        , _constants  :: Set Constant
                        , _variables  :: Set String
                        , _clauses    :: [Clause] }
   deriving (Eq, Ord, Show)
 
+-- | The data type for a Hrolog query, consisting the list of query atoms.
+-- It also contains the set of variables used in the query.
+--
+-- It represents the query @<- Q1, Q2, ..., Qn@.
 data PQuery = PQuery { _pqVariables :: Set String
                      , _pqAtoms     :: [Atom] }
   deriving (Eq, Ord, Show)
 
+-- | The data type for a single Hrolog solution, consisting of a substitution
+-- map from variables to terms.
 newtype Solution = Solution (Map String Term)
   deriving (Eq, Ord, Show)
 
