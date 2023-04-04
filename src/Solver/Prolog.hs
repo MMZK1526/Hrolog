@@ -1,12 +1,13 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module Solver.Prolog where
 
+import           Control.Lens
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.State
-import           Data.Functor.Identity
 import           Data.Map (Map)
 import qualified Data.Map as M
 import           Data.Set (Set)
@@ -21,12 +22,14 @@ import           Utility
 -- "pProven" is the set of proven atoms. When these atoms are encountered again
 -- (up to alpha-conversion) in the derivation, they can be automatically proven.
 data PState = PState
-  { pStep    :: Int                 -- ^ Number of steps
-  , pProven  :: Set Atom            -- ^ What's been proven so far
-  , pTry     :: Map Atom (Set Atom) -- ^ What we are trying to prove
-  , pLeadsTo :: Map Atom (Set Atom) -- ^ What we can deduce
-  , pIsBT    :: Bool                -- ^ If under backtracking
+  { _pStep    :: Int                 -- ^ Number of steps
+  , _pProven  :: Set Atom            -- ^ What's been proven so far
+  , _pTry     :: Map Atom (Set Atom) -- ^ What we are trying to prove
+  , _pLeadsTo :: Map Atom (Set Atom) -- ^ What we can deduce
+  , _pIsBT    :: Bool                -- ^ If under backtracking
   }
+
+makeLenses ''PState
 
 newPState :: PState
 newPState = PState 1 S.empty M.empty M.empty False
@@ -42,18 +45,19 @@ solveIO :: Program -> PQuery -> IO [(Solution, [Map String Term])]
 solveIO = solveS onNewStep onFail onBacktractEnd
   where
     onNewStep q = do
-      steps <- gets pStep
+      steps <- gets _pStep
       lift $ putStrLn (concat ["Step ", show steps, ":"])
       case _pqAtoms q of
         [] -> lift $ putStrLn "Unification succeeded.\n"
         _  -> lift $ putStrLn (concat ["Current query: ", pShow q, "\n"])
     onFail      = do
-      steps <- gets pStep
+      steps <- gets _pStep
       lift $ putStrLn (concat ["Step ", show steps, ":"])
       lift $ putStrLn "Unification failed.\n"
     onBacktractEnd q
       = lift $ putStrLn (concat["Backtracked to the query ", pShow q, "\n"])
 
+-- | The main function of the Prolog solver.
 solveS :: Monad m => (PQuery -> StateT PState m a) -> StateT PState m b
        -> (PQuery -> StateT PState m a) -> Program -> PQuery
        -> m [(Solution, [Map String Term])]
@@ -64,29 +68,28 @@ solveS onNewStep onFail onBacktrackEnd (Program _ _ _ cs) (PQuery vars query)
     subVar subs v   = (v, foldl (flip substituteTerm) (VariableTerm v) subs)
     findVarSub subs = Solution $ M.fromList (subVar subs <$> S.toList vars)
 
-    incStep               = modify (\s -> s { pStep = pStep s + 1 })
     worker sub []         = do
       void $ onNewStep (PQuery vars [])
-      modify (\s -> s { pStep = pStep s + 1, pIsBT = True })
+      modify ((pIsBT .~ True) . (pStep +~ 1))
       return [[sub]]
     worker sub q@(t : ts) = do
       result <- fmap concat . forM cs $ \(mH :?<- b) -> case mH of
         Nothing -> pure []
         Just h  -> do
-          step <- gets pStep
-          isBT <- gets pIsBT
+          step <- gets _pStep
+          isBT <- gets _pIsBT
           when isBT $ do
             void $ onBacktrackEnd (PQuery vars q)
-            modify (\ps -> ps { pIsBT = False })
+            modify (pIsBT .~ False)
           let rename = renameAtom (show step ++ "#")
           case unifyAtom t (rename h) of
             Nothing   -> pure []
             Just sub' -> do
-              onNewStep (PQuery vars q) >> incStep
+              onNewStep (PQuery vars q) >> modify (pStep +~ 1)
               let nextQuery = substituteAtom sub' <$> (map rename b ++ ts)
               rest <- worker sub' nextQuery
               return $ (sub :) <$> rest
       when (null result) $ do
-        onFail >> incStep
-        modify (\ps -> ps { pIsBT = True })
+        onFail >> modify (pStep +~ 1)
+        modify (pIsBT .~ True)
       return result

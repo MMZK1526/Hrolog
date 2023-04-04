@@ -1,6 +1,7 @@
 module Parser where
 
 import           Control.Arrow
+import           Control.Lens
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.State
@@ -10,7 +11,6 @@ import qualified Text.Megaparsec as P
 import qualified Text.Megaparsec.Char as P
 import qualified Text.Megaparsec.Char.Lexer as L
 import           Text.Megaparsec.Error
-import           Data.Functor.Identity
 import qualified Data.Set as S
 import           Data.Void
 
@@ -60,7 +60,7 @@ variable :: Monad m => ParserT (StateT Program m) String
 variable = do
   v <- L.lexeme space
      $ liftM2 (:) P.upperChar (P.many (P.alphaNumChar P.<?> "variable"))
-  lift $ modify' (\p -> p { _variables = S.insert v (_variables p) })
+  lift $ modify' (variables %~ S.insert v)
   return v
 
 -- | Parse a @Constant@, which is the same as an identifier, with space after
@@ -69,7 +69,7 @@ constant :: Monad m => ParserT (StateT Program m) Constant
 constant = do
   name <- identifier
   let c = Constant name
-  lift $ modify' (\p -> p { _constants = S.insert c (_constants p) })
+  lift $ modify' (constants %~ S.insert c)
   return c
 
 -- | Parse a @Term@, which is either a @Constant@ or a @Variable@.
@@ -84,7 +84,7 @@ atom = do
   ts   <- P.option []
                    (P.between (char '(') (char ')') (P.sepBy term (char ',')))
   let pd = Predicate name (length ts)
-  lift $ modify' (\p -> p { _predicates = S.insert pd (_predicates p) })
+  lift $ modify (predicates %~ S.insert pd)
   return $ Atom pd ts
 
 -- | Parse a @Clause@, which is an optional @Atom@ head followed by a list of
@@ -100,7 +100,7 @@ program :: Monad m => ParserT (StateT Program m) Program
 program = do
   cs <- P.many clause
   p  <- lift get
-  return $ p { _clauses = cs }
+  return $ p & clauses .~ cs
 
 -- | Parse a Hrolog query.
 pQuery :: Monad m => ParserT (StateT Program m) PQuery

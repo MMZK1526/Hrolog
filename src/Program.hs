@@ -5,9 +5,11 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Program where
 
+import           Control.Lens
 import           Control.Monad
 import           Control.Monad.Trans.State
 import           Data.Char
@@ -101,6 +103,8 @@ data Program = Program { _predicates :: Set Predicate
                        , _clauses    :: [Clause] }
   deriving (Eq, Ord, Show)
 
+makeLenses ''Program
+
 -- | The data type for a Hrolog query, consisting the list of query atoms.
 -- It also contains the set of variables used in the query.
 --
@@ -108,6 +112,8 @@ data Program = Program { _predicates :: Set Predicate
 data PQuery = PQuery { _pqVariables :: Set String
                      , _pqAtoms     :: [Atom] }
   deriving (Eq, Ord, Show)
+
+makeLenses ''PQuery
 
 -- | The data type for a single Hrolog solution, consisting of a substitution
 -- map from variables to terms.
@@ -193,15 +199,10 @@ mkProgram cs
       forM_ mHead workAtom
       forM_ body workAtom
     workAtom (Atom p ts)           = do
-      prog@Program {..} <- get
-      put $ prog { _predicates = S.insert p _predicates }
+      modify (predicates %~ S.insert p)
       forM_ ts workTerm
-    workTerm (ConstantTerm c)      = do
-      prog@Program {..} <- get
-      put $ prog { _constants = S.insert c _constants }
-    workTerm (VariableTerm v)      = do
-      prog@Program {..} <- get
-      put $ prog { _variables = S.insert v _variables }
+    workTerm (ConstantTerm c)      = modify (constants %~ S.insert c)
+    workTerm (VariableTerm v)      = modify (variables %~ S.insert v)
 
 -- | Turn a list of @Atom@s into a @PQuery@ by calculating the set of variables.
 mkPQuery :: [Atom] -> PQuery
@@ -209,8 +210,7 @@ mkPQuery as
   = execState (forM_ as worker) (PQuery S.empty as)
   where
     worker (Atom _ ts) = forM_ ts $ \case
-      VariableTerm v ->
-        modify (\q -> q { _pqVariables = S.insert v (_pqVariables q) })
+      VariableTerm v -> modify (pqVariables %~ S.insert v)
       _              -> pure ()
 
 -- | Check if the @Program@ specification is consistent.

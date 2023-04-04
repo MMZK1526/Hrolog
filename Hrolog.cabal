@@ -35,10 +35,13 @@ library
     build-depends:
         base,
         containers >=0.6,
+        lens >=5.2,
         megaparsec >=8,
         transformers >=0.5
     hs-source-dirs:   src
     default-language: Haskell2010
+    ghc-options: 
+        -O3
 
 
 executable Hrolog
@@ -52,10 +55,13 @@ executable Hrolog
     build-depends:
         base,
         containers >=0.6,
+        lens >=5.2,
         megaparsec >=8,
         transformers >=0.5
     hs-source-dirs:   src
     default-language: Haskell2010
+    ghc-options: 
+        -O3
 
 
 test-suite parseTest
@@ -75,3 +81,5 @@ test-suite parseTest
         transformers >=0.5,
         HUnit,
         Hrolog
+    ghc-options: 
+        -O0
