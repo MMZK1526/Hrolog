@@ -54,7 +54,6 @@ solveIO = solveS onNewStep onFail onBacktractEnd
     onBacktractEnd q
       = lift $ putStrLn (concat["Backtracked to the query ", pShow q, "\n"])
 
-
 solveS :: Monad m => (PQuery -> StateT PState m a) -> StateT PState m b
        -> (PQuery -> StateT PState m a) -> Program -> PQuery
        -> m [(Solution, [Map String Term])]
@@ -76,8 +75,9 @@ solveS onNewStep onFail onBacktrackEnd (Program _ _ _ cs) (PQuery vars query)
         Just h  -> do
           step <- gets pStep
           isBT <- gets pIsBT
-          when isBT $ void (onBacktrackEnd (PQuery vars q))
-          modify (\ps -> ps { pIsBT = False })
+          when isBT $ do
+            void $ onBacktrackEnd (PQuery vars q)
+            modify (\ps -> ps { pIsBT = False })
           let rename = renameAtom (show step ++ "#")
           case unifyAtom t (rename h) of
             Nothing   -> pure []
