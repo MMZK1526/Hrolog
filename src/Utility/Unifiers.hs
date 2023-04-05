@@ -1,4 +1,5 @@
-module Utility where
+-- | Internal helper functions for unification.
+module Utility.Unifiers where
 
 import           Control.Applicative
 import           Control.Monad

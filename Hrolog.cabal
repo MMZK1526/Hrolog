@@ -25,7 +25,9 @@ library
         Solver.Prolog,
         Utility
     other-modules:
-        Utility.PP
+        Internal.Program,
+        Utility.PP,
+        Utility.Unifiers
     build-depends:
         base,
         containers >=0.6,
@@ -42,11 +44,12 @@ executable Hrolog
     import:           warnings
     main-is:          Main.hs
     other-modules:
+        Internal.Program,
         Parser,
         Program,
         Solver.Prolog,
-        Utility,
-        Utility.PP
+        Utility.PP,
+        Utility.Unifiers
     build-depends:
         base,
         containers >=0.6,

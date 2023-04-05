@@ -12,9 +12,10 @@ import           Data.Map (Map)
 import qualified Data.Map as M
 import           Data.Set (Set)
 import qualified Data.Set as S
-import           Program
-import           Utility
+
+import           Internal.Program
 import           Utility.PP
+import           Utility.Unifiers
 
 -- | The state used by the Prolog solver.
 --

@@ -5,7 +5,6 @@ import           Control.Lens
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.State
-import           Program
 import           Text.Megaparsec (Parsec, ParsecT)
 import qualified Text.Megaparsec as P
 import qualified Text.Megaparsec.Char as P
@@ -13,6 +12,8 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import           Text.Megaparsec.Error
 import qualified Data.Set as S
 import           Data.Void
+
+import           Internal.Program
 
 type ParserT = ParsecT Void String
 type Parser  = Parsec Void String
