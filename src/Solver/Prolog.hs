@@ -21,7 +21,7 @@ import           Utility.Unifiers
 --
 -- It tabulates some information to increase performance.
 -- 
--- "pProven" is the set of proven atoms. When these atoms are encountered again
+-- @pProven@ is the set of proven atoms. When these atoms are encountered again
 -- (up to alpha-conversion) in the derivation, they can be automatically proven.
 data PState = PState
   { _pStep    :: Int                 -- ^ Number of steps
@@ -40,13 +40,13 @@ newPState = PState 1 S.empty M.empty M.empty False
 prettyPrintSolution :: Solution -> String
 prettyPrintSolution = pShow
 
--- | Given the "Program" and the Prolog query, return a list of variable
+-- | Given the @Program@ and the Prolog query, return a list of variable
 -- substitutions and all intermediate substitutions, each representing a
 -- solution.
 solve :: Program -> PQuery -> [(Solution, [Map String Term])]
 solve p q = runIdentity $ solveS pure (pure ()) pure p q
 
--- | Similar to "solve", but prints out each step.
+-- | Similar to @solve@, but prints out each step.
 solveIO :: Program -> PQuery -> IO [(Solution, [Map String Term])]
 solveIO = solveS onNewStep onFail onBacktractEnd
   where

@@ -1,3 +1,4 @@
+-- | Parsers for Hrolog programs and queries.
 module Parser where
 
 import           Control.Arrow
