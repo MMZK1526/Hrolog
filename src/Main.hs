@@ -4,7 +4,6 @@ import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.State
 import           Parser
-import           Program
 import           Solver.Prolog
 
 testQuery :: String
@@ -32,7 +31,7 @@ runProlog = do
                 case solutions of
                   []              -> lift $ putStrLn "No fresh solution.\n"
                   ((subs, _) : _) -> do
-                    let solStr = pShow subs
+                    let solStr = prettyPrintSolution subs
                     solStr `seq` lift $ putStrLn ("\nSolution:\n" ++ solStr)
       queryFeedback
 

@@ -14,6 +14,7 @@ import           Data.Set (Set)
 import qualified Data.Set as S
 import           Program
 import           Utility
+import           Utility.PP
 
 -- | The state used by the Prolog solver.
 --
@@ -33,6 +34,10 @@ makeLenses ''PState
 
 newPState :: PState
 newPState = PState 1 S.empty M.empty M.empty False
+
+-- | Pretty print the solution.
+prettyPrintSolution :: Solution -> String
+prettyPrintSolution = pShow
 
 -- | Given the "Program" and the Prolog query, return a list of variable
 -- substitutions and all intermediate substitutions, each representing a

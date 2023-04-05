@@ -24,14 +24,8 @@ library
         Program,
         Solver.Prolog,
         Utility
-    other-extensions:
-        FlexibleContexts,
-        FlexibleInstances,
-        InstanceSigs,
-        LambdaCase,
-        MultiParamTypeClasses,
-        PatternSynonyms,
-        RecordWildCards
+    other-modules:
+        Utility.PP
     build-depends:
         base,
         containers >=0.6,
@@ -51,7 +45,8 @@ executable Hrolog
         Parser,
         Program,
         Solver.Prolog,
-        Utility
+        Utility,
+        Utility.PP
     build-depends:
         base,
         containers >=0.6,
