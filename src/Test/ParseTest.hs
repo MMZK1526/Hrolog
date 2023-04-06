@@ -6,10 +6,12 @@ import           Control.Monad.Trans.State
 import           Data.Bifunctor
 import           Data.Char
 import           Data.Functor
-import           Parser
-import           Program
 import           System.Random
 import           Test.HUnit
+
+import           Parser
+import           Internal.Program
+import           Utility.PP
 
 main :: IO ()
 main = runTestTTAndExit
