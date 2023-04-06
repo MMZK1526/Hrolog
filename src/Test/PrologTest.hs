@@ -1,13 +1,96 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
+import           Control.Exception
+import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Except
+import           Data.List
+import qualified Data.Map as M
+import           Data.Maybe
+
 import           Internal.Program
+import           Parser
 import           Solver.Prolog
 import           Test.HUnit
 
 main :: IO ()
 main = runTestTTAndExit
-     $ TestList []
+     $ TestList [ simpleNumberTestOne
+                , simpleNumberTestAll ]
 
--- | Test that the given @Program@ and @PQuery@ produce the expected
+-- | A simple test with basic facts and rules, testing for the first solution.
+simpleNumberTestOne :: Test
+simpleNumberTestOne = TestLabel "simpleNumberTest" . TestCase $
+  assertSolutionFromFile "./src/Test/programs/simpleNumbers.hrolog"
+                          (mkPQuery [ Atom (Predicate "gt" 2) [ VariableTerm "X"
+                                                              , VariableTerm "Y" ]
+                                    , Atom (Predicate "gt" 2) [ VariableTerm "Y"
+                                                              , VariableTerm "Z" ] ])
+                          ( Just . Solution $ M.fromList [ ("X", ConstantTerm (Constant "2"))
+                                                         , ("Y", ConstantTerm (Constant "1"))
+                                                         , ("Z", ConstantTerm (Constant "0")) ] )
+
+-- | A simple test with basic facts and rules, testing for all solutions.
+simpleNumberTestAll :: Test
+simpleNumberTestAll = TestLabel "simpleNumberTest" . TestCase $
+  assertSolutionsFromFile "./src/Test/programs/simpleNumbers.hrolog"
+                          (mkPQuery [ Atom (Predicate "gt" 2) [ VariableTerm "X"
+                                                              , VariableTerm "Y" ]
+                                    , Atom (Predicate "gt" 2) [ VariableTerm "Y"
+                                                              , VariableTerm "Z" ] ])
+                          [ Solution $ M.fromList [ ("X", ConstantTerm (Constant "2"))
+                                                  , ("Y", ConstantTerm (Constant "1"))
+                                                  , ("Z", ConstantTerm (Constant "0")) ]
+                          , Solution $ M.fromList [ ("X", ConstantTerm (Constant "3"))
+                                                  , ("Y", ConstantTerm (Constant "1"))
+                                                  , ("Z", ConstantTerm (Constant "0")) ]
+                          , Solution $ M.fromList [ ("X", ConstantTerm (Constant "3"))
+                                                  , ("Y", ConstantTerm (Constant "2"))
+                                                  , ("Z", ConstantTerm (Constant "0")) ]
+                          , Solution $ M.fromList [ ("X", ConstantTerm (Constant "3"))
+                                                  , ("Y", ConstantTerm (Constant "2"))
+                                                  , ("Z", ConstantTerm (Constant "1")) ] ]
+
+--------------------------------------------------------------------------------
+-- Helpers
+--------------------------------------------------------------------------------
+
+-- | Read the given file and run the given test on the resulting @Program@, see
+-- if the first @Solution@ matches.
+assertSolutionFromFile :: FilePath -> PQuery -> Maybe Solution -> Assertion
+assertSolutionFromFile filePath q expSol
+  = assertFromFile filePath (\p -> assertSolution p q expSol)
+
+-- | Read the given file and run the given test on the resulting @Program@, see
+-- if the @Solution@s match.
+assertSolutionsFromFile :: FilePath -> PQuery -> [Solution] -> Assertion
+assertSolutionsFromFile filePath q expSols
+  = assertFromFile filePath (\p -> assertSolutions p q expSols)
+
+-- | Handle any @Exception@ by simply recording them as @String@s.
+handleErr :: ExceptT String IO () -> ExceptT String IO ()
+handleErr = mapExceptT (handle worker)
+  where
+    worker (e :: SomeException) = pure (Left ("Exception: " ++ show e))
+
+-- | Use the given @Assertion@ which takes a @Program@. The @Program@ comes from
+-- reading the given file.
+assertFromFile :: FilePath -> (Program -> Assertion) -> Assertion
+assertFromFile filePath testFun = do
+  result <- runExceptT . handleErr $ do
+    p <- lift (parseProgram <$> readFile filePath) >>= ExceptT . pure
+    lift $ testFun p
+  case result of
+    Left err -> assertFailure err
+    Right () -> pure ()
+
+-- | Assert that the given @Program@ and @PQuery@ produce the expected first
+-- @Solution@.
+assertSolution :: Program -> PQuery -> Maybe Solution -> Assertion
+assertSolution p q expSol
+  = assertEqual "solution" expSol (listToMaybe (fst <$> solve p q))
+
+-- | Assert that the given @Program@ and @PQuery@ produce the expected
 -- @Solution@s.
-testSolver :: String -> Program -> PQuery -> [Solution] -> Test
-testSolver lbl p q expSols = TestLabel lbl . TestCase $ do
-  assertEqual "solutions" expSols (fst <$> solve p q)
+assertSolutions :: Program -> PQuery -> [Solution] -> Assertion
+assertSolutions p q expSols
+  = assertEqual "solutions" (sort expSols) (sort (fst <$> solve p q))

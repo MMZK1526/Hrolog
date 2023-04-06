@@ -17,51 +17,6 @@ common warnings
     ghc-options: -Wall
 
 
-library
-    import:           warnings
-    exposed-modules:
-        Parser,
-        Program,
-        Solver.Prolog,
-        Utility
-    other-modules:
-        Internal.Program,
-        Utility.PP,
-        Utility.Unifiers,
-    build-depends:
-        base,
-        containers >=0.6,
-        lens >=5.2,
-        megaparsec >=8,
-        transformers >=0.5
-    hs-source-dirs:   src
-    default-language: Haskell2010
-    ghc-options: 
-        -O3
-
-
-executable Hrolog
-    import:           warnings
-    main-is:          Main.hs
-    other-modules:
-        Internal.Program,
-        Parser,
-        Program,
-        Solver.Prolog,
-        Utility.PP,
-        Utility.Unifiers
-    build-depends:
-        base,
-        containers >=0.6,
-        lens >=5.2,
-        megaparsec >=8,
-        transformers >=0.5
-    hs-source-dirs:   src
-    default-language: Haskell2010
-    ghc-options: 
-        -O3
-
-
 test-suite parseTest
     import:           warnings
     default-language: Haskell2010
@@ -105,3 +60,48 @@ test-suite prologTest
         HUnit
     ghc-options: 
         -O0
+
+
+library
+    import:           warnings
+    exposed-modules:
+        Parser,
+        Program,
+        Solver.Prolog,
+        Utility
+    other-modules:
+        Internal.Program,
+        Utility.PP,
+        Utility.Unifiers,
+    build-depends:
+        base,
+        containers >=0.6,
+        lens >=5.2,
+        megaparsec >=8,
+        transformers >=0.5
+    hs-source-dirs:   src
+    default-language: Haskell2010
+    ghc-options: 
+        -O3
+
+
+executable Hrolog
+    import:           warnings
+    main-is:          Main.hs
+    other-modules:
+        Internal.Program,
+        Parser,
+        Program,
+        Solver.Prolog,
+        Utility.PP,
+        Utility.Unifiers
+    build-depends:
+        base,
+        containers >=0.6,
+        lens >=5.2,
+        megaparsec >=8,
+        transformers >=0.5
+    hs-source-dirs:   src
+    default-language: Haskell2010
+    ghc-options: 
+        -O3
