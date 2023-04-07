@@ -9,27 +9,25 @@ import           Control.Exception
 import           Control.Lens
 import           Control.Monad
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.State
 import           Data.Proxy
 import           System.IO.Error
 import           System.Directory
 import qualified Text.Megaparsec as P
+import qualified Text.Megaparsec.Char as P
+import qualified Text.Megaparsec.Char.Lexer as L
 
 import           Parser
 import           Program
 import           Solver.Prolog
 import           Utility.Exception
-
-testQuery :: String
-testQuery = "gt(X, Y), gt(Y, Z)."
+import           Utility.Parser
 
 -- | The input types of the CLI.
 data InputType = InputTypeFilePath FilePath
                | InputTypePQuery PQuery
                | InputTypeReload
-               | InputTypeEmpty
                | InputTypeQuit
 
 -- | The state of the CLI.
@@ -67,9 +65,9 @@ feedbackloop = forever . handleStateErr $ do
       -- If the input is already stored in the state, we use it.
       Just input -> input <$ (cliInput .= Nothing)
       -- Otherwise, we prompt the user for input.
-      Nothing    -> liftIO getLine
+      Nothing    -> liftIO getLine'
   -- Parse the input.
-  case evalState (parseT inputP input) mProg of
+  case evalState (parseT space inputP input) mProg of
     -- If the input is invalid, print an error message.
     Left err                            -> liftIO $ do
       putStrLn "Error parsing the input:"
@@ -82,34 +80,7 @@ feedbackloop = forever . handleStateErr $ do
     Right (Just (InputTypeFilePath fp)) -> handleNewProgram fp
     Right (Just InputTypeReload)        -> handleReload
     Right (Just (InputTypePQuery q))    -> handlePQuery q
-    Right (Just InputTypeEmpty)         -> handleEmpty
     Right (Just InputTypeQuit)          -> handleQuit
-
-runProlog :: StateT FilePath IO ()
-runProlog = do
-  path <- get
-  src  <- lift $ readFile path
-  case parseProgram src of
-    Left pErr     -> do
-      lift $ putStrLn "Error parsing the program!"
-      lift $ putStrLn pErr
-    Right prog -> do
-      lift $ putStrLn (concat ["Program ", show path, " loaded.\n"])
-      let queryFeedback = forever $ do
-            input <- lift getLine
-            case parsePQuery input of
-              Left qErr   -> do
-                lift $ putStrLn "Error parsing the query!"
-                lift $ putStrLn qErr
-              Right query -> do
-                -- let solutions = solve prog query
-                solutions <- lift $ solveIO prog query
-                case solutions of
-                  []         -> lift $ putStrLn "No fresh solution.\n"
-                  (subs : _) -> do
-                    let solStr = prettifySolution subs
-                    solStr `seq` lift $ putStrLn ("\nSolution:\n" ++ solStr)
-      queryFeedback
 
 main :: IO ()
 main = do
@@ -131,28 +102,35 @@ inputP :: Monad m => ParserT (StateT (Maybe Program) m) (Maybe InputType)
 inputP = P.choice [ Just . InputTypeFilePath <$> inputFilePath
                   , Just InputTypeReload <$ inputReload
                   , Just InputTypeQuit <$ inputQuit
-                  , fmap InputTypePQuery <$> inputPQuery
-                  , Just InputTypeEmpty <$ inputEmpty ]
+                  , fmap InputTypePQuery <$> pQuery ]
 
 inputFilePath :: Monad m => ParserT m FilePath
 inputFilePath = string ":l" >> P.many P.anySingle
 {-# INLINE inputFilePath #-}
 
-inputPQuery :: Functor f => Monad m => ParserT (StateT (f Program) m) (f PQuery)
-inputPQuery = P.optional (string "<-") >> pQuery
-{-# INLINE inputPQuery #-}
-
 inputReload :: Monad m => ParserT m ()
 inputReload = void $ string ":r"
 {-# INLINE inputReload #-}
 
-inputEmpty :: Monad m => ParserT m ()
-inputEmpty = pure ()
-{-# INLINE inputEmpty #-}
-
 inputQuit :: Monad m => ParserT m ()
 inputQuit = void $ string ":q"
 {-# INLINE inputQuit #-}
+
+-- | Parse spaces.
+space :: Monad m => ParserT m ()
+space = L.space P.space1 P.empty P.empty
+
+-- | Parse a string with space after it.
+string :: Monad m => String -> ParserT m String
+string = L.lexeme space . P.string
+
+-- | Repeatedly read input from the user until a non-empty @String@ is read.
+getLine' :: IO String
+getLine' = do
+  input <- getLine
+  case parse space (pure ()) input of 
+    Left _ -> pure input
+    Right _ -> getLine'
 
 
 --------------------------------------------------------------------------------
@@ -233,18 +211,14 @@ handlePQuery q = do
       let handleSolutions []           = liftIO $ putStrLn "No more solutions."
           handleSolutions (sol : sols) = do
             liftIO $ putStrLn (concat ["\nSolution:\n", prettifySolution sol, "\n"])
-            liftIO $ putStrLn "Enter ';' to look for the next solution;"
-            input <- liftIO getLine
-            case parse (string ";") input of
+            liftIO $ putStrLn "Enter ';' to look for the next solution."
+            input <- liftIO getLine'
+            case parse space (string ";") input of
               Right _ -> handleSolutions sols
               Left _  -> cliInput .= Just input
       case solve prog q of
         []   -> liftIO $ putStrLn "No solution."
         sols -> handleSolutions sols
-
-handleEmpty :: MonadIO m => StateT CLIState m ()
-handleEmpty = pure ()
-{-# INLINE handleEmpty #-}
 
 handleQuit :: MonadIO m => StateT CLIState m ()
 handleQuit = throw UserInterrupt

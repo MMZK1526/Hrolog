@@ -27,8 +27,9 @@ test-suite parseTest
     main-is:          Test/ParseTest.hs
     other-modules:
         Internal.Program,
-        Parser,
-        Utility.PP
+        Internal.Parser,
+        Utility.PP,
+        Utility.Parser
     build-depends:
         base,
         containers >=0.6,
@@ -49,9 +50,10 @@ test-suite prologTest
     main-is:          Test/PrologTest.hs
     other-modules:
         Internal.Program,
-        Parser,
+        Internal.Parser,
         Solver.Prolog,
         Utility.PP,
+        Utility.Parser,
         Utility.Unifiers
     build-depends:
         base,
@@ -70,11 +72,12 @@ library
         Parser,
         Program,
         Solver.Prolog,
-        Utility
+        Utility.Parser,
     other-modules:
         Internal.Program,
+        Internal.Parser,
         Utility.PP,
-        Utility.Unifiers,
+        Utility.Unifiers
     build-depends:
         base,
         containers >=0.6,
@@ -92,11 +95,12 @@ executable Hrolog
     main-is:          Main.hs
     other-modules:
         Internal.Program,
-        Parser,
+        Internal.Parser,
         Program,
         Solver.Prolog,
         Utility.Exception,
         Utility.PP,
+        Utility.Parser,
         Utility.Unifiers
     build-depends:
         base,
