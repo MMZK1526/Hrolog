@@ -44,6 +44,8 @@ newtype Constant = Constant { _constantName :: String }
 --
 -- In a real program, the type variable "a" should always be a @String@, but it
 -- can carry additional metadata during the solving process.
+--
+-- TODO: Add a type constructor for function terms.
 data Term' a = ConstantTerm Constant
              | VariableTerm a
   deriving (Eq, Ord, Show)
