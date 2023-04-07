@@ -6,6 +6,7 @@ import           Control.Monad.Trans.State
 import           Data.Bifunctor
 import           Data.Char
 import           Data.Functor
+import           Data.Functor.Identity
 import           System.Random
 import           Test.HUnit
 
@@ -32,7 +33,7 @@ main = runTestTTAndExit
 canParseVariable :: Test
 canParseVariable
   = TestLabel "Can parse variable" . TestCase $ do
-      let parseVariable str = evalState (parseT variable str) emptyProgram
+      let parseVariable str = evalState (parseT variable str) (Identity emptyProgram)
       assertValid "Empty string" Nothing (parseVariable "")
       assertValid "Uppercase letter" (Just "A") (parseVariable "A")
       assertValid "Uppercase word" (Just "Abc") (parseVariable "Abc")
@@ -44,13 +45,13 @@ genVarsAreValid
   = TestLabel "Generated variables are valid" . TestCase
   . forM_ [1..7] $ \l -> forM_ [0..114] $ \g -> do
       let v                 = fst $ genVariable l (mkStdGen g)
-      let parseVariable str = evalState (parseT variable str) emptyProgram
+      let parseVariable str = evalState (parseT variable str) (Identity emptyProgram)
       assertValid ("Valid variable " ++ show v) (Just v) (parseVariable v)
 
 canParseConstant :: Test
 canParseConstant
   = TestLabel "Can parse variable" . TestCase $ do
-      let parseConstant str = evalState (parseT constant str) emptyProgram
+      let parseConstant str = evalState (parseT constant str) (Identity emptyProgram)
       assertValid "Empty string" Nothing (parseConstant "")
       assertValid "Lowercase letter" (Just $ Constant "a") (parseConstant "a")
       assertValid "Lowercase word" (Just $ Constant "aBC") (parseConstant "aBC")
@@ -62,14 +63,14 @@ genConstsAreValid
   = TestLabel "Generated constants are valid" . TestCase
   . forM_ [1..7] $ \l -> forM_ [0..114] $ \g -> do
       let c                 = fst $ genConstant l (mkStdGen g)
-      let parseConstant str = evalState (parseT constant str) emptyProgram
+      let parseConstant str = evalState (parseT constant str) (Identity emptyProgram)
       assertValid ("Valid constant " ++ show c)
                   (Just c) (parseConstant (pShow c))
 
 canParseTerm :: Test
 canParseTerm
   = TestLabel "Can parse term" . TestCase $ do
-      let parseTerm str = evalState (parseT term str) emptyProgram
+      let parseTerm str = evalState (parseT term str) (Identity emptyProgram)
       assertValid "Empty string" Nothing (parseTerm "")
       assertValid "Lowercase letter"
                   (Just . ConstantTerm $ Constant "a") (parseTerm "a")
@@ -83,13 +84,13 @@ genTermsAreValid
   = TestLabel "Generated terms are valid" . TestCase
   . forM_ [1..7] $ \l -> forM_ [0..114] $ \g -> do
       let t             = fst $ genTerm l (mkStdGen g)
-      let parseTerm str = evalState (parseT term str) emptyProgram
+      let parseTerm str = evalState (parseT term str) (Identity emptyProgram)
       assertValid ("Valid term " ++ show t) (Just t) (parseTerm (pShow t))
 
 canParseAtom :: Test
 canParseAtom
   = TestLabel "Can parse atom" . TestCase $ do
-      let parseAtom str = evalState (parseT atom str) emptyProgram
+      let parseAtom str = evalState (parseT atom str) (Identity emptyProgram)
       assertValid "Empty string" Nothing (parseAtom "")
       assertValid "Constant predicate"
                   (Just $ Atom (Predicate "allGood" 0) []) (parseAtom "allGood")
@@ -112,13 +113,13 @@ genAtomsAreValid
   = TestLabel "Generated atoms are valid" . TestCase
   . forM_ [1..3] $ \a -> forM_ [1..3] $ \l -> forM_ [0..114] $ \g -> do
       let t             = fst $ genAtom a l (mkStdGen g)
-      let parseAtom str = evalState (parseT atom str) emptyProgram
+      let parseAtom str = evalState (parseT atom str) (Identity emptyProgram)
       assertValid ("Valid atom " ++ show t) (Just t) (parseAtom (pShow t))
 
 canParseClause :: Test
 canParseClause
   = TestLabel "Can parse clause" . TestCase $ do
-      let parseClause str = evalState (parseT clause str) emptyProgram
+      let parseClause str = evalState (parseT clause str) (Identity emptyProgram)
       assertValid "Empty string" Nothing (parseClause "")
       assertValid "Empty clause" (Just $ Clause Nothing []) (parseClause ".")
       assertValid "Fact"
@@ -141,7 +142,7 @@ genClausesAreValid
   = TestLabel "Generated clauses are valid" . TestCase
   . forM_ [1..3] $ \a -> forM_ [1..3] $ \l -> forM_ [0..114] $ \g -> do
       let c               = fst $ genClause a l (mkStdGen g)
-      let parseClause str = evalState (parseT clause str) emptyProgram
+      let parseClause str = evalState (parseT clause str) (Identity emptyProgram)
       assertValid ("Valid clause " ++ pShow c) (Just c) (parseClause (pShow c))
 
 genProgramsAreValid :: Test

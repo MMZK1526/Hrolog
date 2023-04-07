@@ -1,13 +1,33 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module Main where
 
+import           Control.Lens
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.State
 import           Parser
+import           Program
 import           Solver.Prolog
 
 testQuery :: String
 testQuery = "gt(X, Y), gt(Y, Z)."
+
+-- | The input types of the CLI.
+data InputType = InputTypeFilePath FilePath
+               | InputTypePQuery PQuery
+               | InputTypeReload
+
+-- | The state of the CLI.
+data CLIState = CLIState { _cliSfilePath :: Maybe FilePath
+                         , _cliProgram   :: Maybe Program
+                         , _cliPQuery    :: Maybe PQuery }
+
+makeLenses ''CLIState
+
+feedbackloop :: StateT CLIState IO ()
+feedbackloop = forever $ do
+  pure ()
 
 runProlog :: StateT FilePath IO ()
 runProlog = do
@@ -37,3 +57,8 @@ runProlog = do
 
 main :: IO ()
 main = void $ runStateT runProlog "./src/Test/programs/simpleNumbers.hrolog"
+
+
+--------------------------------------------------------------------------------
+-- Input Parsers
+--------------------------------------------------------------------------------
