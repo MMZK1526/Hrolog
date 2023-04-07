@@ -1,14 +1,20 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE InstanceSigs #-}
 
 module Main where
 
+import           Control.Exception
 import           Control.Lens
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.State
+import           Data.Proxy
+import           System.IO.Error
+import           System.Directory
 import qualified Text.Megaparsec as P
 
 import           Parser
@@ -39,7 +45,7 @@ emptyCLIState = CLIState Nothing Nothing Nothing Nothing
 
 -- | The CLI loop. It takes an input, parses it, and executes the corresponding,
 -- forever.
-feedbackloop :: StateT CLIState (ExceptT String IO) ()
+feedbackloop :: StateT CLIState (ExceptT CLIError IO) ()
 -- The "forever" indicates that the loop will never terminate unless there is
 -- an uncaught exception.
 -- "handleStateErr" is a utility function that catches all "IOError"s by
@@ -71,12 +77,11 @@ feedbackloop = forever . handleStateErr $ do
     -- loaded. In this case, we print an error message.
     Right Nothing                       ->
       liftIO $ putStrLn "Cannot take query without a program loaded."
-    -- If the input is a file path, we load the program, parse it, and store it
-    -- in the state.
+    -- Dispatch the input to the corresponding handler.
     Right (Just (InputTypeFilePath fp)) -> handleNewProgram fp
     Right (Just InputTypeReload)        -> handleReload
     Right (Just (InputTypePQuery q))    -> handlePQuery q
-    Right (Just InputTypeEmpty)         -> pure ()
+    Right (Just InputTypeEmpty)         -> handleEmpty
 
 runProlog :: StateT FilePath IO ()
 runProlog = do
@@ -110,7 +115,7 @@ main = do
     liftIO $ putStrLn "Welcome to Hrolog!"
     runStateT feedbackloop emptyCLIState
   case result of
-    Left err -> putStrLn err
+    Left err -> handleAction err
     Right _  -> pure ()
 
 
@@ -142,6 +147,37 @@ inputEmpty = pure ()
 --------------------------------------------------------------------------------
 -- Input Handlers & Helpers
 --------------------------------------------------------------------------------
+
+-- | A custum error type. It treats @IOError@s as non-fatal errors, printing
+-- them out differently based on whether it is a @DoesNotExistError@ or not.
+-- For any other types of errors, it treats them as fatal errors.
+data CLIError = DNEError (Maybe FilePath)
+              | IOError String
+              | FatalError String
+
+instance FromError CLIError where
+  fromError :: SomeException -> CLIError
+  fromError e = case fromException e :: Maybe IOError of
+    Just ioe -> if isDoesNotExistError ioe
+      then DNEError (ioeGetFileName ioe)
+      else IOError (show ioe)
+    Nothing  -> FatalError (show e)
+
+  isFatal :: Proxy CLIError -> SomeException -> Bool
+  isFatal _ e = case (fromException e :: Maybe IOError) of
+    Just _  -> False
+    Nothing -> True
+  
+  handleAction :: CLIError -> IO ()
+  handleAction (DNEError mfp) = do
+    curDir <- liftIO getCurrentDirectory
+    let fileDNEErrMsg = case mfp of
+          Just fp -> concat ["File ", show fp, " does not exist."]
+          _       -> "File does not exist."
+    let curDirMsg     = concat ["Current directory is ", show curDir, "."]
+    putStrLn $ unlines [fileDNEErrMsg, curDirMsg]
+  handleAction (IOError e)    = putStrLn ("IO Error:\n" ++ e)
+  handleAction (FatalError e) = putStrLn ("Fatal Error:\n" ++ e)
 
 handleNewProgram :: MonadIO m => FilePath -> StateT CLIState m ()
 handleNewProgram fp = do
@@ -186,3 +222,6 @@ handlePQuery q = do
       case solve prog q of
         []   -> liftIO $ putStrLn "No solution."
         sols -> handleSolutions sols
+
+handleEmpty :: MonadIO m => StateT CLIState m ()
+handleEmpty = pure ()
