@@ -6,7 +6,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
-module Solver.Prolog (prettyPrintSolution, solve, solveIO, solveS) where
+module Solver.Prolog (prettifySolution, solve, solveIO, solveS) where
 
 import           Control.Lens
 import           Control.Monad
@@ -64,10 +64,6 @@ makeLenses ''PState
 
 newPState :: PState
 newPState = PState 1 S.empty M.empty M.empty False
-
--- | Pretty print the solution.
-prettyPrintSolution :: Solution -> String
-prettyPrintSolution = pShow
 
 -- | Given the @Program@ and the Prolog query, return a list of variable
 -- substitutions and all intermediate substitutions, each representing a

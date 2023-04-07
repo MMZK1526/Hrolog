@@ -229,3 +229,11 @@ isProgramLegal Program {..}
                            && all termLegal as
     clauseLegal Clause {..} = maybe True atomLegal _clauseHead
                            && all atomLegal _clauseBody
+
+-- | Pretty print the program.
+prettifyProgram :: Program -> String
+prettifyProgram = pShowF Succinct
+
+-- | Pretty print the solution.
+prettifySolution :: Solution -> String
+prettifySolution = pShow

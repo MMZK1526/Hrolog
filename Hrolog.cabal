@@ -92,6 +92,7 @@ executable Hrolog
         Parser,
         Program,
         Solver.Prolog,
+        Utility.Exception,
         Utility.PP,
         Utility.Unifiers
     build-depends:

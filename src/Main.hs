@@ -1,14 +1,20 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Main where
 
 import           Control.Lens
 import           Control.Monad
+import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.State
+import qualified Text.Megaparsec as P
+
 import           Parser
 import           Program
 import           Solver.Prolog
+import           Utility.Exception
 
 testQuery :: String
 testQuery = "gt(X, Y), gt(Y, Z)."
@@ -25,9 +31,34 @@ data CLIState = CLIState { _cliSfilePath :: Maybe FilePath
 
 makeLenses ''CLIState
 
-feedbackloop :: StateT CLIState IO ()
-feedbackloop = forever $ do
-  pure ()
+-- | The initial @CLIState@.
+emptyCLIState :: CLIState
+emptyCLIState = CLIState Nothing Nothing Nothing
+
+-- | The CLI loop. It takes an input, parses it, and executes the corresponding,
+-- forever.
+feedbackloop :: StateT CLIState (ExceptT String IO) ()
+feedbackloop = forever $ handleStateErr $ do
+  mProg <- use cliProgram -- Get the program from the state.
+  input <- liftIO getLine -- Get the input from the user.
+  -- Parse the input.
+  case evalState (parseT inputP input) mProg of
+    -- If the input is invalid, print an error message.
+    Left err                            -> liftIO $ do
+      putStrLn "Error parsing the input!"
+      putStrLn err
+    -- A @Nothing@ means that the input is a query, but the program is not
+    -- loaded. In this case, we print an error message.
+    Right Nothing                       ->
+      liftIO $ putStrLn "Cannot take query without a program loaded."
+    -- If the input is a file path, we load the program, parse it, and store it
+    -- in the state.
+    Right (Just (InputTypeFilePath fp)) -> do
+      handleNewProgram fp
+    Right (Just InputTypeReload)        -> do
+      undefined
+    Right (Just (InputTypePQuery q))    -> do
+        undefined
 
 runProlog :: StateT FilePath IO ()
 runProlog = do
@@ -51,14 +82,56 @@ runProlog = do
                 case solutions of
                   []         -> lift $ putStrLn "No fresh solution.\n"
                   (subs : _) -> do
-                    let solStr = prettyPrintSolution subs
+                    let solStr = prettifySolution subs
                     solStr `seq` lift $ putStrLn ("\nSolution:\n" ++ solStr)
       queryFeedback
 
 main :: IO ()
-main = void $ runStateT runProlog "./src/Test/programs/simpleNumbers.hrolog"
+main = do
+  result <- runExceptT . void $ do
+    liftIO $ putStrLn "Welcome to Hrolog!"
+    runStateT feedbackloop emptyCLIState
+  case result of
+    Left err -> putStrLn err
+    Right _  -> pure ()
 
 
 --------------------------------------------------------------------------------
 -- Input Parsers
 --------------------------------------------------------------------------------
+
+-- | Parse an input. The @Program@ in the inner @StateT@ is provided by the
+-- "Program" in the @CLIState@.
+inputP :: Monad m => ParserT (StateT (Maybe Program) m) (Maybe InputType)
+inputP = P.choice [ Just . InputTypeFilePath <$> inputFilePath
+                  , Just InputTypeReload <$ inputReload
+                  , fmap InputTypePQuery <$> inputPQuery ]
+
+inputFilePath :: Monad m => ParserT m FilePath
+inputFilePath = string ":l" >> P.many P.anySingle
+
+inputPQuery :: Functor f => Monad m => ParserT (StateT (f Program) m) (f PQuery)
+inputPQuery = P.optional (string "<-") >> pQuery
+
+inputReload :: Monad m => ParserT m ()
+inputReload = void $ string ":r"
+
+
+--------------------------------------------------------------------------------
+-- Input Handlers & Helpers
+--------------------------------------------------------------------------------
+
+handleNewProgram :: MonadIO m => FilePath -> StateT CLIState m ()
+handleNewProgram fp = do
+  cliSfilePath .= Just fp -- Store the file path in the state.
+  newProg <- liftIO $ readFile fp -- Read the program from the file.
+  case parseProgram newProg of
+    -- If the program is invalid, print an error message.
+    Left pErr  -> liftIO $ do
+      putStrLn "Error parsing the program!"
+      putStrLn pErr
+    -- If the program is valid, store it in the state.
+    Right prog -> do
+      cliProgram .= Just prog
+      liftIO $ putStrLn (concat ["Program ", show fp, " loaded:"])
+      liftIO $ putStrLn $ prettifyProgram prog
