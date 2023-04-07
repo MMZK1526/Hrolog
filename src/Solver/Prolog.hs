@@ -1,7 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
@@ -142,7 +141,5 @@ solveS onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
               let nextQuery = substituteAtom sub' <$> (map rename b ++ ts)
               rest <- worker sub' nextQuery
               return $ (sub :) <$> rest
-      when (null result) $ do
-        onFail >> pStep += 1
-        pIsBT .= True
+      when (null result) $ onFail >> pStep += 1 >> pIsBT .= True
       return result
