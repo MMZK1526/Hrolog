@@ -7,10 +7,9 @@ license:            MIT
 license-file:       LICENSE
 author:             mmzk1526
 maintainer:         yc4120@ic.ac.uk
--- copyright:
 build-type:         Simple
 extra-doc-files:    CHANGELOG.md, README.md
-extra-source-files: test/programs/simpleNumbers.hrolog
+extra-source-files: src/Test/programs/simpleNumbers.hrolog
 
 
 common warnings

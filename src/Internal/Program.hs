@@ -29,6 +29,7 @@ import           Data.Map (Map)
 import qualified Data.Map as M
 import           Data.Set (Set)
 import qualified Data.Set as S
+
 import           Utility.PP
 
 -- | A Hrolog predicate with its name and arity.
