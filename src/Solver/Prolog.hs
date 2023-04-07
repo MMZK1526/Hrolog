@@ -59,6 +59,10 @@ newPState = PState 1 S.empty M.empty M.empty False
 -- | Given the @Program@ and the Prolog query, return a list of variable
 -- substitutions and all intermediate substitutions, each representing a
 -- solution.
+--
+-- Solutions are evaluated in the normal Prolog order. The evaluation is lazy,
+-- so it is always possible to get the first few solutions even if there are
+-- infinitely many.
 solve :: Program -> PQuery -> [Solution]
 solve p q = runIdentity $ solveS pure (pure ()) pure p q
 
@@ -81,16 +85,39 @@ solveIO = solveS onNewStep onFail onBacktractEnd
       $ putStrLn (concat["Backtracked to the query ", pShow (untagged q), "\n"])
 
 -- | The main function of the Prolog solver.
+--
+-- It takes three functions as arguments:
+-- 1. @onNewStep@ is called when a new step is taken. It takes the current
+-- @PQuery@ as an argument.
+-- 2. @onFail@ is called whenever the unification fails.
+-- 3. @onBacktrackEnd@ is called when backtracking ends. It takes the current
+-- @PQuery@ as an argument.
+--
+-- The fourth argument is the @Program@, and the fifth argument is the original
+-- query.
+--
+-- The return value is a list of @Solution@s, which describes how each variable
+-- in the @PQuery@ is mapped to a term. If the return value is empty, then there
+-- is no solution.
 solveS :: Monad m => (SolvePQuery -> StateT PState m a) -> StateT PState m b
        -> (SolvePQuery -> StateT PState m a) -> Program -> PQuery
        -> m [Solution]
+-- "worker" is the main function of the solver. It takes the current
+-- substitution, the current query, and returns a list of solutions, each is a
+-- series of substitutions that happened at each step.
+--
+-- Once we have the solutions in the form of series of substitutions, we apply
+-- them to the variables in the query to get the monolithic substitutions, which
+-- describe the solutions.
 solveS onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
   = fmap (map (optimiseSub . findVarSub))
          (evalStateT (worker M.empty query') newPState)
   where
-    cs'                 = renameClause (Nothing ,) <$> cs
-    PQuery vars' query' = renamePQuery (Nothing ,) pquery
+    cs'                 = renameClause (Nothing ,) <$> cs -- tagged clauses
+    PQuery vars' query' = renamePQuery (Nothing ,) pquery -- tagged query
+    -- Apply a series of substitutions to a variable.
     subVar subs v       = (v, foldl (flip substituteTerm) (VariableTerm v) subs)
+    -- Find the relavant substitutions only on variables in the query.
     findVarSub subs     = subVar subs <$> S.toList vars'
 
     -- Once the substitutions for the query variables are found, we want to
