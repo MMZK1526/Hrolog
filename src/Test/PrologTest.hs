@@ -11,15 +11,27 @@ import           Internal.Program
 import           Parser
 import           Solver.Prolog
 import           Test.HUnit
+import           Test.HUnit.Lang
 
 main :: IO ()
 main = runTestTTAndExit
-     $ TestList [ simpleNumberTestOne
+     $ TestList [ canPickUpFacts
+                , simpleNumberTestOne
                 , simpleNumberTestAll ]
+
+-- | Can pick up facts.
+canPickUpFacts :: Test
+canPickUpFacts = TestLabel "Can pick up facts" $ TestList (worker <$> queries)
+  where
+    worker q = TestCase $ assertSolutionFromFile "./src/Test/programs/facts.hrolog"
+                                                 q (Just . Solution $ M.empty)
+    queries  = [ mkPQuery [Atom (Predicate "a" 0) []]
+               , mkPQuery [Atom (Predicate "b" 1) [VariableTerm "A"]] 
+               , mkPQuery [Atom (Predicate "c" 2) [VariableTerm "X", VariableTerm "Y"]] ]
 
 -- | A simple test with basic facts and rules, testing for the first solution.
 simpleNumberTestOne :: Test
-simpleNumberTestOne = TestLabel "simpleNumberTest" . TestCase $
+simpleNumberTestOne = TestLabel "Simple number test" . TestCase $
   assertSolutionFromFile "./src/Test/programs/simpleNumbers.hrolog"
                           (mkPQuery [ Atom (Predicate "gt" 2) [ VariableTerm "X"
                                                               , VariableTerm "Y" ]
@@ -31,7 +43,7 @@ simpleNumberTestOne = TestLabel "simpleNumberTest" . TestCase $
 
 -- | A simple test with basic facts and rules, testing for all solutions.
 simpleNumberTestAll :: Test
-simpleNumberTestAll = TestLabel "simpleNumberTest" . TestCase $
+simpleNumberTestAll = TestLabel "Simple number test" . TestCase $
   assertSolutionsFromFile "./src/Test/programs/simpleNumbers.hrolog"
                           (mkPQuery [ Atom (Predicate "gt" 2) [ VariableTerm "X"
                                                               , VariableTerm "Y" ]
@@ -68,9 +80,10 @@ assertSolutionsFromFile filePath q expSols
 
 -- | Handle any @Exception@ by simply recording them as @String@s.
 handleErr :: ExceptT String IO () -> ExceptT String IO ()
-handleErr = mapExceptT (handle worker)
+handleErr = mapExceptT (`catches` [Handler rethrowTestFailure, Handler logOtherErrors])
   where
-    worker (e :: SomeException) = pure (Left ("Exception: " ++ show e))
+    rethrowTestFailure (e :: HUnitFailure) = throw e
+    logOtherErrors (e :: SomeException)    = pure (Left ("Exception: " ++ show e))
 
 -- | Use the given @Assertion@ which takes a @Program@. The @Program@ comes from
 -- reading the given file.
