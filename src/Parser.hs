@@ -108,5 +108,5 @@ program = do
 pQuery :: Monad m => ParserT (StateT Program m) PQuery
 pQuery = do
   as <- P.sepBy atom (char ',') <* char '.'
-  vs <- lift $ gets _variables
+  vs <- lift $ use variables
   return $ PQuery vs as

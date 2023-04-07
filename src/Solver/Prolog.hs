@@ -81,13 +81,13 @@ solveIO = solveS onNewStep onFail onBacktractEnd
   where
     untagged    = renamePQuery untag
     onNewStep q = do
-      steps <- gets _pStep
+      steps <- use pStep
       lift $ putStrLn (concat ["Step ", show steps, ":"])
       lift $ case _pqAtoms q of
         [] -> putStrLn "Unification succeeded.\n"
         _  -> putStrLn (concat ["Current query: ", pShow (untagged q), "\n"])
     onFail      = do
-      steps <- gets _pStep
+      steps <- use pStep
       lift $ putStrLn (concat ["Step ", show steps, ":"])
       lift $ putStrLn "Unification failed.\n"
     onBacktractEnd q = lift
@@ -132,8 +132,8 @@ solveS onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
       result <- fmap concat . forM cs' $ \(mH :?<- b) -> case mH of
         Nothing -> pure []
         Just h  -> do
-          step <- gets _pStep
-          isBT <- gets _pIsBT
+          step <- use pStep
+          isBT <- use pIsBT
           when isBT $ do
             void $ onBacktrackEnd (PQuery vars' q)
             modify (pIsBT .~ False)
