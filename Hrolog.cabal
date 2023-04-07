@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               Hrolog
-version:            0.1.0.0
+version:            0.1.0.1
 synopsis:           An implementation of Prolog-style deduction and abduction
 description:        See README
 license:            MIT
