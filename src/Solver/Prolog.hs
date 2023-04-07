@@ -1,4 +1,7 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
@@ -7,6 +10,7 @@ module Solver.Prolog where
 
 import           Control.Lens
 import           Control.Monad
+import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.State
 import           Data.Bifunctor
 import           Data.Map (Map)
@@ -17,6 +21,26 @@ import qualified Data.Set as S
 import           Internal.Program
 import           Utility.PP
 import           Utility.Unifiers
+
+-- | A type class for a "tagged @String@".
+--
+-- It is necessary since during solving, we need to perform alpha-conversion to
+-- avoid variable capture. Therefore we "tag" the variables with a unique number
+-- (namely the step count) to avoid name clashes. In other words, during
+-- solving, we are actually dealing with "tagged @String@"s. Upon reaching the
+-- solution, we need to "untag" them to get the original variables (creating
+-- fresh variables if necessary).
+class Tagged a where
+  untag :: a -> String
+
+instance Tagged String where
+  untag :: String -> String
+  untag = id
+
+instance Tagged (Maybe Int, String) where
+  untag :: (Maybe Int, String) -> String
+  untag (Nothing, s) = s
+  untag (Just i, s)  = concat [show i, "#", s]
 
 type SolvePQuery = PQuery' (Maybe Int, String)
 
@@ -49,22 +73,23 @@ prettyPrintSolution = pShow
 solve :: Program -> PQuery -> [Solution]
 solve p q = runIdentity $ solveS pure (pure ()) pure p q
 
--- -- | Similar to @solve@, but prints out each step.
--- solveIO :: Program -> PQuery -> IO [(Solution, [Map String Term])]
--- solveIO = solveS onNewStep onFail onBacktractEnd
---   where
---     onNewStep q = do
---       steps <- gets _pStep
---       lift $ putStrLn (concat ["Step ", show steps, ":"])
---       case _pqAtoms q of
---         [] -> lift $ putStrLn "Unification succeeded.\n"
---         _  -> lift $ putStrLn (concat ["Current query: ", pShow q, "\n"])
---     onFail      = do
---       steps <- gets _pStep
---       lift $ putStrLn (concat ["Step ", show steps, ":"])
---       lift $ putStrLn "Unification failed.\n"
---     onBacktractEnd q
---       = lift $ putStrLn (concat["Backtracked to the query ", pShow q, "\n"])
+-- | Similar to @solve@, but prints out each step.
+solveIO :: Program -> PQuery -> IO [Solution]
+solveIO = solveS onNewStep onFail onBacktractEnd
+  where
+    untagged    = renamePQuery untag
+    onNewStep q = do
+      steps <- gets _pStep
+      lift $ putStrLn (concat ["Step ", show steps, ":"])
+      lift $ case _pqAtoms q of
+        [] -> putStrLn "Unification succeeded.\n"
+        _  -> putStrLn (concat ["Current query: ", pShow (untagged q), "\n"])
+    onFail      = do
+      steps <- gets _pStep
+      lift $ putStrLn (concat ["Step ", show steps, ":"])
+      lift $ putStrLn "Unification failed.\n"
+    onBacktractEnd q = lift
+      $ putStrLn (concat["Backtracked to the query ", pShow (untagged q), "\n"])
 
 -- | The main function of the Prolog solver.
 solveS :: Monad m => (SolvePQuery -> StateT PState m a) -> StateT PState m b
