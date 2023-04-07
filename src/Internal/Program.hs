@@ -15,7 +15,7 @@
 -- the head of a clause is optional (which corresponds to constraints in ASP),
 -- and the ":-" symbol is replaced by "<-".
 --
--- See "test/programs/" for examples of Hrolog programs.
+-- See "src/Test/programs/" for examples of Hrolog programs.
 --
 -- See "Program" for the exposed API.
 module Internal.Program where
