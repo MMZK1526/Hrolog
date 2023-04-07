@@ -42,6 +42,8 @@ instance Tagged (Maybe Int, String) where
   untag (Nothing, s) = s
   untag (Just i, s)  = concat [show i, "#", s]
 
+-- | The type of query used during solving. It tagged each variable with an
+-- optional integer, so that each renaming is unique.
 type SolvePQuery = PQuery' (Maybe Int, String)
 
 -- | The state used by the Prolog solver.
