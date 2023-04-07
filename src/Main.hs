@@ -38,6 +38,17 @@ emptyCLIState = CLIState Nothing Nothing Nothing
 -- | The CLI loop. It takes an input, parses it, and executes the corresponding,
 -- forever.
 feedbackloop :: StateT CLIState (ExceptT String IO) ()
+-- The "forever" indicates that the loop will never terminate unless there is
+-- an uncaught exception.
+-- "handleStateErr" is a utility function that catches all "IOError"s by
+-- printing them out. In other words, if an "IOError" is thrown, the program
+-- will ignore the current progress, print out the error, and continue to the
+-- next loop. 
+-- On the other hand, it does not catch other errors (such as user-induced
+-- termination). In this case, the function transforms this error into a pure
+-- "String" exception wrapped in an "ExceptT", and the program will break from
+-- "forever" and terminate with a message corresponding to the content of the
+-- "String".
 feedbackloop = forever $ handleStateErr $ do
   mProg <- use cliProgram -- Get the program from the state.
   input <- liftIO getLine -- Get the input from the user.
