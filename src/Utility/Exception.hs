@@ -54,7 +54,7 @@ handleErr a = mapExceptT (`catch` handler)
   where
     handler (e :: SomeException)
       | isFatal (Proxy :: Proxy e) e = pure (Left (fromError e))
-      | otherwise                    = Right a <$ handleAction (fromError e :: e)
+      | otherwise                    = pure a <$ handleAction (fromError e :: e)
 
 -- | Handle any @IOException@ by simply recording them as @String@s, and rethrow
 -- other exceptions as a pure @ExceptT@, in a @StateT@ context.

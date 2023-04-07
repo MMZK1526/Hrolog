@@ -77,7 +77,8 @@ term = P.choice [ ConstantTerm <$> constant
 atom :: Functor f => Monad m => ParserT (StateT (f Program) m) Atom
 atom = do
   name <- identifier
-  ts   <- P.option [] (P.between (char '(') (char ')') (P.sepBy term (char ',')))
+  ts   <- P.option []
+    (P.between (char '(') (char ')') (P.sepBy term (char ',')))
   let pd = Predicate name (length ts)
   lift $ modify (fmap (predicates %~ S.insert pd))
   return $ Atom pd ts

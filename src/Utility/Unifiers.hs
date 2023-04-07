@@ -86,7 +86,7 @@ unifyAtom (Atom p ts) (Atom p' ts')
                 else do
                   un' <- mergeUN (nMap IM.! n') (nMap IM.! n'')
                   return us { usNodeMap = IM.insert n' un'
-                                         $ IM.insert n'' un' nMap }
+                                        $ IM.insert n'' un' nMap }
               (Nothing, Nothing)  -> do
                 return us { usNode    = n + 1
                           , usVarMap  = M.insert var n $ M.insert v n vMap

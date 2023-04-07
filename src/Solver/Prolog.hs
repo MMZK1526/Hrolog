@@ -111,9 +111,9 @@ solveS onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
       where
         -- TODO: If there are still "renamed" variables, create a fresh variable
         -- and substitute it in.
-        optimisedSubs         = filter (\(v, term) -> VariableTerm v /= term)
-                              $ bimap snd (renameTerm snd . substituteTerm validReps) <$> subs
-        validReps             = foldr reducer M.empty subs
+        optimisedSubs = filter (\(v, term) -> VariableTerm v /= term) $
+          bimap snd (renameTerm snd . substituteTerm validReps) <$> subs
+        validReps     = foldr reducer M.empty subs
 
         reducer (iv@(Nothing, _), term) cur = case term of
           VariableTerm iv'@(Just _, _) -> M.insert iv' (VariableTerm iv) cur
@@ -134,7 +134,7 @@ solveS onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
           when isBT $ do
             void $ onBacktrackEnd (PQuery vars' q)
             pIsBT .= False
-          let rename = renameAtom (first (const $ Just step)) -- TODO
+          let rename = renameAtom (first (const $ Just step))
           case unifyAtom t (rename h) of
             Nothing   -> pure []
             Just sub' -> do

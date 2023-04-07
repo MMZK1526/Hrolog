@@ -38,6 +38,15 @@ data CLIState = CLIState { _cliSfilePath :: Maybe FilePath
 
 makeLenses ''CLIState
 
+main :: IO ()
+main = do
+  result <- runExceptT . void $ do
+    liftIO $ putStrLn "Welcome to Hrolog!"
+    runStateT feedbackloop emptyCLIState
+  case result of
+    Left err -> handleAction err
+    Right _  -> pure ()
+
 -- | The initial @CLIState@.
 emptyCLIState :: CLIState
 emptyCLIState = CLIState Nothing Nothing Nothing Nothing
@@ -82,15 +91,6 @@ feedbackloop = forever . handleStateErr $ do
     Right (Just (InputTypePQuery q))    -> handlePQuery q
     Right (Just InputTypeQuit)          -> handleQuit
 
-main :: IO ()
-main = do
-  result <- runExceptT . void $ do
-    liftIO $ putStrLn "Welcome to Hrolog!"
-    runStateT feedbackloop emptyCLIState
-  case result of
-    Left err -> handleAction err
-    Right _  -> pure ()
-
 
 --------------------------------------------------------------------------------
 -- Input Parsers & Helpers
@@ -132,7 +132,7 @@ getLine' :: IO String
 getLine' = do
   input <- getLine
   case parse space (pure ()) input of 
-    Left _ -> pure input
+    Left _  -> pure input
     Right _ -> getLine'
 
 
