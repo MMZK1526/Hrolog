@@ -115,8 +115,16 @@ program = do
   return $ fmap (clauses .~ cs) p
 
 -- | Parse a Hrolog query.
+--
+-- The @Program@'s variables are cleared before parsing the query so that it
+-- represents the variables in the query by the end.
+--
+-- TODO: Use the @Program@'s predicates to check that the query is valid.
 pQuery :: Functor f => Monad m => ParserT (StateT (f Program) m) (f PQuery)
 pQuery = do
+  lift $ modify' (fmap (variables .~ S.empty)) -- Clear variables in the program
   as <- P.sepBy atom (char ',') <* char '.'
+  -- The variables are the ones in the query since we cleared the variables in
+  -- the program.
   vs <- lift $ fmap (view variables) <$> get
   return $ (`PQuery` as) <$> vs

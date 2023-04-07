@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Main where
 
@@ -22,17 +23,19 @@ testQuery = "gt(X, Y), gt(Y, Z)."
 data InputType = InputTypeFilePath FilePath
                | InputTypePQuery PQuery
                | InputTypeReload
+               | InputTypeEmpty
 
 -- | The state of the CLI.
 data CLIState = CLIState { _cliSfilePath :: Maybe FilePath
                          , _cliProgram   :: Maybe Program
-                         , _cliPQuery    :: Maybe PQuery }
+                         , _cliPQuery    :: Maybe PQuery
+                         , _cliInput     :: Maybe String }
 
 makeLenses ''CLIState
 
 -- | The initial @CLIState@.
 emptyCLIState :: CLIState
-emptyCLIState = CLIState Nothing Nothing Nothing
+emptyCLIState = CLIState Nothing Nothing Nothing Nothing
 
 -- | The CLI loop. It takes an input, parses it, and executes the corresponding,
 -- forever.
@@ -50,12 +53,19 @@ feedbackloop :: StateT CLIState (ExceptT String IO) ()
 -- "String".
 feedbackloop = forever . handleStateErr $ do
   mProg <- use cliProgram -- Get the program from the state.
-  input <- liftIO getLine -- Get the input from the user.
+  -- Get the user input.
+  input <- do
+    mInput <- use cliInput
+    case mInput of
+      -- If the input is already stored in the state, we use it.
+      Just input -> input <$ (cliInput .= Nothing)
+      -- Otherwise, we prompt the user for input.
+      Nothing    -> liftIO getLine
   -- Parse the input.
   case evalState (parseT inputP input) mProg of
     -- If the input is invalid, print an error message.
     Left err                            -> liftIO $ do
-      putStrLn "Error parsing the input!"
+      putStrLn "Error parsing the query!"
       putStrLn err
     -- A @Nothing@ means that the input is a query, but the program is not
     -- loaded. In this case, we print an error message.
@@ -65,7 +75,8 @@ feedbackloop = forever . handleStateErr $ do
     -- in the state.
     Right (Just (InputTypeFilePath fp)) -> handleNewProgram fp
     Right (Just InputTypeReload)        -> handleReload
-    Right (Just (InputTypePQuery q))    -> liftIO $ putStrLn "TODO"
+    Right (Just (InputTypePQuery q))    -> handlePQuery q
+    Right (Just InputTypeEmpty)         -> pure ()
 
 runProlog :: StateT FilePath IO ()
 runProlog = do
@@ -112,7 +123,8 @@ main = do
 inputP :: Monad m => ParserT (StateT (Maybe Program) m) (Maybe InputType)
 inputP = P.choice [ Just . InputTypeFilePath <$> inputFilePath
                   , Just InputTypeReload <$ inputReload
-                  , fmap InputTypePQuery <$> inputPQuery ]
+                  , fmap InputTypePQuery <$> inputPQuery
+                  , Just InputTypeEmpty <$ inputEmpty ]
 
 inputFilePath :: Monad m => ParserT m FilePath
 inputFilePath = string ":l" >> P.many P.anySingle
@@ -122,6 +134,9 @@ inputPQuery = P.optional (string "<-") >> pQuery
 
 inputReload :: Monad m => ParserT m ()
 inputReload = void $ string ":r"
+
+inputEmpty :: Monad m => ParserT m ()
+inputEmpty = pure ()
 
 
 --------------------------------------------------------------------------------
@@ -151,3 +166,23 @@ handleReload = do
     Nothing -> liftIO $ putStrLn "No program loaded."
     -- If the file path is stored, reload the program from the file.
     Just fp -> handleNewProgram fp
+
+handlePQuery :: MonadIO m => PQuery -> StateT CLIState m ()
+handlePQuery q = do
+  mProg <- use cliProgram -- Get the program from the state.
+  case mProg of
+    -- If the program is not stored, let the user know.
+    Nothing -> liftIO $ putStrLn "No program loaded."
+    -- If the program is stored, solve the query.
+    Just prog -> do
+      let handleSolutions []           = liftIO $ putStrLn "No more solutions."
+          handleSolutions (sol : sols) = do
+            liftIO $ putStrLn (concat ["\nSolution:\n", prettifySolution sol, "\n"])
+            liftIO $ putStrLn "Enter ';' to look for the next solution;"
+            input <- liftIO getLine
+            case parse (string ";") input of
+              Right _ -> handleSolutions sols
+              Left _  -> cliInput .= Just input
+      case solve prog q of
+        []   -> liftIO $ putStrLn "No solution."
+        sols -> handleSolutions sols
