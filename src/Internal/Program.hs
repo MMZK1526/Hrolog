@@ -180,6 +180,9 @@ emptyProgram = Program S.empty S.empty S.empty []
 
 -- | Turn a list of @Clause@s into a @Program@ by calculating the set of
 -- predicates, constants, and variables.
+--
+-- This function is internal and is only used for testing. The user should
+-- create a @Program@ by using @parseProgram@ in module Parser.
 mkProgram :: [Clause] -> Program
 mkProgram cs
   = execState (forM_ cs workClause) (Program S.empty S.empty S.empty cs)
@@ -194,6 +197,9 @@ mkProgram cs
     workTerm (VariableTerm v)      = modify (variables %~ S.insert v)
 
 -- | Turn a list of @Atom@s into a @PQuery@ by calculating the set of variables.
+--
+-- This function is internal and is only used for testing. The user should
+-- create a @PQuery@ by using @parsePQuery@ in module Parser.
 mkPQuery :: [Atom] -> PQuery
 mkPQuery as
   = execState (forM_ as worker) (PQuery S.empty as)
