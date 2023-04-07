@@ -100,10 +100,10 @@ assertFromFile filePath testFun = do
 -- @Solution@.
 assertSolution :: Program -> PQuery -> Maybe Solution -> Assertion
 assertSolution p q expSol
-  = assertEqual "solution" expSol (listToMaybe (fst <$> solve p q))
+  = assertEqual "solution" expSol (listToMaybe (solve p q))
 
 -- | Assert that the given @Program@ and @PQuery@ produce the expected
 -- @Solution@s.
 assertSolutions :: Program -> PQuery -> [Solution] -> Assertion
 assertSolutions p q expSols
-  = assertEqual "solutions" (sort expSols) (sort (fst <$> solve p q))
+  = assertEqual "solutions" (sort expSols) (sort (solve p q))

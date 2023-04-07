@@ -29,8 +29,8 @@ runProlog = do
                 let solutions = solve prog query
                 -- solutions <- lift $ solveIO prog query
                 case solutions of
-                  []              -> lift $ putStrLn "No fresh solution.\n"
-                  ((subs, _) : _) -> do
+                  []         -> lift $ putStrLn "No fresh solution.\n"
+                  (subs : _) -> do
                     let solStr = prettyPrintSolution subs
                     solStr `seq` lift $ putStrLn ("\nSolution:\n" ++ solStr)
       queryFeedback

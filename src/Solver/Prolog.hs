@@ -46,7 +46,7 @@ prettyPrintSolution = pShow
 -- | Given the @Program@ and the Prolog query, return a list of variable
 -- substitutions and all intermediate substitutions, each representing a
 -- solution.
-solve :: Program -> PQuery -> [(Solution, [Map (Maybe Int, String) (Term' (Maybe Int, String))])]
+solve :: Program -> PQuery -> [Solution]
 solve p q = runIdentity $ solveS pure (pure ()) pure p q
 
 -- -- | Similar to @solve@, but prints out each step.
@@ -69,9 +69,9 @@ solve p q = runIdentity $ solveS pure (pure ()) pure p q
 -- | The main function of the Prolog solver.
 solveS :: Monad m => (SolvePQuery -> StateT PState m a) -> StateT PState m b
        -> (SolvePQuery -> StateT PState m a) -> Program -> PQuery
-       -> m [(Solution, [Map (Maybe Int, String) (Term' (Maybe Int, String))])]
+       -> m [Solution]
 solveS onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
-  = fmap (map (\subs -> (optimiseSub $ findVarSub subs, subs)))
+  = fmap (map (optimiseSub . findVarSub))
          (evalStateT (worker M.empty query') newPState)
   where
     cs'                 = renameClause (Nothing ,) <$> cs
