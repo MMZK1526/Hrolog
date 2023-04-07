@@ -2,6 +2,7 @@
 module Utility.Unifiers where
 
 import           Control.Applicative
+import           Control.Lens hiding (un)
 import           Control.Monad
 import           Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
@@ -15,42 +16,42 @@ import qualified Data.Set as S
 
 import           Internal.Program
 
-data UnifyNode = UnifyNode { unValue :: Maybe Constant
-                           , unVars  :: Set String }
+data UnifyNode a = UnifyNode { unValue :: Maybe Constant
+                             , unVars  :: Set a }
 
-data UnifyState = UnifyState { usNode    :: Int
-                             , usVarMap  :: Map String Int
-                             , usNodeMap :: IntMap UnifyNode }
+data UnifyState a = UnifyState { usNode    :: Int
+                               , usVarMap  :: Map a Int
+                               , usNodeMap :: IntMap (UnifyNode a) }
 
-mkCUN :: Constant -> String -> UnifyNode
+mkCUN :: Constant -> a -> UnifyNode a
 mkCUN c var = UnifyNode (Just c) (S.singleton var)
 {-# INLINE mkCUN #-}
 
-mkUN :: [String] -> UnifyNode
+mkUN :: Ord a => [a] -> UnifyNode a
 mkUN = UnifyNode Nothing . S.fromList
 {-# INLINE mkUN #-}
 
-mergeUN :: UnifyNode -> UnifyNode -> Maybe UnifyNode
+mergeUN :: Ord a => UnifyNode a -> UnifyNode a -> Maybe (UnifyNode a)
 mergeUN un un' = do
   guard (fromMaybe True $ liftM2 (==) (unValue un) (unValue un'))
   return $ UnifyNode (unValue un <|> unValue un')
                      (S.union (unVars un) (unVars un'))
 {-# INLINE mergeUN #-}
 
-addUN :: String -> UnifyNode -> UnifyNode
+addUN :: Ord a => a -> UnifyNode a -> UnifyNode a
 addUN var un = un { unVars = S.insert var (unVars un) }
 {-# INLINE addUN #-}
 
-emptyUS :: UnifyState
+emptyUS :: UnifyState a
 emptyUS = UnifyState 0 M.empty IM.empty
 {-# INLINE emptyUS #-}
 
-unifyTerm :: Term -> Term -> Maybe (Maybe (String, Term))
+unifyTerm :: Eq a => Term' a -> Term' a -> Maybe (Maybe (a, Term' a))
 unifyTerm (VariableTerm x) t'                = Just $ Just (x, t')
 unifyTerm t t'@(VariableTerm _)              = unifyTerm t' t
 unifyTerm (ConstantTerm c) (ConstantTerm c') = Nothing <$ guard (c == c')
 
-unifyAtom :: Atom -> Atom -> Maybe (Map String Term)
+unifyAtom :: Ord a => Atom' a -> Atom' a -> Maybe (Map a (Term' a))
 unifyAtom (Atom p ts) (Atom p' ts')
   | p /= p'   = Nothing
   | otherwise = case foldM worker emptyUS (zip ts ts') of
@@ -97,20 +98,33 @@ unifyAtom (Atom p ts) (Atom p' ts')
                 return us { usVarMap  = M.insert var n'' vMap
                           , usNodeMap = IM.adjust (addUN var) n'' nMap }
 
-substituteTerm :: Map String Term -> Term -> Term
+substituteTerm :: Ord a => Map a (Term' a) -> Term' a -> Term' a
 substituteTerm m t@(VariableTerm x) = fromMaybe t (M.lookup x m)
 substituteTerm _ t                  = t
 {-# INLINE substituteTerm #-}
 
-substituteAtom :: Map String Term -> Atom -> Atom
+substituteAtom :: Ord a => Map a (Term' a) -> Atom' a -> Atom' a
 substituteAtom m (Atom p ts) = Atom p (map (substituteTerm m) ts)
 {-# INLINE substituteAtom #-}
 
-renameTerm :: String -> Term -> Term
-renameTerm pre (VariableTerm x) = VariableTerm $ pre ++ x
-renameTerm _ t                  = t
+renameTerm :: (a -> b) -> Term' a -> Term' b
+renameTerm f (VariableTerm x) = VariableTerm $ f x
+renameTerm _ (ConstantTerm c) = ConstantTerm c
 {-# INLINE renameTerm #-}
 
-renameAtom :: String -> Atom -> Atom
-renameAtom pre (Atom p ts) = Atom p (map (renameTerm pre) ts)
+renameAtom :: (a -> b) -> Atom' a -> Atom' b
+renameAtom f (Atom p ts) = Atom p (map (renameTerm f) ts)
 {-# INLINE renameAtom #-}
+
+renameClause :: (a -> b) -> Clause' a -> Clause' b
+renameClause f (Clause h b) = Clause (renameAtom f <$> h) (map (renameAtom f) b)
+{-# INLINE renameClause #-}
+
+renameProgram :: (a -> b) -> Program' a -> Program' b
+renameProgram f p = p & clauses %~ map (renameClause f)
+{-# INLINE renameProgram #-}
+
+renamePQuery :: Ord b => (a -> b) -> PQuery' a -> PQuery' b
+renamePQuery f q = q { _pqVariables  = S.map f (_pqVariables q)
+                     , _pqAtoms      = map (renameAtom f) (_pqAtoms q) }
+{-# INLINE renamePQuery #-}

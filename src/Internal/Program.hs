@@ -40,60 +40,69 @@ newtype Constant = Constant { _constantName :: String }
   deriving (Eq, Ord, Show)
 
 -- | A Hrolog term, either a constant or a variable.
-data Term = ConstantTerm Constant
-          | VariableTerm String
+--
+-- In a real program, the type variable "a" should always be a @String@, but it
+-- can carry additional metadata during the solving process.
+data Term' a = ConstantTerm Constant
+             | VariableTerm a
   deriving (Eq, Ord, Show)
+type Term = Term' String
 
 -- | A Hrolog atom, consisting of a predicate and a list of terms as arguments.
-data Atom = Atom Predicate [Term]
+data Atom' a = Atom Predicate [Term' a]
   deriving (Eq, Ord, Show)
+type Atom = Atom' String
 
 -- | A Hrolog clause, consisting of an optional head and a list of bodies.
 --
 -- It represents @[H] <- B1, B2, ..., Bn@.
-data Clause = Clause { _clauseHead :: Maybe Atom, _clauseBody :: [Atom] }
+data Clause' a = Clause { _clauseHead :: Maybe (Atom' a)
+                        , _clauseBody :: [Atom' a] }
   deriving (Eq, Ord, Show)
+type Clause = Clause' String
 
 -- | The pattern for the empty clause []. It is used to represent failure.
 pattern EmptyClause :: Clause
 pattern EmptyClause = Clause Nothing []
 
 -- | The pattern for a clause with a head and a list of bodies.
-pattern (:<-) :: Atom -> [Atom] -> Clause
+pattern (:<-) :: Atom' a -> [Atom' a] -> Clause' a
 pattern h :<- b <- Clause (Just h) b
 
 -- | The pattern for a clause with an optional head and a list of bodies.
-pattern (:?<-) :: Maybe Atom -> [Atom] -> Clause
+pattern (:?<-) :: Maybe (Atom' a) -> [Atom' a] -> Clause' a
 pattern mH :?<- b <- Clause mH b
 
 -- | The pattern for a constraint with no head.
-pattern Constraint :: [Atom] -> Clause
+pattern Constraint :: [Atom' a] -> Clause' a
 pattern Constraint b <- Clause Nothing b
 
 -- | The pattern for a fact with no body.
-pattern Fact :: Atom -> Clause
+pattern Fact :: Atom' a -> Clause' a
 pattern Fact h <- Clause (Just h) []
 
 -- | The data type for a Hrolog program, consisting of a series of clauses.
 -- It also contains the set of predicates, constants, and variables used in the
 -- program.
-data Program = Program { _predicates :: Set Predicate
-                       , _constants  :: Set Constant
-                       , _variables  :: Set String
-                       , _clauses    :: [Clause] }
+data Program' a = Program { _predicates :: Set Predicate
+                          , _constants  :: Set Constant
+                          , _variables  :: Set String
+                          , _clauses    :: [Clause' a] }
   deriving (Eq, Ord, Show)
+type Program = Program' String
 
-makeLenses ''Program
+makeLenses ''Program'
 
 -- | The data type for a Hrolog query, consisting the list of query atoms.
 -- It also contains the set of variables used in the query.
 --
 -- It represents the query @<- Q1, Q2, ..., Qn@.
-data PQuery = PQuery { _pqVariables :: Set String
-                     , _pqAtoms     :: [Atom] }
+data PQuery' a = PQuery { _pqVariables :: Set a
+                        , _pqAtoms     :: [Atom' a] }
   deriving (Eq, Ord, Show)
+type PQuery = PQuery' String
 
-makeLenses ''PQuery
+makeLenses ''PQuery'
 
 -- | The data type for a single Hrolog solution, consisting of a substitution
 -- map from variables to terms.
