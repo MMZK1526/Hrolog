@@ -21,7 +21,7 @@ import           Internal.Program
 import           Utility.PP
 import           Utility.Unifiers
 
--- | A type class for a "tagged @String@".
+-- | Transform a "tagged variable" into its @String@ representation.
 --
 -- It is necessary since during solving, we need to perform alpha-conversion to
 -- avoid variable capture. Therefore we "tag" the variables with a unique number
@@ -29,17 +29,9 @@ import           Utility.Unifiers
 -- solving, we are actually dealing with "tagged @String@"s. Upon reaching the
 -- solution, we need to "untag" them to get the original variables (creating
 -- fresh variables if necessary).
-class Tagged a where
-  untag :: a -> String
-
-instance Tagged String where
-  untag :: String -> String
-  untag = id
-
-instance Tagged (Maybe Int, String) where
-  untag :: (Maybe Int, String) -> String
-  untag (Nothing, s) = s
-  untag (Just i, s)  = concat [show i, "#", s]
+untag :: (Maybe Int, String) -> String
+untag (Nothing, s) = s
+untag (Just i, s)  = concat [show i, "#", s]
 
 -- | The type of query used during solving. It tagged each variable with an
 -- optional integer, so that each renaming is unique.
