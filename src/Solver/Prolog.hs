@@ -6,7 +6,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
-module Solver.Prolog where
+module Solver.Prolog (prettyPrintSolution, solve, solveIO, solveS) where
 
 import           Control.Lens
 import           Control.Monad
