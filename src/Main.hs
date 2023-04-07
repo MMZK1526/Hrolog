@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Main where
 
@@ -30,6 +30,7 @@ data InputType = InputTypeFilePath FilePath
                | InputTypePQuery PQuery
                | InputTypeReload
                | InputTypeEmpty
+               | InputTypeQuit
 
 -- | The state of the CLI.
 data CLIState = CLIState { _cliSfilePath :: Maybe FilePath
@@ -48,8 +49,8 @@ emptyCLIState = CLIState Nothing Nothing Nothing Nothing
 feedbackloop :: StateT CLIState (ExceptT CLIError IO) ()
 -- The "forever" indicates that the loop will never terminate unless there is
 -- an uncaught exception.
--- "handleStateErr" is a utility function that catches all "IOError"s by
--- printing them out. In other words, if an "IOError" is thrown, the program
+-- "handleStateErr" is a utility function that catches all "IOException"s by
+-- printing them out. In other words, if an "IOException" is thrown, the program
 -- will ignore the current progress, print out the error, and continue to the
 -- next loop. 
 -- On the other hand, it does not catch other errors (such as user-induced
@@ -71,7 +72,7 @@ feedbackloop = forever . handleStateErr $ do
   case evalState (parseT inputP input) mProg of
     -- If the input is invalid, print an error message.
     Left err                            -> liftIO $ do
-      putStrLn "Error parsing the query!"
+      putStrLn "Error parsing the input:"
       putStrLn err
     -- A @Nothing@ means that the input is a query, but the program is not
     -- loaded. In this case, we print an error message.
@@ -82,6 +83,7 @@ feedbackloop = forever . handleStateErr $ do
     Right (Just InputTypeReload)        -> handleReload
     Right (Just (InputTypePQuery q))    -> handlePQuery q
     Right (Just InputTypeEmpty)         -> handleEmpty
+    Right (Just InputTypeQuit)          -> handleQuit
 
 runProlog :: StateT FilePath IO ()
 runProlog = do
@@ -128,20 +130,29 @@ main = do
 inputP :: Monad m => ParserT (StateT (Maybe Program) m) (Maybe InputType)
 inputP = P.choice [ Just . InputTypeFilePath <$> inputFilePath
                   , Just InputTypeReload <$ inputReload
+                  , Just InputTypeQuit <$ inputQuit
                   , fmap InputTypePQuery <$> inputPQuery
                   , Just InputTypeEmpty <$ inputEmpty ]
 
 inputFilePath :: Monad m => ParserT m FilePath
 inputFilePath = string ":l" >> P.many P.anySingle
+{-# INLINE inputFilePath #-}
 
 inputPQuery :: Functor f => Monad m => ParserT (StateT (f Program) m) (f PQuery)
 inputPQuery = P.optional (string "<-") >> pQuery
+{-# INLINE inputPQuery #-}
 
 inputReload :: Monad m => ParserT m ()
 inputReload = void $ string ":r"
+{-# INLINE inputReload #-}
 
 inputEmpty :: Monad m => ParserT m ()
 inputEmpty = pure ()
+{-# INLINE inputEmpty #-}
+
+inputQuit :: Monad m => ParserT m ()
+inputQuit = void $ string ":q"
+{-# INLINE inputQuit #-}
 
 
 --------------------------------------------------------------------------------
@@ -150,18 +161,25 @@ inputEmpty = pure ()
 
 -- | A custum error type. It treats @IOError@s as non-fatal errors, printing
 -- them out differently based on whether it is a @DoesNotExistError@ or not.
+--
 -- For any other types of errors, it treats them as fatal errors.
+--
+-- Note that despite @UserInter@ is a fatal error, it is usually treated
+-- differently from other fatal errors.
 data CLIError = DNEError (Maybe FilePath)
-              | IOError String
+              | IOException String
+              | UserInter
               | FatalError String
 
 instance FromError CLIError where
   fromError :: SomeException -> CLIError
-  fromError e = case fromException e :: Maybe IOError of
+  fromError e = case fromException e :: Maybe IOException of
     Just ioe -> if isDoesNotExistError ioe
       then DNEError (ioeGetFileName ioe)
-      else IOError (show ioe)
-    Nothing  -> FatalError (show e)
+      else IOException (show ioe)
+    Nothing  -> if Just UserInterrupt == (fromException e :: Maybe AsyncException)
+      then UserInter
+      else FatalError (show e)
 
   isFatal :: Proxy CLIError -> SomeException -> Bool
   isFatal _ e = case (fromException e :: Maybe IOError) of
@@ -169,15 +187,16 @@ instance FromError CLIError where
     Nothing -> True
   
   handleAction :: CLIError -> IO ()
-  handleAction (DNEError mfp) = do
+  handleAction (DNEError mfp)  = do
     curDir <- liftIO getCurrentDirectory
     let fileDNEErrMsg = case mfp of
           Just fp -> concat ["File ", show fp, " does not exist."]
           _       -> "File does not exist."
     let curDirMsg     = concat ["Current directory is ", show curDir, "."]
     putStrLn $ unlines [fileDNEErrMsg, curDirMsg]
-  handleAction (IOError e)    = putStrLn ("IO Error:\n" ++ e)
-  handleAction (FatalError e) = putStrLn ("Fatal Error:\n" ++ e)
+  handleAction (IOException e) = putStrLn ("IO Error:\n" ++ e)
+  handleAction UserInter       = putStrLn "Quit by user."
+  handleAction (FatalError e)  = putStrLn ("Fatal Error:\n" ++ e)
 
 handleNewProgram :: MonadIO m => FilePath -> StateT CLIState m ()
 handleNewProgram fp = do
@@ -225,3 +244,8 @@ handlePQuery q = do
 
 handleEmpty :: MonadIO m => StateT CLIState m ()
 handleEmpty = pure ()
+{-# INLINE handleEmpty #-}
+
+handleQuit :: MonadIO m => StateT CLIState m ()
+handleQuit = throw UserInterrupt
+{-# INLINE handleQuit #-}

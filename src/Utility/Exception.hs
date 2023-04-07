@@ -1,6 +1,6 @@
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE InstanceSigs #-}
 
 module Utility.Exception where
 
@@ -12,10 +12,13 @@ import           Data.Proxy
 -- | A type class that can be converted from an Exception.
 class FromError a where
   -- | Convert an exception to the given type.
-  fromError    :: SomeException -> a
+  fromError :: SomeException -> a
 
   -- | Check if the given exception is fatal.
-  isFatal      :: Proxy a -> SomeException -> Bool
+  --
+  -- By default, all exceptions are fatal.
+  isFatal :: Proxy a -> SomeException -> Bool
+  isFatal = const (const True)
 
   -- | Handle the given error.
   handleAction :: a -> IO ()
@@ -41,7 +44,7 @@ instance FromError StringErr where
   handleAction :: StringErr -> IO ()
   handleAction (StringErr s) = putStrLn s
 
--- | Handle any @IOError@ by simply recording them as @String@s, and rethrow
+-- | Handle any @IOException@ by simply recording them as @String@s, and rethrow
 -- other exceptions as a pure @ExceptT@, in a @StateT@ context.
 --
 -- If an error is caught, the state will not be updated.
