@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Main where
@@ -49,7 +48,7 @@ feedbackloop :: StateT CLIState (ExceptT String IO) ()
 -- "String" exception wrapped in an "ExceptT", and the program will break from
 -- "forever" and terminate with a message corresponding to the content of the
 -- "String".
-feedbackloop = forever $ handleStateErr $ do
+feedbackloop = forever . handleStateErr $ do
   mProg <- use cliProgram -- Get the program from the state.
   input <- liftIO getLine -- Get the input from the user.
   -- Parse the input.
@@ -64,12 +63,9 @@ feedbackloop = forever $ handleStateErr $ do
       liftIO $ putStrLn "Cannot take query without a program loaded."
     -- If the input is a file path, we load the program, parse it, and store it
     -- in the state.
-    Right (Just (InputTypeFilePath fp)) -> do
-      handleNewProgram fp
-    Right (Just InputTypeReload)        -> do
-      undefined
-    Right (Just (InputTypePQuery q))    -> do
-        undefined
+    Right (Just (InputTypeFilePath fp)) -> handleNewProgram fp
+    Right (Just InputTypeReload)        -> handleReload
+    Right (Just (InputTypePQuery q))    -> liftIO $ putStrLn "TODO"
 
 runProlog :: StateT FilePath IO ()
 runProlog = do
@@ -146,3 +142,12 @@ handleNewProgram fp = do
       cliProgram .= Just prog
       liftIO $ putStrLn (concat ["Program ", show fp, " loaded:"])
       liftIO $ putStrLn $ prettifyProgram prog
+
+handleReload :: MonadIO m => StateT CLIState m ()
+handleReload = do
+  mfp <- use cliSfilePath -- Get the file path from the state.
+  case mfp of
+    -- If the file path is not stored, let the user know.
+    Nothing -> liftIO $ putStrLn "No program loaded."
+    -- If the file path is stored, reload the program from the file.
+    Just fp -> handleNewProgram fp

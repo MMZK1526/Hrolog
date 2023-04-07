@@ -9,7 +9,10 @@ author:             mmzk1526
 maintainer:         yc4120@ic.ac.uk
 build-type:         Simple
 extra-doc-files:    CHANGELOG.md, README.md
-extra-source-files: src/Test/programs/simpleNumbers.hrolog
+extra-source-files:
+    src/Test/programs/facts.hrolog
+    src/Test/programs/firstBranchTerminates.hrolog
+    src/Test/programs/simpleNumbers.hrolog
 
 
 common warnings
