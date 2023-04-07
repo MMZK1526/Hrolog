@@ -28,7 +28,7 @@ canPickUpFacts = TestLabel "Can pick up facts" $ TestList (worker <$> queries)
     worker q = TestCase $ assertSolutionFromFile "./src/Test/programs/facts.hrolog"
                                                  q (Just . Solution $ M.empty)
     queries  = [ mkPQuery [Atom (Predicate "a" 0) []]
-               , mkPQuery [Atom (Predicate "b" 1) [VariableTerm "A"]] 
+               , mkPQuery [Atom (Predicate "b" 1) [VariableTerm "A"]]
                , mkPQuery [Atom (Predicate "c" 2) [VariableTerm "X", VariableTerm "Y"]] ]
 
 -- | Does not derive false facts.

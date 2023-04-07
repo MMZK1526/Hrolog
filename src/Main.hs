@@ -52,7 +52,7 @@ feedbackloop :: StateT CLIState (ExceptT CLIError IO) ()
 -- "handleStateErr" is a utility function that catches all "IOException"s by
 -- printing them out. In other words, if an "IOException" is thrown, the program
 -- will ignore the current progress, print out the error, and continue to the
--- next loop. 
+-- next loop.
 -- On the other hand, it does not catch other errors (such as user-induced
 -- termination). In this case, the function transforms this error into a pure
 -- "String" exception wrapped in an "ExceptT", and the program will break from
@@ -185,7 +185,7 @@ instance FromError CLIError where
   isFatal _ e = case (fromException e :: Maybe IOError) of
     Just _  -> False
     Nothing -> True
-  
+
   handleAction :: CLIError -> IO ()
   handleAction (DNEError mfp)  = do
     curDir <- liftIO getCurrentDirectory

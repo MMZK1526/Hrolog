@@ -54,7 +54,7 @@ unifyAtom (Atom p ts) (Atom p' ts')
   | p /= p'   = Nothing
   | otherwise = case foldM worker emptyUS (zip ts ts') of
     Nothing -> Nothing
-    Just us -> Just $ foldl' (reducer us) M.empty (M.assocs $ usVarMap us) 
+    Just us -> Just $ foldl' (reducer us) M.empty (M.assocs $ usVarMap us)
   where
     reducer us sub (var, vid) = case usNodeMap us IM.!? vid of
       Nothing -> sub
