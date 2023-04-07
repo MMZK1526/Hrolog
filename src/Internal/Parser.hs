@@ -1,4 +1,4 @@
--- | Parsers for Hrolog programs and queries.
+-- | Internal parsers for Hrolog programs and queries.
 module Internal.Parser (module Internal.Parser, module Utility.Parser) where
 
 import           Control.Arrow
@@ -26,7 +26,7 @@ parsePQuery str = right runIdentity
                 $ evalState (parseT space pQuery str) (Identity emptyProgram)
 {-# INLINE parsePQuery #-}
 
--- | Parse spaces.
+-- | Parse spaces, ignoring comments.
 space :: Monad m => ParserT m ()
 space = L.space P.space1 (L.skipLineComment "#") P.empty
 

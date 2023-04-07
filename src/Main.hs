@@ -93,7 +93,7 @@ main = do
 
 
 --------------------------------------------------------------------------------
--- Input Parsers
+-- Input Parsers & Helpers
 --------------------------------------------------------------------------------
 
 -- | Parse an input. The @Program@ in the inner @StateT@ is provided by the
@@ -104,14 +104,17 @@ inputP = P.choice [ Just . InputTypeFilePath <$> inputFilePath
                   , Just InputTypeQuit <$ inputQuit
                   , fmap InputTypePQuery <$> pQuery ]
 
+-- | Parse a file path.
 inputFilePath :: Monad m => ParserT m FilePath
 inputFilePath = string ":l" >> P.many P.anySingle
 {-# INLINE inputFilePath #-}
 
+-- | Parse a reload command.
 inputReload :: Monad m => ParserT m ()
 inputReload = void $ string ":r"
 {-# INLINE inputReload #-}
 
+-- | Parse a quit command.
 inputQuit :: Monad m => ParserT m ()
 inputQuit = void $ string ":q"
 {-# INLINE inputQuit #-}
@@ -176,6 +179,7 @@ instance FromError CLIError where
   handleAction UserInter       = putStrLn "Quit by user."
   handleAction (FatalError e)  = putStrLn ("Fatal Error:\n" ++ e)
 
+-- | Handle loading a program from a path.
 handleNewProgram :: MonadIO m => FilePath -> StateT CLIState m ()
 handleNewProgram fp = do
   cliSfilePath .= Just fp -- Store the file path in the state.
@@ -191,6 +195,7 @@ handleNewProgram fp = do
       liftIO $ putStrLn (concat ["Program ", show fp, " loaded:"])
       liftIO $ putStrLn $ prettifyProgram prog
 
+-- | Handle reloading the program from the file path stored in the state.
 handleReload :: MonadIO m => StateT CLIState m ()
 handleReload = do
   mfp <- use cliSfilePath -- Get the file path from the state.
@@ -200,6 +205,7 @@ handleReload = do
     -- If the file path is stored, reload the program from the file.
     Just fp -> handleNewProgram fp
 
+-- | Handle parsing and solving with a query.
 handlePQuery :: MonadIO m => PQuery -> StateT CLIState m ()
 handlePQuery q = do
   mProg <- use cliProgram -- Get the program from the state.
@@ -220,6 +226,7 @@ handlePQuery q = do
         []   -> liftIO $ putStrLn "No solution."
         sols -> handleSolutions sols
 
+-- | Handle quitting the program.
 handleQuit :: MonadIO m => StateT CLIState m ()
 handleQuit = throw UserInterrupt
 {-# INLINE handleQuit #-}

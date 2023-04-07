@@ -2,6 +2,9 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
+-- | Internal exception handling utilities.
+--
+-- They seem to be quite useful; I might consider exposing them in the future.
 module Utility.Exception where
 
 import           Control.Exception
@@ -40,9 +43,18 @@ instance FromError StringErr where
   isFatal _ e = case (fromException e :: Maybe IOError) of
     Just _  -> False
     Nothing -> True
-  
+
   handleAction :: StringErr -> IO ()
   handleAction (StringErr s) = putStrLn s
+
+-- | Non-fatal errors and handled using the @handleAction@ method of the
+-- @FromError@ instance. Fatal errors are rethrown as a pure @ExceptT@.
+handleErr :: forall e a. FromError e => a -> ExceptT e IO a -> ExceptT e IO a
+handleErr a = mapExceptT (`catch` handler)
+  where
+    handler (e :: SomeException)
+      | isFatal (Proxy :: Proxy e) e = pure (Left (fromError e))
+      | otherwise                    = Right a <$ handleAction (fromError e :: e)
 
 -- | Handle any @IOException@ by simply recording them as @String@s, and rethrow
 -- other exceptions as a pure @ExceptT@, in a @StateT@ context.
@@ -55,12 +67,3 @@ handleStateErr stateIO = StateT $ \s -> ExceptT $ do
   return $ case result of
     Left err -> Left err
     Right as -> pure as
-
--- | Non-fatal errors and handled using the @handleAction@ method of the
--- @FromError@ instance. Fatal errors are rethrown as a pure @ExceptT@.
-handleErr :: forall e a. FromError e => a -> ExceptT e IO a -> ExceptT e IO a
-handleErr a = mapExceptT (`catch` handler)
-  where
-    handler (e :: SomeException)
-      | isFatal (Proxy :: Proxy e) e = pure (Left (fromError e))
-      | otherwise                    = Right a <$ handleAction (fromError e :: e)

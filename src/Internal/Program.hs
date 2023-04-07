@@ -110,6 +110,11 @@ makeLenses ''PQuery'
 newtype Solution = Solution (Map String Term)
   deriving (Eq, Ord, Show)
 
+
+--------------------------------------------------------------------------------
+-- PP instances.
+--------------------------------------------------------------------------------
+
 instance PP () Predicate where
   pShowF :: () -> Predicate -> String
   pShowF _ Predicate {..} = concat [_predicateName, "/", show _predicateArity]
@@ -171,6 +176,19 @@ instance PP () Solution where
     where
       showEntry (v, t) = concat [v, " = ", pShow t, ";\n"]
 
+-- | Pretty print the program.
+prettifyProgram :: Program -> String
+prettifyProgram = pShowF Succinct
+
+-- | Pretty print the solution.
+prettifySolution :: Solution -> String
+prettifySolution = pShow
+
+
+--------------------------------------------------------------------------------
+-- Constructors & Helpers.
+--------------------------------------------------------------------------------
+
 -- | The empty @Clause@ (failure).
 emptyClause :: Clause
 emptyClause = EmptyClause
@@ -229,11 +247,3 @@ isProgramLegal Program {..}
                            && all termLegal as
     clauseLegal Clause {..} = maybe True atomLegal _clauseHead
                            && all atomLegal _clauseBody
-
--- | Pretty print the program.
-prettifyProgram :: Program -> String
-prettifyProgram = pShowF Succinct
-
--- | Pretty print the solution.
-prettifySolution :: Solution -> String
-prettifySolution = pShow
