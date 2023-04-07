@@ -126,7 +126,8 @@ solveS onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
 
     worker sub []         = do
       void $ onNewStep (PQuery vars' [])
-      modify ((pIsBT .~ True) . (pStep +~ 1))
+      pIsBT .= True
+      pStep += 1
       return [[sub]]
     worker sub q@(t : ts) = do
       result <- fmap concat . forM cs' $ \(mH :?<- b) -> case mH of
@@ -136,16 +137,16 @@ solveS onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
           isBT <- use pIsBT
           when isBT $ do
             void $ onBacktrackEnd (PQuery vars' q)
-            modify (pIsBT .~ False)
+            pIsBT .= False
           let rename = renameAtom (first (const $ Just step)) -- TODO
           case unifyAtom t (rename h) of
             Nothing   -> pure []
             Just sub' -> do
-              onNewStep (PQuery vars' q) >> modify (pStep +~ 1)
+              onNewStep (PQuery vars' q) >> pStep += 1
               let nextQuery = substituteAtom sub' <$> (map rename b ++ ts)
               rest <- worker sub' nextQuery
               return $ (sub :) <$> rest
       when (null result) $ do
-        onFail >> modify (pStep +~ 1)
-        modify (pIsBT .~ True)
+        onFail >> pStep += 1
+        pIsBT .= True
       return result

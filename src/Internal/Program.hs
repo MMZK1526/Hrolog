@@ -192,10 +192,10 @@ mkProgram cs
       forM_ mHead workAtom
       forM_ body workAtom
     workAtom (Atom p ts)           = do
-      modify (predicates %~ S.insert p)
+      predicates %= S.insert p
       forM_ ts workTerm
-    workTerm (ConstantTerm c)      = modify (constants %~ S.insert c)
-    workTerm (VariableTerm v)      = modify (variables %~ S.insert v)
+    workTerm (ConstantTerm c)      = constants %= S.insert c
+    workTerm (VariableTerm v)      = variables %= S.insert v
 
 -- | Turn a list of @Atom@s into a @PQuery@ by calculating the set of variables.
 --
@@ -206,7 +206,7 @@ mkPQuery as
   = execState (forM_ as worker) (PQuery S.empty as)
   where
     worker (Atom _ ts) = forM_ ts $ \case
-      VariableTerm v -> modify (pqVariables %~ S.insert v)
+      VariableTerm v -> pqVariables %= S.insert v
       _              -> pure ()
 
 -- | Check if the @Program@ specification is consistent.
