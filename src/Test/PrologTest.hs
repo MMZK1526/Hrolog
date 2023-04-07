@@ -16,8 +16,10 @@ import           Test.HUnit.Lang
 main :: IO ()
 main = runTestTTAndExit
      $ TestList [ canPickUpFacts
+                , cannotPickUpWrongFacts
                 , simpleNumberTestOne
-                , simpleNumberTestAll ]
+                , simpleNumberTestAll
+                , aGTaIsFalse ]
 
 -- | Can pick up facts.
 canPickUpFacts :: Test
@@ -28,6 +30,15 @@ canPickUpFacts = TestLabel "Can pick up facts" $ TestList (worker <$> queries)
     queries  = [ mkPQuery [Atom (Predicate "a" 0) []]
                , mkPQuery [Atom (Predicate "b" 1) [VariableTerm "A"]] 
                , mkPQuery [Atom (Predicate "c" 2) [VariableTerm "X", VariableTerm "Y"]] ]
+
+-- | Does not derive false facts.
+cannotPickUpWrongFacts :: Test
+cannotPickUpWrongFacts = TestLabel "Cannot pick up wrong facts" $ TestList (worker <$> queries)
+  where
+    worker q = TestCase $ assertSolutionFromFile "./src/Test/programs/facts.hrolog"
+                                                 q Nothing
+    queries  = [ mkPQuery [Atom (Predicate "d" 0) []]
+               , mkPQuery [Atom (Predicate "a" 1) [VariableTerm "A", VariableTerm "B"]] ]
 
 -- | A simple test with basic facts and rules, testing for the first solution.
 simpleNumberTestOne :: Test
@@ -61,6 +72,15 @@ simpleNumberTestAll = TestLabel "Simple number test" . TestCase $
                           , Solution $ M.fromList [ ("X", ConstantTerm (Constant "3"))
                                                   , ("Y", ConstantTerm (Constant "2"))
                                                   , ("Z", ConstantTerm (Constant "1")) ] ]
+
+-- | Test that a > a is False.
+aGTaIsFalse :: Test
+aGTaIsFalse = TestLabel "a > a is false" . TestCase $
+  assertSolutionFromFile "./src/Test/programs/simpleNumbers.hrolog"
+                          (mkPQuery [ Atom (Predicate "gt" 2) [ VariableTerm "X"
+                                                              , VariableTerm "X" ] ])
+                          Nothing
+
 
 --------------------------------------------------------------------------------
 -- Helpers
