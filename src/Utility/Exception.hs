@@ -13,6 +13,7 @@
 module Utility.Exception where
 
 import           Data.Bifunctor
+import           Data.Coerce
 import           Data.Kind
 import           Control.Monad
 import           Control.Exception
@@ -82,8 +83,7 @@ instance (FromError (StringErr '[ts]), Exception t)
     fromError :: SomeException -> StringErr (t ': '[ts])
     fromError e = case fromException e :: Maybe t of
       Just t  -> StringErr False $ show t
-      Nothing -> let StringErr b s = fromError e :: StringErr '[ts]
-                 in  StringErr b s
+      Nothing -> coerce (fromError e :: StringErr '[ts])
     {-# INLINE fromError #-}
 
     isFatal :: StringErr (t ': '[ts]) -> Bool
