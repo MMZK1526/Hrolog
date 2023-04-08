@@ -44,7 +44,7 @@ main = do
     liftIO $ putStrLn "Welcome to Hrolog!"
     runStateT feedbackloop emptyCLIState
   case result of
-    Left err -> handleAction err
+    Left err -> nonFatalHandler err
     Right _  -> pure ()
 
 -- | The initial @CLIState@.
@@ -56,7 +56,7 @@ emptyCLIState = CLIState Nothing Nothing Nothing Nothing
 feedbackloop :: StateT CLIState (ExceptT CLIError IO) ()
 -- The "forever" indicates that the loop will never terminate unless there is
 -- an uncaught exception.
--- "handleStateErr" is a utility function that catches all "IOException"s by
+-- "handleErrS" is a utility function that catches all "IOException"s by
 -- printing them out. In other words, if an "IOException" is thrown, the program
 -- will ignore the current progress, print out the error, and continue to the
 -- next loop.
@@ -65,7 +65,7 @@ feedbackloop :: StateT CLIState (ExceptT CLIError IO) ()
 -- "String" exception wrapped in an "ExceptT", and the program will break from
 -- "forever" and terminate with a message corresponding to the content of the
 -- "String".
-feedbackloop = forever . handleStateErr $ do
+feedbackloop = forever . handleErrS $ do
   mProg <- use cliProgram -- Get the program from the state.
   -- Get the user input.
   input <- do
@@ -167,17 +167,17 @@ instance FromError CLIError where
     Just _  -> False
     Nothing -> True
 
-  handleAction :: CLIError -> IO ()
-  handleAction (DNEError mfp)  = do
+  nonFatalHandler :: CLIError -> IO ()
+  nonFatalHandler (DNEError mfp)  = do
     curDir <- liftIO getCurrentDirectory
     let fileDNEErrMsg = case mfp of
           Just fp -> concat ["File ", show fp, " does not exist."]
           _       -> "File does not exist."
     let curDirMsg     = concat ["Current directory is ", show curDir, "."]
     putStrLn $ unlines [fileDNEErrMsg, curDirMsg]
-  handleAction (IOException e) = putStrLn ("IO Error:\n" ++ e)
-  handleAction UserInter       = putStrLn "Quit by user."
-  handleAction (FatalError e)  = putStrLn ("Fatal Error:\n" ++ e)
+  nonFatalHandler (IOException e) = putStrLn ("IO Error:\n" ++ e)
+  nonFatalHandler UserInter       = putStrLn "Quit by user."
+  nonFatalHandler (FatalError e)  = putStrLn ("Fatal Error:\n" ++ e)
 
 -- | Handle loading a program from a path.
 handleNewProgram :: MonadIO m => FilePath -> StateT CLIState m ()
