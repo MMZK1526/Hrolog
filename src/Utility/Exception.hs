@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -39,23 +40,46 @@ class FromError e where
 
 -- | The most basic representation of an error, namely a simple @String@.
 --
--- It treats @IOError@s as non-fatal and anything else as fatal. The handle
--- action is simply to print out error message.
-newtype StringErr = StringErr String
+-- It takes a @FatalLevel@ type parameter to choose between different notions
+-- of what makes a fatal error. If @l@ is @AllFatal@, then all errors are
+-- considered fatal. If @l@ is @CatchIO@, then only non @IOError@s are
+-- considered fatal.
+data StringErr (l :: FatalLevel) = StringErr Bool String
   deriving (Eq, Ord)
 
-instance Show StringErr where
-  show :: StringErr -> String
-  show (StringErr s) = s
+data FatalLevel = AllFatal | CatchIO
+
+instance Show (StringErr l) where
+  show :: StringErr l -> String
+  show (StringErr True s) = "Fatal Error:\n" ++ s
+  show (StringErr _ s)    = s
   {-# INLINE show #-}
 
-instance FromError StringErr where
-  fromError :: SomeException -> StringErr
-  fromError e = StringErr $ show e
+instance FromError (StringErr 'AllFatal) where
+  fromError :: SomeException -> StringErr 'AllFatal
+  fromError e = StringErr True $ show e
   {-# INLINE fromError #-}
 
-  errHandler :: StringErr -> IO ()
-  errHandler (StringErr s) = putStrLn s
+  isFatal :: StringErr 'AllFatal -> Bool
+  isFatal = const True
+
+  errHandler :: StringErr 'AllFatal -> IO ()
+  errHandler = print
+  {-# INLINE errHandler #-}
+
+instance FromError (StringErr 'CatchIO) where
+  fromError :: SomeException -> StringErr 'CatchIO
+  fromError e = case fromException e :: Maybe IOException of
+    Just _  -> StringErr False $ show e
+    Nothing -> StringErr True $ show e
+  {-# INLINE fromError #-}
+
+  isFatal :: StringErr 'CatchIO -> Bool
+  isFatal (StringErr b _) = b
+  {-# INLINE isFatal #-}
+
+  errHandler :: StringErr 'CatchIO -> IO ()
+  errHandler = print
   {-# INLINE errHandler #-}
 
 -- | A type class representing a monad that can handle errors.
