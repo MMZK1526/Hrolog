@@ -1,17 +1,19 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Internal exception handling utilities.
 --
 -- They seem to be quite useful; I might consider exposing them in the future.
 module Utility.Exception where
 
+import           Data.Bifunctor
 import           Control.Monad
 import           Control.Exception
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.State
-import           Data.Proxy
 
 -- | A type class that can be converted from an Exception. We could then use
 -- this representation of the same type to handle it.
@@ -22,8 +24,8 @@ class FromError e where
   -- | Check if the given exception is fatal.
   --
   -- By default, all exceptions are fatal.
-  isFatal :: Proxy e -> SomeException -> Bool
-  isFatal = const (const True)
+  isFatal :: e -> Bool
+  isFatal = const True
 
   -- | A way to handle an error back to @IO@. Used by @handleErr'@ as the
   -- default way to handle the non-fatal errors.
@@ -49,69 +51,71 @@ instance Show StringErr where
 
 instance FromError StringErr where
   fromError :: SomeException -> StringErr
-  fromError e = if isFatal (Proxy :: Proxy StringErr) e
-    then StringErr $ "Fatal error:\n" ++ show e
-    else StringErr $ show e
+  fromError e = StringErr $ show e
   {-# INLINE fromError #-}
-
-  isFatal :: Proxy StringErr -> SomeException -> Bool
-  isFatal _ e = case (fromException e :: Maybe IOError) of
-    Just _  -> False
-    Nothing -> True
-  {-# INLINE isFatal #-}
 
   errHandler :: StringErr -> IO ()
   errHandler (StringErr s) = putStrLn s
   {-# INLINE errHandler #-}
 
+-- | A type class representing a monad that can handle errors.
+class MonadErrHandling m where
+  -- | The pure error type that this monad can handle.
+  --
+  -- This type usually implements @FromError@ so that any impure error can be
+  -- transformed into this type and then handled.
+  type Err m
+
+  -- | Handle all impure errors, either rethrowing them as a pure @FromError@
+  -- catch them properly.
+  --
+  -- It takes a function that takes an error and returns an @Either@ of a
+  -- transformed error of the same type (corresponding to uncaught) or a new
+  -- value (corresponding to caught).
+  dealWithErr :: (Err m -> IO (Either (Err m) a)) -> m a -> m a
+
+  -- | Rethrow all impure errors into a pure @FromError@.
+  wrapErr :: m a -> m a
+  wrapErr = dealWithErr (pure . Left)
+  {-# INLINE wrapErr #-}
+
+-- | Basic @MonadErrHandling@ instance for @ExceptT@.
+instance FromError e => MonadErrHandling (ExceptT e IO) where
+  type Err (ExceptT e IO) = e
+
+  dealWithErr :: (e -> IO (Either e a)) -> ExceptT e IO a -> ExceptT e IO a
+  dealWithErr f
+    = mapExceptT (`catch` (\(e :: SomeException) -> f (fromError e)))
+  {-# INLINE dealWithErr #-}
+
+-- | Handle erros in a @StateT@ monad. When an error is caught, the state is
+-- restored to immediately before the action that caused the error.
+instance MonadErrHandling m => MonadErrHandling (StateT s m) where
+  type Err (StateT s m) = Err m
+
+  dealWithErr :: (Err m -> IO (Either (Err m) a)) -> StateT e m a
+              -> StateT e m a
+  dealWithErr f stateIO = StateT
+    $ \s -> dealWithErr (fmap (second (, s)) . f) (runStateT stateIO s)
+  {-# INLINE dealWithErr #-}
+
 -- | Non-fatal errors are handled using the given function. Fatal errors are
 -- rethrown as a pure @ExceptT@.
-handleErr :: forall e a. FromError e
-          => (e -> IO a) -> ExceptT e IO a -> ExceptT e IO a
-handleErr f = mapExceptT (`catch` handler)
-  where
-    handler (e :: SomeException)
-      | isFatal (Proxy :: Proxy e) e = pure (Left (fromError e))
-      | otherwise                    = Right <$> f (fromError e :: e)
+handleErr :: FromError e => MonadErrHandling m => Err m ~ e
+          => (e -> IO a) -> m a -> m a
+handleErr f = dealWithErr $ \e -> if isFatal e
+  then pure (Left e)
+  else Right <$> f e
 {-# INLINE handleErr #-}
 
 -- | Non-fatal errors are handled with the @errHandler@ function with a
 -- provided value @a@. Fatal errors are rethrown as a pure @ExceptT@.
-handleErr' :: forall e a. FromError e
-           => IO a -> ExceptT e IO a -> ExceptT e IO a
+handleErr' :: FromError e => MonadErrHandling m => Err m ~ e
+           => IO a -> m a -> m a
 handleErr' a = handleErr (errHandler >=> const a)
 {-# INLINE handleErr' #-}
 
 -- | Similar to @handleErr'@, but discards the result.
-handleErr'_ :: forall e. FromError e => ExceptT e IO () -> ExceptT e IO ()
+handleErr'_ :: FromError e => MonadErrHandling m => Err m ~ e => m () -> m ()
 handleErr'_ = handleErr' (pure ())
 {-# INLINE handleErr'_ #-}
-
--- | Similar to @handleErr@, but works in the @StateT@ monad.
---
--- If an error is caught, the state will not be updated.
-handleErrS :: FromError e
-           => (e -> IO a) -> StateT s (ExceptT e IO) a
-           -> StateT s (ExceptT e IO) a
-handleErrS f stateIO = StateT $ \s -> ExceptT $ do
-  result <- runExceptT . handleErr (fmap (, s) <$> f) $ runStateT stateIO s
-  return $ case result of
-    Left err -> Left err
-    Right as -> pure as
-{-# INLINE handleErrS #-}
-
--- | Similar to @handleErr'@, but works in the @StateT@ monad.
---
--- If an error is caught, the state will not be updated.
-handleErrS' :: FromError e
-            => IO a -> StateT s (ExceptT e IO) a -> StateT s (ExceptT e IO) a
-handleErrS' a = handleErrS (errHandler >=> const a)
-{-# INLINE handleErrS' #-}
-
--- | Similar to @handleErr'_@, but works in the @StateT@ monad.
---
--- If an error is caught, the state will not be updated.
-handleErrS'_ :: FromError e
-             => StateT s (ExceptT e IO) () -> StateT s (ExceptT e IO) ()
-handleErrS'_ = handleErrS' (pure ())
-{-# INLINE handleErrS'_ #-}

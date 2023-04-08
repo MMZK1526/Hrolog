@@ -11,7 +11,6 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.State
-import           Data.Proxy
 import           System.IO.Error
 import           System.Directory
 import qualified Text.Megaparsec as P
@@ -65,7 +64,7 @@ feedbackloop :: StateT CLIState (ExceptT CLIError IO) ()
 -- "String" exception wrapped in an "ExceptT", and the program will break from
 -- "forever" and terminate with a message corresponding to the content of the
 -- "String".
-feedbackloop = forever . handleErrS'_ $ do
+feedbackloop = forever . handleErr'_ $ do
   mProg <- use cliProgram -- Get the program from the state.
   -- Get the user input.
   input <- do
@@ -162,10 +161,10 @@ instance FromError CLIError where
       then UserInter
       else FatalError (show e)
 
-  isFatal :: Proxy CLIError -> SomeException -> Bool
-  isFatal _ e = case (fromException e :: Maybe IOError) of
-    Just _  -> False
-    Nothing -> True
+  isFatal :: CLIError -> Bool
+  isFatal FatalError {} = True
+  isFatal UserInter     = True
+  isFatal _             = False
 
   errHandler :: CLIError -> IO ()
   errHandler (DNEError mfp)  = do
