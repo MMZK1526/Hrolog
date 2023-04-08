@@ -82,11 +82,12 @@ feedbackloop = forever . handleErr'_ $ do
     Right Nothing                       ->
       liftIO $ putStrLn "Cannot take query without a program loaded."
     -- Dispatch the input to the corresponding handler.
-    Right (Just (InputTypeFilePath fp)) -> handleNewProgram fp
-    Right (Just InputTypeReload)        -> handleReload
-    Right (Just (InputTypePQuery q))    -> handlePQuery q
-    Right (Just InputHelp)              -> handleHelp
-    Right (Just InputTypeQuit)          -> handleQuit
+    Right (Just inputType)              -> case inputType of
+      InputTypeFilePath fp -> handleNewProgram fp
+      InputTypeReload      -> handleReload
+      InputTypePQuery q    -> handlePQuery q
+      InputHelp            -> handleHelp
+      InputTypeQuit        -> handleQuit
 
 
 --------------------------------------------------------------------------------

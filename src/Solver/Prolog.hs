@@ -138,27 +138,33 @@ solveS onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
           _                            -> cur
         reducer _ cur                       = cur
 
+    -- Base case: if the current query is empty, we have found a solution.
     worker sub []         = do
       void $ onNewStep (PQuery vars' [])
       pIsBT .= True
       pStep += 1
       return [[sub]]
+    -- Take the first atom in the query, and try to unify it with each clause.
     worker sub q@(t : ts) = do
       result <- fmap concat . forM cs' $ \(mH :?<- b) -> case mH of
-        Nothing -> pure []
-        Just h  -> do
-          step <- use pStep
-          isBT <- use pIsBT
-          when isBT $ do
-            void $ onBacktrackEnd (PQuery vars' q)
-            pIsBT .= False
+        Nothing -> pure [] -- Ignore constraints (for now)
+        Just h  -> do      -- Try to unify with the head "h"
+          (step, isBT) <- liftM2 (,) (use pStep) (use pIsBT)
+          when isBT $ onBacktrackEnd (PQuery vars' q) >> pIsBT .= False
+          -- A rename function that tags the variable with the current step
+          -- count, so that it is guaranteed to be unique.
           let rename = renameAtom (first (const $ Just step))
           case unifyAtom t (rename h) of
-            Nothing   -> pure []
-            Just sub' -> do
+            Nothing   -> pure [] -- Unification failed
+            Just sub' -> do      -- Unification succeeded
               onNewStep (PQuery vars' q) >> pStep += 1
+              -- Add the body of the clause to the query, substituting the
+              -- variables using the substitution we just found.
               let nextQuery = substituteAtom sub' <$> (map rename b ++ ts)
+              -- Recursively solve the new query.
               rest <- worker sub' nextQuery
               return $ (sub :) <$> rest
+      -- If "result" is empty, it means we didn't find any solution in the
+      -- current branch. Backtracking happens automatically via recursion.
       when (null result) $ onFail >> pStep += 1 >> pIsBT .= True
       return result
