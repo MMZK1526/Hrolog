@@ -44,7 +44,7 @@ main = do
     liftIO $ putStrLn "Welcome to Hrolog!"
     runStateT feedbackloop emptyCLIState
   case result of
-    Left err -> nonFatalHandler err
+    Left err -> errHandler err
     Right _  -> pure ()
 
 -- | The initial @CLIState@.
@@ -65,7 +65,7 @@ feedbackloop :: StateT CLIState (ExceptT CLIError IO) ()
 -- "String" exception wrapped in an "ExceptT", and the program will break from
 -- "forever" and terminate with a message corresponding to the content of the
 -- "String".
-feedbackloop = forever . handleErrS $ do
+feedbackloop = forever . handleErrS'_ $ do
   mProg <- use cliProgram -- Get the program from the state.
   -- Get the user input.
   input <- do
@@ -167,17 +167,17 @@ instance FromError CLIError where
     Just _  -> False
     Nothing -> True
 
-  nonFatalHandler :: CLIError -> IO ()
-  nonFatalHandler (DNEError mfp)  = do
+  errHandler :: CLIError -> IO ()
+  errHandler (DNEError mfp)  = do
     curDir <- liftIO getCurrentDirectory
     let fileDNEErrMsg = case mfp of
           Just fp -> concat ["File ", show fp, " does not exist."]
           _       -> "File does not exist."
     let curDirMsg     = concat ["Current directory is ", show curDir, "."]
     putStrLn $ unlines [fileDNEErrMsg, curDirMsg]
-  nonFatalHandler (IOException e) = putStrLn ("IO Error:\n" ++ e)
-  nonFatalHandler UserInter       = putStrLn "Quit by user."
-  nonFatalHandler (FatalError e)  = putStrLn ("Fatal Error:\n" ++ e)
+  errHandler (IOException e) = putStrLn ("IO Error:\n" ++ e)
+  errHandler UserInter       = putStrLn "Quit by user."
+  errHandler (FatalError e)  = putStrLn ("Fatal Error:\n" ++ e)
 
 -- | Handle loading a program from a path.
 handleNewProgram :: MonadIO m => FilePath -> StateT CLIState m ()
