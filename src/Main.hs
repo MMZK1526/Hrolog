@@ -41,14 +41,10 @@ main :: IO ()
 main = do
   result <- runExceptT . void $ do
     liftIO $ putStrLn "Welcome to Hrolog!"
-    runStateT feedbackloop emptyCLIState
+    runStateT feedbackloop $ CLIState Nothing Nothing Nothing Nothing
   case result of
     Left err -> errHandler err
     Right _  -> pure ()
-
--- | The initial @CLIState@.
-emptyCLIState :: CLIState
-emptyCLIState = CLIState Nothing Nothing Nothing Nothing
 
 -- | The CLI loop. It takes an input, parses it, and executes the corresponding,
 -- forever.

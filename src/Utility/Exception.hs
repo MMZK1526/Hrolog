@@ -1,9 +1,11 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 
 -- | Internal exception handling utilities.
 --
@@ -11,6 +13,7 @@
 module Utility.Exception where
 
 import           Data.Bifunctor
+import           Data.Kind
 import           Control.Monad
 import           Control.Exception
 import           Control.Monad.Trans.Except
@@ -40,18 +43,21 @@ class FromError e where
 
 -- | The most basic representation of an error, namely a simple @String@.
 --
--- It takes a @FatalLevel@ type parameter to choose between different notions
--- of what makes a fatal error. If @l@ is @AllFatal@, then all errors are
--- considered fatal. If @l@ is @CatchIO@, then only non @IOError@s are
--- considered fatal.
+-- It takes a type level List to indicate which error types are not fatal.
 --
 -- In the @StringErr@ constructor, the first @Bool@ is used to indicate whether
 -- the error is fatal or not. The second @String@ is used to store the actual
 -- error message as a @String@.
-data StringErr (l :: FatalLevel) = StringErr Bool String
+data StringErr (l :: [Type]) = StringErr Bool String
   deriving (Eq, Ord)
 
-data FatalLevel = AllFatal | CatchIO
+-- | Can be used as the @l@ in @StringErr@ to indicate that all errors are
+-- fatal.
+type AllFatal = '[]
+
+-- | Can be used as the @l@ in @StringErr@ to indicate that all errors except
+-- @IOException@ are fatal.
+type CatchIO = '[IOException]
 
 instance Show (StringErr l) where
   show :: StringErr l -> String
@@ -59,32 +65,33 @@ instance Show (StringErr l) where
   show (StringErr _ s)    = s
   {-# INLINE show #-}
 
-instance FromError (StringErr 'AllFatal) where
-  fromError :: SomeException -> StringErr 'AllFatal
+instance FromError (StringErr '[]) where
+  fromError :: SomeException -> StringErr '[]
   fromError e = StringErr True $ show e
   {-# INLINE fromError #-}
 
-  isFatal :: StringErr 'AllFatal -> Bool
+  isFatal :: StringErr '[] -> Bool
   isFatal = const True
 
-  errHandler :: StringErr 'AllFatal -> IO ()
+  errHandler :: StringErr '[] -> IO ()
   errHandler = print
   {-# INLINE errHandler #-}
 
-instance FromError (StringErr 'CatchIO) where
-  fromError :: SomeException -> StringErr 'CatchIO
-  fromError e = case fromException e :: Maybe IOException of
-    Just _  -> StringErr False $ show e
-    Nothing -> StringErr True $ show e
-  {-# INLINE fromError #-}
+instance (FromError (StringErr '[ts]), Exception t)
+  => FromError (StringErr (t ': '[ts])) where
+    fromError :: SomeException -> StringErr (t ': '[ts])
+    fromError e = case fromException e :: Maybe t of
+      Just t  -> StringErr False $ show t
+      Nothing -> let StringErr b s = fromError e :: StringErr '[ts]
+                 in  StringErr b s
+    {-# INLINE fromError #-}
 
-  isFatal :: StringErr 'CatchIO -> Bool
-  isFatal (StringErr b _) = b
-  {-# INLINE isFatal #-}
+    isFatal :: StringErr (t ': '[ts]) -> Bool
+    isFatal (StringErr b _) = b
 
-  errHandler :: StringErr 'CatchIO -> IO ()
-  errHandler = print
-  {-# INLINE errHandler #-}
+    errHandler :: StringErr (t ': '[ts]) -> IO ()
+    errHandler = print
+    {-# INLINE errHandler #-}
 
 -- | A type class representing a monad that can handle errors.
 class MonadErrHandling m where
@@ -116,7 +123,7 @@ instance FromError e => MonadErrHandling (ExceptT e IO) where
     = mapExceptT (`catch` (\(e :: SomeException) -> f (fromError e)))
   {-# INLINE dealWithErr #-}
 
--- | Handle erros in a @StateT@ monad. When an error is caught, the state is
+-- | Handle errors in a @StateT@ monad. When an error is caught, the state is
 -- restored to immediately before the action that caused the error.
 instance MonadErrHandling m => MonadErrHandling (StateT s m) where
   type Err (StateT s m) = Err m
