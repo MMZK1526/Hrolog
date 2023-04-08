@@ -12,13 +12,13 @@
 -- They seem to be quite useful; I might consider exposing them in the future.
 module Utility.Exception where
 
+import           Control.Exception
+import           Control.Monad
+import           Control.Monad.Trans.Except
+import           Control.Monad.Trans.State
 import           Data.Bifunctor
 import           Data.Coerce
 import           Data.Kind
-import           Control.Monad
-import           Control.Exception
-import           Control.Monad.Trans.Except
-import           Control.Monad.Trans.State
 
 -- | A type class that can be converted from an Exception. We could then use
 -- this representation of the same type to handle it.
@@ -73,6 +73,7 @@ instance FromError (StringErr '[]) where
 
   isFatal :: StringErr '[] -> Bool
   isFatal = const True
+  {-# INLINE isFatal #-}
 
   errHandler :: StringErr '[] -> IO ()
   errHandler = print
@@ -88,6 +89,7 @@ instance (FromError (StringErr '[ts]), Exception t)
 
     isFatal :: StringErr (t ': '[ts]) -> Bool
     isFatal (StringErr b _) = b
+    {-# INLINE isFatal #-}
 
     errHandler :: StringErr (t ': '[ts]) -> IO ()
     errHandler = print
@@ -98,7 +100,7 @@ class MonadErrHandling m where
   -- | The pure error type that this monad can handle.
   --
   -- This type usually implements @FromError@ so that any impure error can be
-  -- transformed into this type and then handled.
+  -- transformed into this type and then be handled.
   type Err m
 
   -- | Handle all impure errors, either rethrowing them as a pure @FromError@
@@ -136,8 +138,8 @@ instance MonadErrHandling m => MonadErrHandling (StateT s m) where
 
 -- | Non-fatal errors are handled using the given function. Fatal errors are
 -- rethrown as a pure @ExceptT@.
-handleErr :: FromError e => MonadErrHandling m => Err m ~ e
-          => (e -> IO a) -> m a -> m a
+handleErr :: FromError (Err m) => MonadErrHandling m
+          => (Err m -> IO a) -> m a -> m a
 handleErr f = dealWithErr $ \e -> if isFatal e
   then pure (Left e)
   else Right <$> f e
@@ -145,12 +147,11 @@ handleErr f = dealWithErr $ \e -> if isFatal e
 
 -- | Non-fatal errors are handled with the @errHandler@ function with a
 -- provided value @a@. Fatal errors are rethrown as a pure @ExceptT@.
-handleErr' :: FromError e => MonadErrHandling m => Err m ~ e
-           => IO a -> m a -> m a
+handleErr' :: FromError (Err m) => MonadErrHandling m => IO a -> m a -> m a
 handleErr' a = handleErr (errHandler >=> const a)
 {-# INLINE handleErr' #-}
 
 -- | Similar to @handleErr'@, but discards the result.
-handleErr'_ :: FromError e => MonadErrHandling m => Err m ~ e => m () -> m ()
+handleErr'_ :: FromError (Err m) => MonadErrHandling m => m () -> m ()
 handleErr'_ = handleErr' (pure ())
 {-# INLINE handleErr'_ #-}

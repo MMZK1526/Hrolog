@@ -96,6 +96,7 @@ executable Hrolog
     other-modules:
         Internal.Program,
         Internal.Parser,
+        Parser,
         Program,
         Solver.Prolog,
         Utility.Exception,

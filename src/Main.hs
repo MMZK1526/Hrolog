@@ -27,6 +27,7 @@ import           Utility.Parser
 data InputType = InputTypeFilePath FilePath
                | InputTypePQuery PQuery
                | InputTypeReload
+               | InputHelp
                | InputTypeQuit
 
 -- | The state of the CLI.
@@ -84,6 +85,7 @@ feedbackloop = forever . handleErr'_ $ do
     Right (Just (InputTypeFilePath fp)) -> handleNewProgram fp
     Right (Just InputTypeReload)        -> handleReload
     Right (Just (InputTypePQuery q))    -> handlePQuery q
+    Right (Just InputHelp)              -> handleHelp
     Right (Just InputTypeQuit)          -> handleQuit
 
 
@@ -97,6 +99,7 @@ inputP :: Monad m => ParserT (StateT (Maybe Program) m) (Maybe InputType)
 inputP = P.choice [ Just . InputTypeFilePath <$> inputFilePath
                   , Just InputTypeReload <$ inputReload
                   , Just InputTypeQuit <$ inputQuit
+                  , Just InputHelp <$ inputHelp
                   , fmap InputTypePQuery <$> pQuery ]
 
 -- | Parse a file path.
@@ -108,6 +111,11 @@ inputFilePath = string ":l" >> P.many P.anySingle
 inputReload :: Monad m => ParserT m ()
 inputReload = void $ string ":r"
 {-# INLINE inputReload #-}
+
+-- | Parse a help command.
+inputHelp :: Monad m => ParserT m ()
+inputHelp = void $ string ":h"
+{-# INLINE inputHelp #-}
 
 -- | Parse a quit command.
 inputQuit :: Monad m => ParserT m ()
@@ -153,9 +161,10 @@ instance FromError CLIError where
     Just ioe -> if isDoesNotExistError ioe
       then DNEError (ioeGetFileName ioe)
       else IOException (show ioe)
-    Nothing  -> if Just UserInterrupt == (fromException e :: Maybe AsyncException)
-      then UserInter
-      else FatalError (show e)
+    Nothing  ->
+      if Just UserInterrupt == (fromException e :: Maybe AsyncException)
+        then UserInter
+        else FatalError (show e)
 
   isFatal :: CLIError -> Bool
   isFatal FatalError {} = True
@@ -211,8 +220,9 @@ handlePQuery q = do
     Just prog -> do
       let handleSolutions []           = liftIO $ putStrLn "No more solutions."
           handleSolutions (sol : sols) = do
-            liftIO $ putStrLn (concat ["\nSolution:\n", prettifySolution sol, "\n"])
-            liftIO $ putStrLn "Enter ';' to look for the next solution."
+            liftIO . putStrLn $ concat 
+              [ "\nSolution:\n", prettifySolution sol, "\n"
+              , "Enter ';' to look for the next solution." ]
             input <- liftIO getLine'
             case parse space (string ";") input of
               Right _ -> handleSolutions sols
@@ -220,6 +230,11 @@ handlePQuery q = do
       case solve prog q of
         []   -> liftIO $ putStrLn "No solution."
         sols -> handleSolutions sols
+
+-- | Handle printing out the help message.
+handleHelp :: MonadIO m => StateT CLIState m ()
+handleHelp = liftIO $ putStrLn "TODO: Help message."
+{-# INLINE handleHelp #-}
 
 -- | Handle quitting the program.
 handleQuit :: MonadIO m => StateT CLIState m ()
