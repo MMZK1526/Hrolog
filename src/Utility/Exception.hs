@@ -44,6 +44,10 @@ class FromError e where
 -- of what makes a fatal error. If @l@ is @AllFatal@, then all errors are
 -- considered fatal. If @l@ is @CatchIO@, then only non @IOError@s are
 -- considered fatal.
+--
+-- In the @StringErr@ constructor, the first @Bool@ is used to indicate whether
+-- the error is fatal or not. The second @String@ is used to store the actual
+-- error message as a @String@.
 data StringErr (l :: FatalLevel) = StringErr Bool String
   deriving (Eq, Ord)
 
