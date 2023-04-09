@@ -160,6 +160,14 @@ ufFind x uf = case uf ^. ufParent.at x of
          in  (r, uf' & ufParent.at x ?~ r) -- Update parent pointer
 {-# INLINE ufFind #-}
 
+-- | Apply @ufFind@ to each element of the list.
+ufFinds :: [Int] -> UnionFind -> ([Int], UnionFind)
+ufFinds xs uf = foldl' worker ([], uf) xs
+  where
+    worker (rs, uf') x = let (r, uf'') = ufFind x uf'
+                         in  (r : rs, uf'')
+{-# INLINE ufFinds #-}
+
 -- | Merge the sets containing @x@ and @y@.
 ufUnion :: Int -> Int -> UnionFind -> UnionFind
 ufUnion x y uf
@@ -173,3 +181,11 @@ ufUnion x y uf
     (ry, uf'') = ufFind y uf' -- Find the root of the set containing y
     -- Rank of rx is less than the rank of ry
     xLessThanY = uf'' ^. ufRank . at rx < uf'' ^. ufRank . at ry
+
+-- | Find all equivalence classes of the @UnionFind@.
+ufEquivClasses :: UnionFind -> [[Int]]
+ufEquivClasses uf
+  = IM.elems $ IM.fromListWith (++) [(r, [x]) | (x, r) <- elemToReps]
+  where
+    elems      = IM.keys $ uf ^. ufParent
+    elemToReps = zip (fst $ ufFinds elems uf) elems 
