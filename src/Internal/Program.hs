@@ -53,7 +53,8 @@ data Term' a = ConstantTerm Constant
 type Term = Term' String
 
 -- | A Hrolog atom, consisting of a predicate and a list of terms as arguments.
-data Atom' a = Atom Predicate [Term' a]
+-- It also stores the list of variables in the atom.
+data Atom' a = Atom Predicate [Term' a] [a]
   deriving (Eq, Ord, Show)
 type Atom = Atom' String
 
@@ -131,7 +132,7 @@ instance PP () Term where
 
 instance PP () Atom where
   pShowF :: () -> Atom -> String
-  pShowF _ (Atom p as) = case _predicateArity p of
+  pShowF _ (Atom p as _) = case _predicateArity p of
     0 -> _predicateName p
     _ -> concat [_predicateName p, "(", intercalate ", " (pShow <$> as), ")"]
 
@@ -210,7 +211,7 @@ mkProgram cs
     workClause (Clause mHead body) = do
       forM_ mHead workAtom
       forM_ body workAtom
-    workAtom (Atom p ts)           = do
+    workAtom (Atom p ts _)         = do
       predicates %= S.insert p
       forM_ ts workTerm
     workTerm (ConstantTerm c)      = constants %= S.insert c
@@ -224,7 +225,7 @@ mkPQuery :: [Atom] -> PQuery
 mkPQuery as
   = execState (forM_ as worker) (PQuery S.empty as)
   where
-    worker (Atom _ ts) = forM_ ts $ \case
+    worker (Atom _ ts _) = forM_ ts $ \case
       VariableTerm v -> pqVariables %= S.insert v
       _              -> pure ()
 
@@ -236,15 +237,16 @@ isProgramLegal Program {..}
  && all variableLegal _variables
  && all clauseLegal _clauses
   where
-    indentifierLegal name   = not (null name) && isLower (head name)
+    indentifierLegal name     = not (null name)
+                           && (isLower (head name) || isDigit (head name))
                            && all isAlphaNum (tail name)
-    variableLegal var       = not (null var) && isUpper (head var)
+    variableLegal var         = not (null var) && isUpper (head var)
                            && all isAlphaNum (tail var)
-    termLegal term          = case term of
+    termLegal avs term        = case term of
       ConstantTerm c -> c `elem` _constants
-      VariableTerm v -> v `elem` _variables
-    atomLegal (Atom p as)   =  _predicateArity p == length as
+      VariableTerm v -> v `elem` _variables && v `elem` avs
+    atomLegal (Atom p as avs) =  _predicateArity p == length as
                            && p `elem` _predicates
-                           && all termLegal as
+                           && all (termLegal avs) as
     clauseLegal Clause {..} = maybe True atomLegal _clauseHead
                            && all atomLegal _clauseBody

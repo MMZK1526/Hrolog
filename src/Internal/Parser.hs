@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 -- | Internal parsers for Hrolog programs and queries.
 module Internal.Parser (module Internal.Parser, module Utility.Parser) where
 
@@ -81,7 +83,9 @@ atom = do
     (P.between (char '(') (char ')') (P.sepBy term (char ',')))
   let pd = Predicate name (length ts)
   lift $ modify (fmap (predicates %~ S.insert pd))
-  return $ Atom pd ts
+  return . Atom pd ts . flip concatMap ts $ \case
+    ConstantTerm _ -> []
+    VariableTerm v -> [v]
 
 -- | Parse a @Clause@, which is an optional @Atom@ head followed by a list of
 -- @Atom@ bodies.

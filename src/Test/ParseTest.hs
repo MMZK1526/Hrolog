@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -93,16 +94,17 @@ canParseAtom
       let parseAtom str = evalState (parseT space atom str) (Identity emptyProgram)
       assertValid "Empty string" Nothing (parseAtom "")
       assertValid "Constant predicate"
-                  (Just $ Atom (Predicate "allGood" 0) []) (parseAtom "allGood")
+                  (Just $ Atom (Predicate "allGood" 0) [] []) (parseAtom "allGood")
       assertValid "0-ary predicate"
-                  (Just $ Atom (Predicate "foo" 0) []) (parseAtom "foo ( )")
+                  (Just $ Atom (Predicate "foo" 0) [] []) (parseAtom "foo ( )")
       assertValid "Unary predicate"
-                  (Just $ Atom (Predicate "flies" 1) [VariableTerm "X"])
+                  (Just $ Atom (Predicate "flies" 1) [VariableTerm "X"] ["X"])
                   (parseAtom "flies(X)")
       assertValid "Binary predicate"
                   ( Just $ Atom (Predicate "mother" 2)
                                 [ ConstantTerm $ Constant "qeii"
-                                , ConstantTerm $ Constant "kciii" ] )
+                                , ConstantTerm $ Constant "kciii" ]
+                                [] )
                   (parseAtom "mother(qeii, kciii)")
       assertValid "Missing parenthesis" Nothing (parseAtom "foo(")
       assertValid "Bad separator" Nothing (parseAtom "foo(x; y)")
@@ -123,17 +125,19 @@ canParseClause
       assertValid "Empty string" Nothing (parseClause "")
       assertValid "Empty clause" (Just $ Clause Nothing []) (parseClause ".")
       assertValid "Fact"
-                  (Just $ Clause (Just $ Atom (Predicate "allGood" 0) []) [])
+                  (Just $ Clause (Just $ Atom (Predicate "allGood" 0) [] []) [])
                   (parseClause "allGood.")
       assertValid "Constraint"
-                  (Just $ Clause Nothing [Atom (Predicate "foo" 0) []])
+                  (Just $ Clause Nothing [Atom (Predicate "foo" 0) [] []])
                   (parseClause "  <-foo ( ).")
       assertValid "Definite Clause"
                   ( Just $ Clause ( Just $ Atom (Predicate "parent" 2)
                                                 [ VariableTerm "X"
-                                                , VariableTerm "Y" ] )
+                                                , VariableTerm "Y" ]
+                                                ["X", "Y"] )
                            [ Atom (Predicate "father" 2)
-                                  [ VariableTerm "X", VariableTerm "Y" ] ] )
+                                  [ VariableTerm "X", VariableTerm "Y" ]
+                                  ["X", "Y"] ] )
                   (parseClause "parent(X, Y) <- father(X, Y).")
       assertValid "Missing period" Nothing (parseClause "bad(A, B)")
 
@@ -150,6 +154,7 @@ genProgramsAreValid
   = TestLabel "Generated programs are valid" . TestCase
   . forM_ [1..3] $ \a -> forM_ [1..3] $ \l -> forM_ [0..114] $ \g -> do
       let c = fst $ genProgram a l (mkStdGen g)
+      assertBool ("Legal program " ++ show c) (isProgramLegal c)
       assertValid ("Valid program " ++ show c)
                   (Just c) (parseProgram (pShowF Succinct c))
 
@@ -159,18 +164,21 @@ canParsePQuery
       assertValid "Empty string" Nothing (parsePQuery "")
       assertValid "Empty query" (Just $ mkPQuery []) (parsePQuery ".")
       assertValid "Propositional atom"
-                  ( Just $ mkPQuery [Atom (Predicate "me" 0) []] )
+                  ( Just $ mkPQuery [Atom (Predicate "me" 0) [] []] )
                   (parsePQuery "me.")
       assertValid "Singleton query"
                   ( Just $ mkPQuery [ Atom (Predicate "gt" 1)
-                                           [ConstantTerm (Constant "a")] ] )
+                                           [ConstantTerm (Constant "a")]
+                                           [] ] )
                   (parsePQuery "gt(a).")
       assertValid "Long query"
                   ( Just $ mkPQuery [ Atom (Predicate "gt" 1)
                                            [ConstantTerm (Constant "a")]
+                                           []
                                     , Atom (Predicate "foo" 2)
                                            [ VariableTerm "B"
-                                           , ConstantTerm (Constant "c") ] ] )
+                                           , ConstantTerm (Constant "c") ]
+                                           ["B"] ] )
                   (parsePQuery "gt(a), foo(B, c).")
       assertValid "Missing period" Nothing (parsePQuery "gt(a)")
       assertValid "Missing parenthesis" Nothing (parsePQuery "gt(a")
@@ -243,7 +251,9 @@ genAtom arity len = runState worker
         (t, gen') <- genTerm len'' <$> get
         put gen'
         return t
-      return $ Atom (Predicate pName arity) ts
+      return . Atom (Predicate pName arity) ts $ flip concatMap ts $ \case
+        ConstantTerm _ -> []
+        VariableTerm v -> [v]
 
 -- | Generate a @Clause@ with the given body length, and the arity and length
 -- of each atoms are at most "arity" and "len".

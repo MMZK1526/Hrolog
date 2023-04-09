@@ -6,9 +6,9 @@ module Utility.Unifiers where
 import           Control.Applicative
 import           Control.Lens hiding (un)
 import           Control.Monad
+import           Data.Functor
 import           Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
-import           Data.Functor
 import           Data.List
 import           Data.Map (Map)
 import qualified Data.Map as M
@@ -17,6 +17,7 @@ import           Data.Set (Set)
 import qualified Data.Set as S
 
 import           Internal.Program
+import           Utility.UnionFind
 
 data UnifyNode a = UnifyNode { unValue :: Maybe Constant
                              , unVars  :: Set a }
@@ -24,6 +25,11 @@ data UnifyNode a = UnifyNode { unValue :: Maybe Constant
 data UnifyState a = UnifyState { usNode    :: Int
                                , usVarMap  :: Map a Int
                                , usNodeMap :: IntMap (UnifyNode a) }
+
+data UnifyState' a = UnifyState' { _usNode'   :: Int
+                                 , _usVarMap' :: Map a Int
+                                 , _usUF'     :: UnionFind Constant }
+$(makeLenses ''UnifyState')
 
 mkCUN :: Constant -> a -> UnifyNode a
 mkCUN c var = UnifyNode (Just c) (S.singleton var)
@@ -48,6 +54,10 @@ emptyUS :: UnifyState a
 emptyUS = UnifyState 0 M.empty IM.empty
 {-# INLINE emptyUS #-}
 
+emptyUS' :: Int -> UnifyState' a
+emptyUS' = UnifyState' 0 M.empty . mkUnionFind
+{-# INLINE emptyUS' #-}
+
 -- | Unify two terms. Returns a substitution that, when applied, would make the
 -- two terms equal. Returns 'Nothing' if the terms cannot be unified.
 --
@@ -59,12 +69,42 @@ unifyTerm t t'@(VariableTerm _)              = unifyTerm t' t
 unifyTerm (ConstantTerm c) (ConstantTerm c') = Nothing <$ guard (c == c')
 {-# INLINE unifyTerm #-}
 
+-- unifyAtom' :: Ord a => Atom' a -> Atom' a -> Maybe (Map a (Term' a))
+-- unifyAtom' (Atom p ts) (Atom p' ts')
+--   | p /= p'   = Nothing
+--   | otherwise = case foldM worker (emptyUS' $ _predicateArity p) (zip ts ts') of
+--     Nothing -> Nothing
+--     Just uf -> Just $ foldl' (reducer uf) M.empty (ufEquivClasses $ uf ^. usUF')
+--   where
+--     worker us (t, t') = do
+--       mUnified <- unifyTerm t t'
+--       case mUnified of
+--         Nothing          -> pure us
+--         Just (var, term) -> do
+--           let (i, us')    = case us ^. usVarMap'.at var of
+--                 Just i'  -> (i', us)
+--                 Nothing -> let i' = us ^. usNode'
+--                            in (i', us & usNode' +~ 1 & usVarMap'.at var ?~ i')
+--           let (mVal, uf') = ufGet i (us' ^. usUF')
+--           case term of
+--             ConstantTerm c -> case mVal of
+--               Nothing -> pure $ us' & usUF' .~  ufSet (Just c) i uf'
+--               Just c' -> guard (c == c') $> (us' & usUF' .~ uf')
+--             VariableTerm v -> case us' ^. usVarMap'.at v of
+--               Just i' -> do
+--                 pure $ us' & usUF' .~ ufUnion i i' uf'
+--               Nothing -> do
+--                 let i'   = us' ^. usNode'
+--                 let us'' = us' & usNode' +~ 1 & usVarMap'.at v ?~ i'
+--                 pure $ us' & usUF' .~ ufSet mVal i uf'
+--     reducer = undefined
+
 -- | Unify two atoms. Returns a substitution that, when applied, would make the
 -- two atoms equal. Returns 'Nothing' if the atoms cannot be unified.
 --
 -- The substitution is represented as a @Map@ from variables to terms.
 unifyAtom :: Ord a => Atom' a -> Atom' a -> Maybe (Map a (Term' a))
-unifyAtom (Atom p ts) (Atom p' ts')
+unifyAtom (Atom p ts _) (Atom p' ts' _)
   | p /= p'   = Nothing
   | otherwise = case foldM worker emptyUS (zip ts ts') of
     Nothing -> Nothing
@@ -118,7 +158,7 @@ substituteTerm _ t                  = t
 
 -- | Substitute an atom with the given substitution map.
 substituteAtom :: Ord a => Map a (Term' a) -> Atom' a -> Atom' a
-substituteAtom m (Atom p ts) = Atom p (map (substituteTerm m) ts)
+substituteAtom m (Atom p ts avs) = Atom p (map (substituteTerm m) ts) avs
 {-# INLINE substituteAtom #-}
 
 -- Apply the renaming function to all variables in the term.
@@ -129,7 +169,7 @@ renameTerm _ (ConstantTerm c) = ConstantTerm c
 
 -- Apply the renaming function to all variables in the atom.
 renameAtom :: (a -> b) -> Atom' a -> Atom' b
-renameAtom f (Atom p ts) = Atom p (map (renameTerm f) ts)
+renameAtom f (Atom p ts avs) = Atom p (map (renameTerm f) ts) $ f <$> avs
 {-# INLINE renameAtom #-}
 
 -- | Apply the renaming function to all variables in the clause.
@@ -147,65 +187,3 @@ renamePQuery :: Ord b => (a -> b) -> PQuery' a -> PQuery' b
 renamePQuery f q = q { _pqVariables  = S.map f (_pqVariables q)
                      , _pqAtoms      = map (renameAtom f) (_pqAtoms q) }
 {-# INLINE renamePQuery #-}
-
-
---------------------------------------------------------------------------------
--- Union-Find on Int
---------------------------------------------------------------------------------
-
-data UnionFind = UnionFind { _ufParent :: IntMap Int
-                           , _ufRank   :: IntMap Int }
-$(makeLenses ''UnionFind)
-
--- | Create a new @UnionFind@ with @n@ elements.
-mkUnionFind :: Int -> UnionFind
-mkUnionFind n = UnionFind (IM.fromDistinctAscList $ zip [0..n - 1] [0..n - 1])
-                          (IM.fromDistinctAscList $ zip [0..n - 1] (repeat 1))
-{-# INLINE mkUnionFind #-}
-
--- | Find the root of the set containing @x@, updating the parent pointers
--- along the way.
-ufFind :: Int -> UnionFind -> (Int, UnionFind)
-ufFind x uf = case uf ^. ufParent.at x of
-  -- Should never happen if the "UnionFind" is constructed by "mkUnionFind".
-  Nothing -> error "Internal Error: UnionFind.ufFind: element not found"
-  Just p  -> if p == x
-    then (x, uf) -- x is already the root
-    -- Recursively find the root and updated parent pointers.
-    else let (r, uf') = ufFind p uf
-         in  (r, uf' & ufParent.at x ?~ r) -- Update parent pointer
-{-# INLINE ufFind #-}
-
--- | Apply @ufFind@ to each element of the list.
-ufFinds :: [Int] -> UnionFind -> ([Int], UnionFind)
-ufFinds xs uf = foldl' worker ([], uf) xs
-  where
-    worker (rs, uf') x = let (r, uf'') = ufFind x uf'
-                         in  (r : rs, uf'')
-{-# INLINE ufFinds #-}
-
--- | Merge the sets containing @x@ and @y@.
-ufUnion :: Int -> Int -> UnionFind -> UnionFind
-ufUnion x y uf = case rxr `compare` ryr of
-  -- Use ry as parent of rx and increment rank of ry.
-  LT -> uf'' & ufParent . at rx ?~ ry
-             & ufRank . at ry %~ fmap succ
-  -- Use rx as parent of ry and increment rank of rx.
-  GT -> uf'' & ufParent . at ry ?~ rx
-             & ufRank . at rx %~ fmap succ
-  -- x and y are already in the same set.
-  EQ -> uf''
-  where
-    (rx, uf')  = ufFind x uf  -- Find the root of the set containing x
-    (ry, uf'') = ufFind y uf' -- Find the root of the set containing y
-    rxr        = uf'' ^. ufRank . at rx -- Rank of rx
-    ryr        = uf'' ^. ufRank . at ry -- Rank of ry
-
--- | Find all equivalence classes of the @UnionFind@.
-ufEquivClasses :: UnionFind -> [[Int]]
-ufEquivClasses uf
-  = IM.elems $ IM.fromListWith (++) [(r, [x]) | (x, r) <- elemToReps]
-  where
-    allElems   = IM.keys $ uf ^. ufParent
-    elemToReps = zip (fst $ ufFinds allElems uf) allElems 
-{-# INLINE ufEquivClasses #-}
