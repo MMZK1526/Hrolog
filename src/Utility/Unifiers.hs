@@ -48,12 +48,21 @@ emptyUS :: UnifyState a
 emptyUS = UnifyState 0 M.empty IM.empty
 {-# INLINE emptyUS #-}
 
+-- | Unify two terms. Returns a substitution that, when applied, would make the
+-- two terms equal. Returns 'Nothing' if the terms cannot be unified.
+--
+-- The substitution is represented as a @Maybe@ since it is possible that the
+-- two terms are already equal.
 unifyTerm :: Eq a => Term' a -> Term' a -> Maybe (Maybe (a, Term' a))
 unifyTerm (VariableTerm x) t'                = Just $ Just (x, t')
 unifyTerm t t'@(VariableTerm _)              = unifyTerm t' t
 unifyTerm (ConstantTerm c) (ConstantTerm c') = Nothing <$ guard (c == c')
 {-# INLINE unifyTerm #-}
 
+-- | Unify two atoms. Returns a substitution that, when applied, would make the
+-- two atoms equal. Returns 'Nothing' if the atoms cannot be unified.
+--
+-- The substitution is represented as a @Map@ from variables to terms.
 unifyAtom :: Ord a => Atom' a -> Atom' a -> Maybe (Map a (Term' a))
 unifyAtom (Atom p ts) (Atom p' ts')
   | p /= p'   = Nothing
@@ -101,32 +110,39 @@ unifyAtom (Atom p ts) (Atom p' ts')
                 return us { usVarMap  = M.insert var n'' vMap
                           , usNodeMap = IM.adjust (addUN var) n'' nMap }
 
+-- | Substitute a term with the given substitution map.
 substituteTerm :: Ord a => Map a (Term' a) -> Term' a -> Term' a
 substituteTerm m t@(VariableTerm x) = fromMaybe t (M.lookup x m)
 substituteTerm _ t                  = t
 {-# INLINE substituteTerm #-}
 
+-- | Substitute an atom with the given substitution map.
 substituteAtom :: Ord a => Map a (Term' a) -> Atom' a -> Atom' a
 substituteAtom m (Atom p ts) = Atom p (map (substituteTerm m) ts)
 {-# INLINE substituteAtom #-}
 
+-- Apply the renaming function to all variables in the term.
 renameTerm :: (a -> b) -> Term' a -> Term' b
 renameTerm f (VariableTerm x) = VariableTerm $ f x
 renameTerm _ (ConstantTerm c) = ConstantTerm c
 {-# INLINE renameTerm #-}
 
+-- Apply the renaming function to all variables in the atom.
 renameAtom :: (a -> b) -> Atom' a -> Atom' b
 renameAtom f (Atom p ts) = Atom p (map (renameTerm f) ts)
 {-# INLINE renameAtom #-}
 
+-- | Apply the renaming function to all variables in the clause.
 renameClause :: (a -> b) -> Clause' a -> Clause' b
 renameClause f (Clause h b) = Clause (renameAtom f <$> h) (map (renameAtom f) b)
 {-# INLINE renameClause #-}
 
+-- | Apply the renaming function to all variables in the program.
 renameProgram :: (a -> b) -> Program' a -> Program' b
 renameProgram f p = p & clauses %~ map (renameClause f)
 {-# INLINE renameProgram #-}
 
+-- | Apply the renaming function to all variables in the query.
 renamePQuery :: Ord b => (a -> b) -> PQuery' a -> PQuery' b
 renamePQuery f q = q { _pqVariables  = S.map f (_pqVariables q)
                      , _pqAtoms      = map (renameAtom f) (_pqAtoms q) }
@@ -134,7 +150,7 @@ renamePQuery f q = q { _pqVariables  = S.map f (_pqVariables q)
 
 
 --------------------------------------------------------------------------------
--- Union Find on Int
+-- Union-Find on Int
 --------------------------------------------------------------------------------
 
 data UnionFind = UnionFind { _ufParent :: IntMap Int
@@ -170,22 +186,26 @@ ufFinds xs uf = foldl' worker ([], uf) xs
 
 -- | Merge the sets containing @x@ and @y@.
 ufUnion :: Int -> Int -> UnionFind -> UnionFind
-ufUnion x y uf
-  | rx == ry   = uf'' -- x and y are already in the same set
-  | xLessThanY = uf'' & ufParent . at rx ?~ ry -- Use ry as parent of rx
-                      & ufRank . at ry %~ fmap succ -- increment rank of ry
-  | otherwise  = uf'' & ufParent . at ry ?~ rx -- Use rx as parent of ry
-                      & ufRank . at rx %~ fmap succ -- increment rank of rx
+ufUnion x y uf = case rxr `compare` ryr of
+  -- Use ry as parent of rx and increment rank of ry.
+  LT -> uf'' & ufParent . at rx ?~ ry
+             & ufRank . at ry %~ fmap succ
+  -- Use rx as parent of ry and increment rank of rx.
+  GT -> uf'' & ufParent . at ry ?~ rx
+             & ufRank . at rx %~ fmap succ
+  -- x and y are already in the same set.
+  EQ -> uf''
   where
     (rx, uf')  = ufFind x uf  -- Find the root of the set containing x
     (ry, uf'') = ufFind y uf' -- Find the root of the set containing y
-    -- Rank of rx is less than the rank of ry
-    xLessThanY = uf'' ^. ufRank . at rx < uf'' ^. ufRank . at ry
+    rxr        = uf'' ^. ufRank . at rx -- Rank of rx
+    ryr        = uf'' ^. ufRank . at ry -- Rank of ry
 
 -- | Find all equivalence classes of the @UnionFind@.
 ufEquivClasses :: UnionFind -> [[Int]]
 ufEquivClasses uf
   = IM.elems $ IM.fromListWith (++) [(r, [x]) | (x, r) <- elemToReps]
   where
-    elems      = IM.keys $ uf ^. ufParent
-    elemToReps = zip (fst $ ufFinds elems uf) elems 
+    allElems   = IM.keys $ uf ^. ufParent
+    elemToReps = zip (fst $ ufFinds allElems uf) allElems 
+{-# INLINE ufEquivClasses #-}

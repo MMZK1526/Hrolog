@@ -40,10 +40,11 @@ data Predicate = Predicate { _predicateName :: String, _predicateArity :: Int }
 newtype Constant = Constant { _constantName :: String }
   deriving (Eq, Ord, Show)
 
--- | A Hrolog term, either a constant or a variable.
+-- | A Hrolog term, either a constant or a variable. The type variable @a@ is
+-- used to represent the variable type.
 --
--- In a real program, the type variable "a" should always be a @String@, but it
--- can carry additional metadata during the solving process.
+-- In a real program, "a" should always be a @String@, but it can carry
+-- additional metadata during the solving process.
 --
 -- TODO: Add a type constructor for function terms.
 data Term' a = ConstantTerm Constant

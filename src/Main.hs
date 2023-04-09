@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -46,8 +45,8 @@ main = do
     Left err -> errHandler err
     Right _  -> pure ()
 
--- | The CLI loop. It takes an input, parses it, and executes the corresponding,
--- forever.
+-- | The CLI feedback loop. It takes an input, parses it, and executes the
+-- corresponding instruction, forever.
 feedbackloop :: StateT CLIState (ExceptT CLIError IO) ()
 -- The "forever" indicates that the loop will never terminate unless there is
 -- an uncaught exception.
@@ -82,7 +81,7 @@ feedbackloop = forever . handleErr'_ $ do
       liftIO $ putStrLn "Cannot take query without a program loaded."
     -- Dispatch the input to the corresponding handler.
     Right (Just inputType)              -> case inputType of
-      InputTypeFilePath fp -> handleNewProgram fp
+      InputTypeFilePath fp -> handleLoad fp
       InputTypeReload      -> handleReload
       InputTypePQuery q    -> handlePQuery q
       InputHelp            -> handleHelp
@@ -184,8 +183,8 @@ instance FromError CLIError where
   errHandler (FatalError e)  = putStrLn ("Fatal Error:\n" ++ e)
 
 -- | Handle loading a program from a path.
-handleNewProgram :: MonadIO m => FilePath -> StateT CLIState m ()
-handleNewProgram fp = do
+handleLoad :: MonadIO m => FilePath -> StateT CLIState m ()
+handleLoad fp = do
   cliSfilePath .= Just fp -- Store the file path in the state.
   newProg <- liftIO $ readFile fp -- Read the program from the file.
   case parseProgram newProg of
@@ -207,7 +206,7 @@ handleReload = do
     -- If the file path is not stored, let the user know.
     Nothing -> liftIO $ putStrLn "No program loaded."
     -- If the file path is stored, reload the program from the file.
-    Just fp -> handleNewProgram fp
+    Just fp -> handleLoad fp
 
 -- | Handle parsing and solving with a query.
 handlePQuery :: MonadIO m => PQuery -> StateT CLIState m ()
@@ -224,6 +223,9 @@ handlePQuery q = do
               [ "\nSolution:\n", prettifySolution sol, "\n"
               , "Enter ';' to look for the next solution." ]
             input <- liftIO getLine'
+            -- If the user enters a semicolon, print the next solution.
+            -- Otherwise, store the input in the state to be executed at the
+            -- next iteration of the feedback loop.
             case parse space (string ";") input of
               Right _ -> handleSolutions sols
               Left _  -> cliInput .= Just input
