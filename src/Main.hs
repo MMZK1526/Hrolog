@@ -35,8 +35,7 @@ data CLIState = CLIState { _cliSfilePath :: Maybe FilePath
                          , _cliProgram   :: Maybe Program
                          , _cliPQuery    :: Maybe PQuery
                          , _cliInput     :: Maybe String }
-
-makeLenses ''CLIState
+$(makeLenses ''CLIState)
 
 main :: IO ()
 main = do

@@ -93,8 +93,7 @@ data Program' a = Program { _predicates :: Set Predicate
                           , _clauses    :: [Clause' a] }
   deriving (Eq, Ord, Show)
 type Program = Program' String
-
-makeLenses ''Program'
+$(makeLenses ''Program')
 
 -- | The data type for a Hrolog query, consisting the list of query atoms.
 -- It also contains the set of variables used in the query.
@@ -104,8 +103,7 @@ data PQuery' a = PQuery { _pqVariables :: Set a
                         , _pqAtoms     :: [Atom' a] }
   deriving (Eq, Ord, Show)
 type PQuery = PQuery' String
-
-makeLenses ''PQuery'
+$(makeLenses ''PQuery')
 
 -- | The data type for a single Hrolog solution, consisting of a substitution
 -- map from variables to terms.

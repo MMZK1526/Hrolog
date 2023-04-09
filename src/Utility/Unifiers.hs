@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | Internal helper functions for unification.
 module Utility.Unifiers where
 
@@ -50,6 +52,7 @@ unifyTerm :: Eq a => Term' a -> Term' a -> Maybe (Maybe (a, Term' a))
 unifyTerm (VariableTerm x) t'                = Just $ Just (x, t')
 unifyTerm t t'@(VariableTerm _)              = unifyTerm t' t
 unifyTerm (ConstantTerm c) (ConstantTerm c') = Nothing <$ guard (c == c')
+{-# INLINE unifyTerm #-}
 
 unifyAtom :: Ord a => Atom' a -> Atom' a -> Maybe (Map a (Term' a))
 unifyAtom (Atom p ts) (Atom p' ts')
@@ -128,3 +131,45 @@ renamePQuery :: Ord b => (a -> b) -> PQuery' a -> PQuery' b
 renamePQuery f q = q { _pqVariables  = S.map f (_pqVariables q)
                      , _pqAtoms      = map (renameAtom f) (_pqAtoms q) }
 {-# INLINE renamePQuery #-}
+
+
+--------------------------------------------------------------------------------
+-- Union Find on Int
+--------------------------------------------------------------------------------
+
+data UnionFind = UnionFind { _ufParent :: IntMap Int
+                           , _ufRank   :: IntMap Int }
+$(makeLenses ''UnionFind)
+
+-- | Create a new @UnionFind@ with @n@ elements.
+mkUnionFind :: Int -> UnionFind
+mkUnionFind n = UnionFind (IM.fromDistinctAscList $ zip [0..n - 1] [0..n - 1])
+                          (IM.fromDistinctAscList $ zip [0..n - 1] (repeat 1))
+{-# INLINE mkUnionFind #-}
+
+-- | Find the root of the set containing @x@, updating the parent pointers
+-- along the way.
+ufFind :: Int -> UnionFind -> (Int, UnionFind)
+ufFind x uf = case uf ^. ufParent.at x of
+  -- Should never happen if the "UnionFind" is constructed by "mkUnionFind".
+  Nothing -> error "Internal Error: UnionFind.ufFind: element not found"
+  Just p  -> if p == x
+    then (x, uf) -- x is already the root
+    -- Recursively find the root and updated parent pointers.
+    else let (r, uf') = ufFind p uf
+         in  (r, uf' & ufParent.at x ?~ r) -- Update parent pointer
+{-# INLINE ufFind #-}
+
+-- | Merge the sets containing @x@ and @y@.
+ufUnion :: Int -> Int -> UnionFind -> UnionFind
+ufUnion x y uf
+  | rx == ry   = uf'' -- x and y are already in the same set
+  | xLessThanY = uf'' & ufParent . at rx ?~ ry -- Use ry as parent of rx
+                      & ufRank . at ry %~ fmap succ -- increment rank of ry
+  | otherwise  = uf'' & ufParent . at ry ?~ rx -- Use rx as parent of ry
+                      & ufRank . at rx %~ fmap succ -- increment rank of rx
+  where
+    (rx, uf')  = ufFind x uf  -- Find the root of the set containing x
+    (ry, uf'') = ufFind y uf' -- Find the root of the set containing y
+    -- Rank of rx is less than the rank of ry
+    xLessThanY = uf'' ^. ufRank . at rx < uf'' ^. ufRank . at ry

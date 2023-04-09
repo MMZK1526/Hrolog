@@ -50,8 +50,7 @@ data PState = PState
   , _pLeadsTo :: Map Atom (Set Atom) -- ^ What we can deduce
   , _pIsBT    :: Bool                -- ^ If under backtracking
   }
-
-makeLenses ''PState
+$(makeLenses ''PState)
 
 newPState :: PState
 newPState = PState 1 S.empty M.empty M.empty False
