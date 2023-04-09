@@ -230,23 +230,45 @@ mkPQuery as
       _              -> pure ()
 
 -- | Check if the @Program@ specification is consistent.
+--
+-- It checks the following:
+-- 1. All identifiers are non-empty and start with a lower-case letter or a
+--   digit, and the rest are alphanumeric.
+-- 2. All variables are non-empty and start with an upper-case letter, and the
+--  rest are alphanumeric.
+-- 3. All predicates have the correct arity.
+-- 4. All constants are in the set of constants as described by the @Program@.
+-- 5. All variables are in the set of variables as described by the @Program@.
+-- 6. All variables in an @Atom@ are in the set of variables as described by
+--    the @Atom@ itself.
 isProgramLegal :: Program -> Bool
 isProgramLegal Program {..}
+    -- Check legality of identifiers.
   = all indentifierLegal ( S.union (S.map _constantName _constants)
                                    (S.map _predicateName _predicates) )
+    -- Check legality of variables.
  && all variableLegal _variables
+    -- Check legality of clauses, which means checking all its components.
  && all clauseLegal _clauses
   where
     indentifierLegal name     = not (null name)
                            && (isLower (head name) || isDigit (head name))
                            && all isAlphaNum (tail name)
     variableLegal var         = not (null var) && isUpper (head var)
-                           && all isAlphaNum (tail var)
+                             && all isAlphaNum (tail var)
+    -- A term is legal if it is a constant and is in the set of constants, or
+    -- it is a variable and is in the set of variables as well as in the set of
+    -- variables of the atom that it lives in.
     termLegal avs term        = case term of
       ConstantTerm c -> c `elem` _constants
       VariableTerm v -> v `elem` _variables && v `elem` avs
+    -- An atom is legal if its predicate is in the set of predicates, has the
+    -- correct arity, all its arguments are legal, and all its variables are
+    -- legal.
     atomLegal (Atom p as avs) =  _predicateArity p == length as
                            && p `elem` _predicates
                            && all (termLegal avs) as
+                           && all variableLegal avs
+    -- A clause is legal if its head and all its body atoms are legal.
     clauseLegal Clause {..} = maybe True atomLegal _clauseHead
                            && all atomLegal _clauseBody
