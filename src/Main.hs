@@ -59,7 +59,7 @@ feedbackloop :: StateT CLIState (ExceptT CLIError IO) ()
 -- "String" exception wrapped in an "ExceptT", and the program will break from
 -- "forever" and terminate with a message corresponding to the content of the
 -- "String".
-feedbackloop = forever . handleErr'_ $ do
+feedbackloop = forever . handleErr errHandler $ do
   mProg <- use cliProgram -- Get the program from the state.
   -- Get the user input.
   input <- do
@@ -154,6 +154,18 @@ data CLIError = DNEError (Maybe FilePath)
               | UserInter
               | FatalError String
 
+errHandler :: MonadIO m => CLIError -> m ()
+errHandler (DNEError mfp)  = do
+  curDir <- liftIO getCurrentDirectory
+  let fileDNEErrMsg = case mfp of
+        Just fp -> concat ["File ", show fp, " does not exist."]
+        _       -> "File does not exist."
+  let curDirMsg     = concat ["Current directory is ", show curDir, "."]
+  liftIO $ putStrLn $ unlines [fileDNEErrMsg, curDirMsg]
+errHandler (IOException e) = liftIO $ putStrLn ("IO Error:\n" ++ e)
+errHandler UserInter       = liftIO $ putStrLn "Quit by user."
+errHandler (FatalError e)  = liftIO $ putStrLn ("Fatal Error:\n" ++ e)
+
 instance FromError CLIError where
   fromError :: SomeException -> CLIError
   fromError e = case fromException e :: Maybe IOException of
@@ -169,18 +181,6 @@ instance FromError CLIError where
   isFatal FatalError {} = True
   isFatal UserInter     = True
   isFatal _             = False
-
-  errHandler :: CLIError -> IO ()
-  errHandler (DNEError mfp)  = do
-    curDir <- liftIO getCurrentDirectory
-    let fileDNEErrMsg = case mfp of
-          Just fp -> concat ["File ", show fp, " does not exist."]
-          _       -> "File does not exist."
-    let curDirMsg     = concat ["Current directory is ", show curDir, "."]
-    putStrLn $ unlines [fileDNEErrMsg, curDirMsg]
-  errHandler (IOException e) = putStrLn ("IO Error:\n" ++ e)
-  errHandler UserInter       = putStrLn "Quit by user."
-  errHandler (FatalError e)  = putStrLn ("Fatal Error:\n" ++ e)
 
 -- | Handle loading a program from a path.
 handleLoad :: MonadIO m => FilePath -> StateT CLIState m ()
