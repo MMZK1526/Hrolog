@@ -54,7 +54,8 @@ test-suite prologTest
         Solver.Prolog,
         Utility.PP,
         Utility.Parser,
-        Utility.Unifiers
+        Utility.Unifiers,
+        Utility.UnionFind
     build-depends:
         base,
         containers >=0.6,
@@ -77,7 +78,8 @@ library
         Internal.Program,
         Internal.Parser,
         Utility.PP,
-        Utility.Unifiers
+        Utility.Unifiers,
+        Utility.UnionFind
     build-depends:
         base,
         containers >=0.6,
@@ -102,7 +104,8 @@ executable Hrolog
         Utility.Exception,
         Utility.PP,
         Utility.Parser,
-        Utility.Unifiers
+        Utility.Unifiers,
+        Utility.UnionFind
     build-depends:
         base,
         containers >=0.6,
