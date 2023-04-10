@@ -24,14 +24,18 @@ main :: IO ()
 main = do
   result <- runExceptT . void $ do
     liftIO $ putStrLn "Welcome to Hrolog!"
-    runStateT feedbackloop $ CLIState Nothing Nothing Nothing Nothing Nothing
+    runStateT (feedbackloop (const $ pure ()))
+              (CLIState Nothing Nothing Nothing Nothing Nothing)
   case result of
     Left err -> errHandler err
     Right _  -> pure ()
 
 -- | The CLI feedback loop. It takes an input, parses it, and executes the
 -- corresponding instruction, forever.
-feedbackloop :: StateT CLIState (ExceptT CLIError IO) ()
+--
+-- It takes a callback that is called at start of each loop. This callback is
+-- useful for testing purposes as it has access to the state of the program.
+feedbackloop :: (CLIState -> IO ()) -> StateT CLIState (ExceptT CLIError IO) ()
 -- The "forever" indicates that the loop will never terminate unless there is
 -- an uncaught exception.
 -- "handleErrS" is a utility function that catches all "IOException"s by
@@ -43,8 +47,9 @@ feedbackloop :: StateT CLIState (ExceptT CLIError IO) ()
 -- "String" exception wrapped in an "ExceptT", and the program will break from
 -- "forever" and terminate with a message corresponding to the content of the
 -- "String".
-feedbackloop = forever . handleErr errHandlerS $ do
-  mProg <- use cliProgram -- Get the program from the state.
+feedbackloop callback = forever . handleErr errHandlerS $ do
+  get >>= liftIO . callback -- Call the callback
+  mProg <- use cliProgram -- Get the program from the state
   -- Get the user input.
   input <- do
     mInput <- use cliInput
