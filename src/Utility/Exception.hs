@@ -80,7 +80,7 @@ instance (FromError (StringErr '[ts]), Exception t)
 
 -- | A type class representing a monad that can handle errors.
 class MonadIO m => MonadErrHandling m where
-  -- | The pure error type that this monad can handle.
+  -- | The monolithic error type that this monad can handle.
   --
   -- This type usually implements @FromError@ so that any impure error can be
   -- transformed into this type and then be handled.
@@ -109,7 +109,8 @@ instance FromError e => MonadErrHandling (ExceptT e IO) where
 
 -- | Handle errors in a @StateT@ monad. When an error is caught, the state is
 -- restored to immediately before the action that caused the error. However,
--- the handler may change the state as well.
+-- the handler may change the state as well, although it is recommended to not
+-- do so.
 instance MonadErrHandling m => MonadErrHandling (StateT s m) where
   type Err (StateT s m) = Err m
 

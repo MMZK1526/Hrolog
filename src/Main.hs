@@ -1,6 +1,4 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 module Main where
 
@@ -10,37 +8,23 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.State
-import           System.IO.Error
 import           System.Directory
 import qualified Text.Megaparsec as P
 import qualified Text.Megaparsec.Char as P
 import qualified Text.Megaparsec.Char.Lexer as L
 
+import           Internal.Main
 import           Parser
 import           Program
 import           Solver.Prolog
 import           Utility.Exception
 import           Utility.Parser
 
--- | The input types of the CLI.
-data InputType = InputTypeFilePath FilePath
-               | InputTypePQuery PQuery
-               | InputTypeReload
-               | InputHelp
-               | InputTypeQuit
-
--- | The state of the CLI.
-data CLIState = CLIState { _cliSfilePath :: Maybe FilePath
-                         , _cliProgram   :: Maybe Program
-                         , _cliPQuery    :: Maybe PQuery
-                         , _cliInput     :: Maybe String }
-$(makeLenses ''CLIState)
-
 main :: IO ()
 main = do
   result <- runExceptT . void $ do
     liftIO $ putStrLn "Welcome to Hrolog!"
-    runStateT feedbackloop $ CLIState Nothing Nothing Nothing Nothing
+    runStateT feedbackloop $ CLIState Nothing Nothing Nothing Nothing Nothing
   case result of
     Left err -> errHandler err
     Right _  -> pure ()
@@ -59,7 +43,7 @@ feedbackloop :: StateT CLIState (ExceptT CLIError IO) ()
 -- "String" exception wrapped in an "ExceptT", and the program will break from
 -- "forever" and terminate with a message corresponding to the content of the
 -- "String".
-feedbackloop = forever . handleErr errHandler $ do
+feedbackloop = forever . handleErr errHandlerS $ do
   mProg <- use cliProgram -- Get the program from the state.
   -- Get the user input.
   input <- do
@@ -142,18 +126,14 @@ getLine' = do
 -- Input Handlers & Helpers
 --------------------------------------------------------------------------------
 
--- | A custum error type. It treats @IOError@s as non-fatal errors, printing
--- them out differently based on whether it is a @DoesNotExistError@ or not.
+-- | Error handler for the feedback loop.
 --
--- For any other types of errors, it treats them as fatal errors.
---
--- Note that despite @UserInter@ is a fatal error, it is usually treated
--- differently from other fatal errors.
-data CLIError = DNEError (Maybe FilePath)
-              | IOException String
-              | UserInter
-              | FatalError String
+-- It stores the error in the state, and then calls the error handler for the
+-- main function (which is identical to what we want to handle here).
+errHandlerS :: CLIError -> StateT CLIState (ExceptT CLIError IO) ()
+errHandlerS err = cliErr ?= err >> errHandler err
 
+-- | Error handler for the main function.
 errHandler :: MonadIO m => CLIError -> m ()
 errHandler (DNEError mfp)  = do
   curDir <- liftIO getCurrentDirectory
@@ -166,26 +146,10 @@ errHandler (IOException e) = liftIO $ putStrLn ("IO Error:\n" ++ e)
 errHandler UserInter       = liftIO $ putStrLn "Quit by user."
 errHandler (FatalError e)  = liftIO $ putStrLn ("Fatal Error:\n" ++ e)
 
-instance FromError CLIError where
-  fromError :: SomeException -> CLIError
-  fromError e = case fromException e :: Maybe IOException of
-    Just ioe -> if isDoesNotExistError ioe
-      then DNEError (ioeGetFileName ioe)
-      else IOException (show ioe)
-    Nothing  ->
-      if Just UserInterrupt == (fromException e :: Maybe AsyncException)
-        then UserInter
-        else FatalError (show e)
-
-  isFatal :: CLIError -> Bool
-  isFatal FatalError {} = True
-  isFatal UserInter     = True
-  isFatal _             = False
-
 -- | Handle loading a program from a path.
 handleLoad :: MonadIO m => FilePath -> StateT CLIState m ()
 handleLoad fp = do
-  cliSfilePath .= Just fp -- Store the file path in the state.
+  cliSfilePath ?= fp -- Store the file path in the state.
   newProg <- liftIO $ readFile fp -- Read the program from the file.
   case parseProgram newProg of
     -- If the program is invalid, print an error message.
@@ -194,7 +158,7 @@ handleLoad fp = do
       putStrLn pErr
     -- If the program is valid, store it in the state.
     Right prog -> do
-      cliProgram .= Just prog
+      cliProgram ?= prog
       liftIO $ putStrLn (concat ["Program ", show fp, " loaded:"])
       liftIO $ putStrLn $ prettifyProgram prog
 
@@ -228,7 +192,7 @@ handlePQuery q = do
             -- next iteration of the feedback loop.
             case parse space (string ";") input of
               Right _ -> handleSolutions sols
-              Left _  -> cliInput .= Just input
+              Left _  -> cliInput ?= input
       case solve prog q of
         []   -> liftIO $ putStrLn "No solution."
         sols -> handleSolutions sols

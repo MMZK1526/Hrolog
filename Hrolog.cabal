@@ -96,6 +96,7 @@ executable Hrolog
     import:           warnings
     main-is:          Main.hs
     other-modules:
+        Internal.Main,
         Internal.Program,
         Internal.Parser,
         Parser,
