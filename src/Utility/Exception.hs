@@ -21,13 +21,14 @@ import           Data.Bifunctor
 import           Data.Coerce
 import           Data.Kind
 
--- | A type class that can be converted from an Exception. We could then use
--- this representation of the same type to handle it.
+-- | A type class that can be converted from a @SomeException@. We could then
+-- use this representation of the same type to handle it.
 --
 -- There are three levels of error fatality:
--- 1. Fatal errors are those that are not recoverable. Those errors will result
--- in @Left@s from @fromError@. They will usually be handled at the outermost
--- level of the program using the good old @catch@ or @handle@.
+-- 1. Fatal errors are those that cannot be converted to @e@. Those errors will
+-- result in @Left@s from @fromError@. They usually represent non-recoverable
+-- errors and are usually handled at the outermost level of the program using
+-- the good old @catch@ or @handle@.
 -- 2. Serious errors are those that are potentially recoverable but marked as
 -- @True@ by @isSerious@.
 -- 3. Benign errors are those that are not serious and are marked as @False@ by
@@ -47,14 +48,87 @@ class FromError e where
   isSerious :: e -> Bool
   isSerious = const True
 
+-- | A type class representing a monad that can handle errors.
+class MonadIO m => MonadErrHandling m where
+  -- | The monolithic error type that this monad can handle.
+  --
+  -- This type usually implements @FromError@ so that any (non-fatal) impure
+  -- exception can be transformed into this type and then be handled. In fact,
+  -- we assume that @Err m@ is a @FromError@ for the rest of the documentation,
+  -- although theoretically it does not have to be.
+  type Err m
+
+  -- | Handle all impure exceptions, either rethrow them or catch them properly.
+  --
+  -- It takes a function that takes an error and returns an @Either@ of a
+  -- transformed error of the same type (corresponding to uncaught) or a new
+  -- value (corresponding to caught).
+  --
+  -- The input @Either@ would represent either a non-fatal error already
+  -- converted into @Err m@ or a fatal error that remains in its @SomeException@
+  -- form.
+  --
+  -- The function itself does not mind handling a fatal error; it can always
+  -- choose to catch it, but it is recommended to rethrow it in most cases.
+  dealWithErr :: (Either SomeException (Err m) -> m (Either (Err m) a))
+              -> m a -> m a
+
+  -- | Rethrow all non-fatal errors into a pure @FromError@. It does not care
+  -- about whether they are benign or not.
+  wrapErr :: m a -> m a
+  wrapErr = dealWithErr $ \case
+    Left err -> throw err
+    Right e  -> pure $ Left e
+  {-# INLINE wrapErr #-}
+
+-- | Basic @MonadErrHandling@ instance for @ExceptT@.
+instance FromError e => MonadErrHandling (ExceptT e IO) where
+  type Err (ExceptT e IO) = e
+
+  dealWithErr :: (Either SomeException e -> ExceptT e IO (Either e a))
+              -> ExceptT e IO a -> ExceptT e IO a
+  dealWithErr f = mapExceptT (`catch` (fmap join . runExceptT . f . fromError))
+  {-# INLINE dealWithErr #-}
+
+-- | Handle errors in a @StateT@ monad. When an error is caught, the state is
+-- restored to immediately before the action that caused the error. However,
+-- the handler may change the state as well, for example storing the error in
+-- the state for future reference.
+instance MonadErrHandling m => MonadErrHandling (StateT s m) where
+  type Err (StateT s m) = Err m
+
+  dealWithErr :: (Either SomeException (Err m) -> StateT s m (Either (Err m) a))
+              -> StateT s m a -> StateT s m a
+  dealWithErr f stateIO = StateT
+    $ \s -> dealWithErr (worker s) (runStateT stateIO s)
+    where
+      worker s e = do
+        (result, s') <- runStateT (f e) s
+        return $ second (, s') result
+  {-# INLINE dealWithErr #-}
+
+-- | Benign errors are handled using the given function; serious errors are
+-- rethrown as a pure @ExceptT@ with the @FromError@ type; fatal errors are
+-- rethrown as impure @Exception@s.
+--
+-- It is a special case of @dealWithErr@ which uses the semantic meaning of
+-- the three levels of error fatality.
+handleErr :: FromError (Err m) => MonadErrHandling m
+          => (Err m -> m a) -> m a -> m a
+handleErr f = dealWithErr $ \case
+  Left err -> throw err
+  Right e  -> if isSerious e then pure (Left e) else Right <$> f e
+{-# INLINE handleErr #-}
+
 -- | The most basic representation of an error, namely a simple @String@.
 --
 -- It takes two type level List to indicate which error types are benign and
 -- which are serious. Everything else are considered fatal.
 --
 -- In the @StringErr@ constructor, the first @Bool@ is used to indicate whether
--- the error is fatal or not. The second @String@ is used to store the actual
--- error message as a @String@.
+-- the error is serious (if @True@) or benign (if @False@). It does not store
+-- fatal errors as they are not even able to be converted into the @StringErr@.
+-- The second @String@ is used to store the actual error message as a @String@.
 data StringErr (benign :: [Type]) (serious :: [Type]) = StringErr Bool String
   deriving (Eq, Ord)
 
@@ -95,7 +169,8 @@ instance FromError (StringErr '[] '[]) where
 -- the serious errors.
 instance (FromError (StringErr '[] '[ss]), Exception s)
   => FromError (StringErr '[] '[s, ss]) where
-    fromError :: SomeException -> Either SomeException (StringErr '[] '[s, ss])
+    fromError :: SomeException
+              -> Either SomeException (StringErr '[] '[s, ss])
     fromError e = case fromException e :: Maybe s of
       Just t  -> Right $ StringErr True $ show t
       Nothing ->
@@ -109,7 +184,8 @@ instance (FromError (StringErr '[] '[ss]), Exception s)
 -- | We recurse on the type of the benign errors.
 instance (FromError (StringErr '[bs] '[ss]), Exception b)
   => FromError (StringErr '[b, bs] '[ss]) where
-    fromError :: SomeException -> Either SomeException (StringErr '[b, bs] '[ss])
+    fromError :: SomeException
+              -> Either SomeException (StringErr '[b, bs] '[ss])
     fromError e = case fromException e :: Maybe b of
       Just t  -> Right $ StringErr True $ show t
       Nothing ->
@@ -119,60 +195,3 @@ instance (FromError (StringErr '[bs] '[ss]), Exception b)
     isSerious :: StringErr '[b, bs] '[ss] -> Bool
     isSerious (StringErr b _) = b
     {-# INLINE isSerious #-}
-
--- | A type class representing a monad that can handle errors.
-class MonadIO m => MonadErrHandling m where
-  -- | The monolithic error type that this monad can handle.
-  --
-  -- This type usually implements @FromError@ so that any impure error can be
-  -- transformed into this type and then be handled.
-  type Err m
-
-  -- | Handle all impure errors, either rethrowing them or catch them properly.
-  --
-  -- It takes a function that takes an error and returns an @Either@ of a
-  -- transformed error of the same type (corresponding to uncaught) or a new
-  -- value (corresponding to caught).
-  dealWithErr :: (Either SomeException (Err m) -> m (Either (Err m) a)) -> m a -> m a
-
-  -- | Rethrow all non-fatal errors into a pure @FromError@.
-  wrapErr :: m a -> m a
-  wrapErr = dealWithErr $ \case
-    Left err -> throw err
-    Right e  -> pure $ Left e
-  {-# INLINE wrapErr #-}
-
--- | Basic @MonadErrHandling@ instance for @ExceptT@.
-instance FromError e => MonadErrHandling (ExceptT e IO) where
-  type Err (ExceptT e IO) = e
-
-  dealWithErr :: (Either SomeException e -> ExceptT e IO (Either e a))
-              -> ExceptT e IO a -> ExceptT e IO a
-  dealWithErr f = mapExceptT (`catch` (fmap join . runExceptT . f . fromError))
-  {-# INLINE dealWithErr #-}
-
--- | Handle errors in a @StateT@ monad. When an error is caught, the state is
--- restored to immediately before the action that caused the error. However,
--- the handler may change the state as well, although it is recommended to not
--- do so.
-instance MonadErrHandling m => MonadErrHandling (StateT s m) where
-  type Err (StateT s m) = Err m
-
-  dealWithErr :: (Either SomeException (Err m) -> StateT s m (Either (Err m) a))
-              -> StateT s m a -> StateT s m a
-  dealWithErr f stateIO = StateT
-    $ \s -> dealWithErr (worker s) (runStateT stateIO s)
-    where
-      worker s e = do
-        (result, s') <- runStateT (f e) s
-        return $ second (, s') result
-  {-# INLINE dealWithErr #-}
-
--- | Benign errors are handled using the given function. Serious errors are
--- rethrown as a pure @ExceptT@.
-handleErr :: FromError (Err m) => MonadErrHandling m
-          => (Err m -> m a) -> m a -> m a
-handleErr f = dealWithErr $ \case
-  Left err -> throw err
-  Right e  -> if isSerious e then pure (Left e) else Right <$> f e
-{-# INLINE handleErr #-}
