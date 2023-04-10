@@ -12,24 +12,23 @@ import           System.IO.Error
 import           Program
 import           Utility.Exception
 
--- | A custum error type. It treats @IOError@s as non-fatal errors, printing
+-- | A custum error type. It treats @IOError@s as benign errors, printing
 -- them out differently based on whether it is a @DoesNotExistError@ or not.
+-- It treats @UserInterrupt@ as a serious error because it results in the
+-- termination of the program.
 --
 -- For any other types of errors, it treats them as fatal errors.
---
--- Note that despite @UserInter@ is a fatal error, it is usually treated
--- differently from other fatal errors.
 data CLIError = DNEError (Maybe FilePath)
               | IOException String
               | UserInter
-              | FatalError String
 
 -- | The input types of the CLI.
-data InputType = InputTypeFilePath FilePath
-               | InputTypePQuery PQuery
-               | InputTypeReload
-               | InputHelp
-               | InputTypeQuit
+data InputType = InputTypeFilePath FilePath -- ^ Load a program from a file
+               | InputTypePQuery PQuery -- ^ Enter a query
+               | InputTypeReload -- ^ Reload the program
+               | InputHelp -- ^ Print out the help message
+               | InputTypeQuit -- ^ Quit the program
+               | InputTypeCrash -- ^ Crash the program; for testing purposes
 
 -- | The state of the CLI.
 data CLIState = CLIState { _cliSfilePath :: Maybe FilePath
@@ -45,18 +44,17 @@ initCLIState :: CLIState
 initCLIState = CLIState Nothing Nothing Nothing Nothing Nothing 0
 
 instance FromError CLIError where
-  fromError :: SomeException -> CLIError
+  fromError :: SomeException -> Either SomeException CLIError
   fromError e = case fromException e :: Maybe IOException of
     Just ioe -> if isDoesNotExistError ioe
-      then DNEError (ioeGetFileName ioe)
-      else IOException (show ioe)
+      then Right $ DNEError (ioeGetFileName ioe)
+      else Right $ IOException (show ioe)
     Nothing  ->
       if Just UserInterrupt == (fromException e :: Maybe AsyncException)
-        then UserInter
-        else FatalError (show e)
+        then Right UserInter
+        else Left e
 
-  isFatal :: CLIError -> Bool
-  isFatal FatalError {} = True
-  isFatal UserInter     = True
-  isFatal _             = False
+  isSerious :: CLIError -> Bool
+  isSerious UserInter     = True
+  isSerious _             = False
 

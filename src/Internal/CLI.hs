@@ -11,7 +11,6 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.State
 import           System.Directory
-import           System.Exit
 import qualified Text.Megaparsec as P
 import qualified Text.Megaparsec.Char as P
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -23,13 +22,23 @@ import           Solver.Prolog
 import           Utility.Exception
 import           Utility.Parser
 
+-- | The main function of the program. It runs the CLI feedback loop, handling
+-- any errors that may propagate to this stage.
 runCLI :: IO ()
-runCLI = do
+-- Since all benign errors are handled by the feedback loop already, we only
+-- need to handle serious and fatal errors here.
+--
+-- For serious errors, they will be wrapped in an "ExceptT". We read it from
+-- "result" and handle it using "nonFatalErrHandler".
+--
+-- For fatal errors, they will be thrown as exceptions. We catch them using
+-- the vanilla @handle@ function with our @fatalErrHandler@.
+runCLI = handle fatalErrHandler $ do
   result <- runExceptT . void $ do
     liftIO $ putStrLn "Welcome to Hrolog!"
     runStateT (feedbackloop (const $ pure ())) initCLIState
   case result of
-    Left err -> errHandler err
+    Left err -> nonFatalErrHandler err
     Right _  -> pure ()
 
 -- | The CLI feedback loop. It takes an input, parses it, and executes the
@@ -49,7 +58,7 @@ feedbackloop :: (CLIState -> IO ()) -> StateT CLIState (ExceptT CLIError IO) ()
 -- "String" exception wrapped in an "ExceptT", and the program will break from
 -- "forever" and terminate with a message corresponding to the content of the
 -- "String".
-feedbackloop callback = forever . handleErr errHandlerS $ do
+feedbackloop callback = forever . handleErr nonFatalErrHandlerS $ do
   get >>= liftIO . callback -- Call the callback
   cliIteration += 1 -- Increment the iteration counter
   mProg <- use cliProgram -- Get the program from the state
@@ -78,6 +87,7 @@ feedbackloop callback = forever . handleErr errHandlerS $ do
       InputTypePQuery q    -> handlePQuery q
       InputHelp            -> handleHelp
       InputTypeQuit        -> handleQuit
+      InputTypeCrash       -> error "Crashed!"
   cliErr .= Nothing -- Reset the error state
 
 
@@ -89,6 +99,7 @@ feedbackloop callback = forever . handleErr errHandlerS $ do
 -- "Program" in the @CLIState@.
 inputP :: Monad m => ParserT (StateT (Maybe Program) m) (Maybe InputType)
 inputP = P.choice [ Just . InputTypeFilePath <$> inputFilePath
+                  , Just InputTypeCrash <$ inputCrash
                   , Just InputTypeReload <$ inputReload
                   , Just InputTypeQuit <$ inputQuit
                   , Just InputHelp <$ inputHelp
@@ -113,6 +124,11 @@ inputHelp = void $ string ":h"
 inputQuit :: Monad m => ParserT m ()
 inputQuit = void $ string ":q"
 {-# INLINE inputQuit #-}
+
+-- | Parse a crash command.
+inputCrash :: Monad m => ParserT m ()
+inputCrash = void $ string ":kill"
+{-# INLINE inputCrash #-}
 
 -- | Parse spaces.
 space :: Monad m => ParserT m ()
@@ -139,23 +155,28 @@ getLine' = do
 --
 -- It stores the error in the state, and then calls the error handler for the
 -- main function (which is identical to what we want to handle here).
-errHandlerS :: CLIError -> StateT CLIState (ExceptT CLIError IO) ()
-errHandlerS err = cliErr ?= err >> errHandler err
+nonFatalErrHandlerS :: CLIError -> StateT CLIState (ExceptT CLIError IO) ()
+nonFatalErrHandlerS err = cliErr ?= err >> nonFatalErrHandler err
 
--- | Error handler for the main function.
-errHandler :: MonadIO m => CLIError -> m ()
-errHandler (DNEError mfp)  = do
+-- | The error handler for the main function for fatal errors. It simply prints
+-- "Fatal Error:" and then rethrows the error.
+fatalErrHandler :: SomeException -> IO ()
+fatalErrHandler err = liftIO (putStrLn "Fatal Error:") >> throw err
+
+-- | The error handler for the main function for non-fatal errors.
+nonFatalErrHandler :: MonadIO m => CLIError -> m ()
+nonFatalErrHandler (DNEError mfp)  = do
   curDir <- liftIO getCurrentDirectory
   let fileDNEErrMsg = case mfp of
         Just fp -> concat ["File ", show fp, " does not exist."]
         _       -> "File does not exist."
   let curDirMsg     = concat ["Current directory is ", show curDir, "."]
   liftIO $ putStrLn $ unlines [fileDNEErrMsg, curDirMsg]
-errHandler (IOException e) = liftIO $ putStrLn ("IO Error:\n" ++ e)
-errHandler UserInter       = liftIO $ putStrLn "Quit by user."
-errHandler (FatalError e)  = do
-  liftIO $ putStrLn ("Fatal Error:\n" ++ e)
-  liftIO exitFailure
+nonFatalErrHandler (IOException e) = liftIO $ putStrLn ("IO Error:\n" ++ e)
+nonFatalErrHandler UserInter       = liftIO $ putStrLn "Quit by user."
+-- nonFatalErrHandler (SeriousError e)  = do
+--   liftIO $ putStrLn ("Serious Error:\n" ++ e)
+--   liftIO exitFailure
 
 -- | Handle loading a program from a path.
 handleLoad :: MonadIO m => FilePath -> StateT CLIState m ()
