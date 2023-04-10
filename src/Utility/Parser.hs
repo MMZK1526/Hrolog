@@ -1,3 +1,4 @@
+-- | This module contains most of the parser combinators used in the project.
 module Utility.Parser where
 
 import           Control.Arrow

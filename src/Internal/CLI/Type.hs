@@ -3,7 +3,7 @@
 
 -- | This module contains the data types used by the CLI (Main.hs), including
 -- @CLIError@, @InputType@, and @CLIState@.
-module Internal.Main where
+module Internal.CLI.Type where
 
 import           Control.Exception
 import           Control.Lens
@@ -36,8 +36,13 @@ data CLIState = CLIState { _cliSfilePath :: Maybe FilePath
                          , _cliProgram   :: Maybe Program
                          , _cliPQuery    :: Maybe PQuery
                          , _cliInput     :: Maybe String
-                         , _cliErr       :: Maybe CLIError }
+                         , _cliErr       :: Maybe CLIError
+                         , _cliIteration :: Int }
 makeLenses ''CLIState
+
+-- | The initial state of the CLI.
+initCLIState :: CLIState
+initCLIState = CLIState Nothing Nothing Nothing Nothing Nothing 0
 
 instance FromError CLIError where
   fromError :: SomeException -> CLIError

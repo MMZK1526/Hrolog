@@ -122,7 +122,8 @@ executable Hrolog
     import:           warnings
     main-is:          Main.hs
     other-modules:
-        Internal.Main,
+        Internal.CLI,
+        Internal.CLI.Type,
         Internal.Program,
         Internal.Parser,
         Parser,

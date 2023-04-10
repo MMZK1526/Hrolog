@@ -1,4 +1,5 @@
 import           GHC.IO.Handle
+import           Internal.CLI.Type
 import           System.IO
 import           System.Process
 
@@ -7,6 +8,13 @@ main = do
   withStdin "Hello Haskell\nMMZK1526" $ do
     x <- getLine
     putStrLn x
+
+
+--------------------------------------------------------------------------------
+-- Helpers
+--------------------------------------------------------------------------------
+
+-- assertCLI :: [String] -> [CLIError]
 
 -- | Replace the @stdin@ of an @IO@ action with a @String@ for an IO action,
 -- getting back the old @stdin@ at the end.
