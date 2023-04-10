@@ -7,8 +7,6 @@ main = do
   withStdin "Hello Haskell\nMMZK1526" $ do
     x <- getLine
     putStrLn x
-  x <- getLine
-  putStrLn x
 
 -- | Replace the @stdin@ of an @IO@ action with a @String@ for an IO action,
 -- getting back the old @stdin@ at the end.
