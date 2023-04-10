@@ -1,20 +1,37 @@
+import           Control.Monad
+import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Except
+import           Control.Monad.Trans.State
+import           GHC.Arr
 import           GHC.IO.Handle
-import           Internal.CLI.Type
+import           Test.HUnit
 import           System.IO
 import           System.Process
 
+import           Internal.CLI
+import           Internal.CLI.Type
+
 main :: IO ()
-main = do
-  withStdin "Hello Haskell\nMMZK1526" $ do
-    x <- getLine
-    putStrLn x
+main = runTestTTAndExit
+     $ TestList [ {- TestCase $ assertCLI [] -} ]
 
 
 --------------------------------------------------------------------------------
 -- Helpers
 --------------------------------------------------------------------------------
 
--- assertCLI :: [String] -> [CLIError]
+assertCLI :: [(String, Maybe CLIError)] -> Assertion
+assertCLI inputsAndexpErrs = do
+  let inputs    = fst <$> inputsAndexpErrs
+  let exrErrArr = listArray (0, length inputsAndexpErrs)
+                            (snd <$> inputsAndexpErrs)
+  result <- withStdin (unlines inputs) $ runExceptT . void $ do
+    liftIO $ putStrLn "Welcome to Hrolog!"
+    runStateT (feedbackloop (const $ assertFailure "FOO")) initCLIState
+  case result of
+    Left err -> errHandler err
+    Right _  -> pure ()
+  undefined
 
 -- | Replace the @stdin@ of an @IO@ action with a @String@ for an IO action,
 -- getting back the old @stdin@ at the end.

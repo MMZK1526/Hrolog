@@ -35,12 +35,13 @@ test-suite cliTest
         Utility.UnionFind
     build-depends:
         base,
+        HUnit,
         containers >=0.6,
+        directory >=1.3,
         lens >=5.2,
         megaparsec >=8,
-        transformers >=0.5,
         process >=1.6,
-        HUnit
+        transformers >=0.5,
     ghc-options: 
         -O0
 

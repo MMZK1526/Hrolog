@@ -11,6 +11,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.State
 import           System.Directory
+import           System.Exit
 import qualified Text.Megaparsec as P
 import qualified Text.Megaparsec.Char as P
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -152,7 +153,9 @@ errHandler (DNEError mfp)  = do
   liftIO $ putStrLn $ unlines [fileDNEErrMsg, curDirMsg]
 errHandler (IOException e) = liftIO $ putStrLn ("IO Error:\n" ++ e)
 errHandler UserInter       = liftIO $ putStrLn "Quit by user."
-errHandler (FatalError e)  = liftIO $ putStrLn ("Fatal Error:\n" ++ e)
+errHandler (FatalError e)  = do
+  liftIO $ putStrLn ("Fatal Error:\n" ++ e)
+  liftIO exitFailure
 
 -- | Handle loading a program from a path.
 handleLoad :: MonadIO m => FilePath -> StateT CLIState m ()
