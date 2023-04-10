@@ -6,7 +6,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
 
 -- | Internal exception handling utilities.
 --
@@ -27,7 +26,8 @@ import           Data.Kind
 --
 -- There are three levels of error fatality:
 -- 1. Fatal errors are those that are not recoverable. Those errors will result
--- in @Left@s from @fromError@.
+-- in @Left@s from @fromError@. They will usually be handled at the outermost
+-- level of the program using the good old @catch@ or @handle@.
 -- 2. Serious errors are those that are potentially recoverable but marked as
 -- @True@ by @isSerious@.
 -- 3. Benign errors are those that are not serious and are marked as @False@ by
@@ -41,56 +41,84 @@ class FromError e where
   -- | Convert an exception to the given type.
   fromError :: SomeException -> Either SomeException e
 
-  -- | Check if the given exception is fatal.
+  -- | Check if the given exception is serious.
   --
-  -- By default, all exceptions are fatal.
+  -- By default, all exceptions are serious.
   isSerious :: e -> Bool
   isSerious = const True
 
--- -- | The most basic representation of an error, namely a simple @String@.
--- --
--- -- It takes a type level List to indicate which error types are not fatal.
--- --
--- -- In the @StringErr@ constructor, the first @Bool@ is used to indicate whether
--- -- the error is fatal or not. The second @String@ is used to store the actual
--- -- error message as a @String@.
--- data StringErr (l :: [Type]) = StringErr Bool String
---   deriving (Eq, Ord)
+-- | The most basic representation of an error, namely a simple @String@.
+--
+-- It takes two type level List to indicate which error types are benign and
+-- which are serious. Everything else are considered fatal.
+--
+-- In the @StringErr@ constructor, the first @Bool@ is used to indicate whether
+-- the error is fatal or not. The second @String@ is used to store the actual
+-- error message as a @String@.
+data StringErr (benign :: [Type]) (serious :: [Type]) = StringErr Bool String
+  deriving (Eq, Ord)
 
--- -- | Can be used as the @l@ in @StringErr@ to indicate that all errors are
--- -- fatal.
--- type AllFatal = '[]
+-- | Can be used as the @l@ in @StringErr@ to indicate that are no benign
+-- errors.
+type NoBenign = '[]
 
--- -- | Can be used as the @l@ in @StringErr@ to indicate that all errors except
--- -- @IOException@ are fatal.
--- type CatchIO = '[IOException]
+-- | Can be used as the @l@ in @StringErr@ to indicate that are no serious
+-- errors.
+type NoSerious = '[]
 
--- instance Show (StringErr l) where
---   show :: StringErr l -> String
---   show (StringErr True s) = "Fatal Error:\n" ++ s
---   show (StringErr _ s)    = s
---   {-# INLINE show #-}
+-- | Can be used as the @l@ in @StringErr@ to indicate that @IOException@s are
+-- benign.
+type BenignIO = '[IOException]
 
--- instance FromError (StringErr '[]) where
---   fromError :: SomeException -> StringErr '[]
---   fromError e = StringErr True $ show e
---   {-# INLINE fromError #-}
+-- | Can be used as the @l@ in @StringErr@ to indicate that @IOException@s are
+-- serious.
+type SeriousIO = '[IOException]
 
---   isSerious :: StringErr '[] -> Bool
---   isSerious = const True
---   {-# INLINE isSerious #-}
+instance Show (StringErr benign serious) where
+  show ::StringErr benign serious -> String
+  show (StringErr True s) = "Fatal Error:\n" ++ s
+  show (StringErr _ s)    = s
+  {-# INLINE show #-}
 
--- instance (FromError (StringErr '[ts]), Exception t)
---   => FromError (StringErr (t ': '[ts])) where
---     fromError :: SomeException -> StringErr (t ': '[ts])
---     fromError e = case fromException e :: Maybe t of
---       Just t  -> StringErr False $ show t
---       Nothing -> coerce (fromError e :: StringErr '[ts])
---     {-# INLINE fromError #-}
+-- | An instance where all exceptions are fatal. The @isSerious@ function is
+-- useless.
+instance FromError (StringErr '[] '[]) where
+  fromError :: SomeException -> Either SomeException (StringErr '[] '[])
+  fromError = Left
+  {-# INLINE fromError #-}
 
---     isSerious :: StringErr (t ': '[ts]) -> Bool
---     isSerious (StringErr b _) = b
---     {-# INLINE isSerious #-}
+  isSerious :: StringErr '[] '[] -> Bool
+  isSerious = const True
+  {-# INLINE isSerious #-}
+
+-- | An instance where there are no benign errors. We recurse on the type of
+-- the serious errors.
+instance (FromError (StringErr '[] '[ss]), Exception s)
+  => FromError (StringErr '[] '[s, ss]) where
+    fromError :: SomeException -> Either SomeException (StringErr '[] '[s, ss])
+    fromError e = case fromException e :: Maybe s of
+      Just t  -> Right $ StringErr True $ show t
+      Nothing ->
+        coerce (fromError e :: Either SomeException (StringErr '[] '[ss]))
+    {-# INLINE fromError #-}
+
+    isSerious :: StringErr '[] '[s, ss] -> Bool
+    isSerious (StringErr b _) = b
+    {-# INLINE isSerious #-}
+
+-- | We recurse on the type of the benign errors.
+instance (FromError (StringErr '[bs] '[ss]), Exception b)
+  => FromError (StringErr '[b, bs] '[ss]) where
+    fromError :: SomeException -> Either SomeException (StringErr '[b, bs] '[ss])
+    fromError e = case fromException e :: Maybe b of
+      Just t  -> Right $ StringErr True $ show t
+      Nothing ->
+        coerce (fromError e :: Either SomeException (StringErr '[bs] '[ss]))
+    {-# INLINE fromError #-}
+
+    isSerious :: StringErr '[b, bs] '[ss] -> Bool
+    isSerious (StringErr b _) = b
+    {-# INLINE isSerious #-}
 
 -- | A type class representing a monad that can handle errors.
 class MonadIO m => MonadErrHandling m where
