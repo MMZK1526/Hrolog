@@ -26,8 +26,12 @@ test-suite cliTest
     type:             exitcode-stdio-1.0
     main-is:          Test/CLITest.hs
     other-modules:
+        Internal.CLI,
+        Internal.CLI.Type,
         Internal.Program,
         Internal.Parser,
+        Parser,
+        Program,
         Solver.Prolog,
         Utility.PP,
         Utility.Parser,
@@ -59,12 +63,12 @@ test-suite parseTest
         Utility.Parser
     build-depends:
         base,
+        HUnit,
         containers >=0.6,
         lens >=5.2,
         megaparsec >=8,
         random,
         transformers >=0.5,
-        HUnit
     ghc-options: 
         -O0
 
@@ -85,11 +89,11 @@ test-suite prologTest
         Utility.UnionFind
     build-depends:
         base,
+        HUnit,
         containers >=0.6,
         lens >=5.2,
         megaparsec >=8,
         transformers >=0.5,
-        HUnit
     ghc-options: 
         -O0
 
