@@ -1,6 +1,8 @@
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE TemplateHaskell #-}
 
+-- | This module contains the data types used by the CLI (Main.hs), including
+-- @CLIError@, @InputType@, and @CLIState@.
 module Internal.Main where
 
 import           Control.Exception
