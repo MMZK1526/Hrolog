@@ -20,18 +20,18 @@ main = runTestTTAndExit
 -- Helpers
 --------------------------------------------------------------------------------
 
-assertCLI :: [(String, Maybe CLIError)] -> Assertion
-assertCLI inputsAndexpErrs = do
-  let inputs    = fst <$> inputsAndexpErrs
-  let exrErrArr = listArray (0, length inputsAndexpErrs)
-                            (snd <$> inputsAndexpErrs)
-  result <- withStdin (unlines inputs) $ runExceptT . void $ do
-    liftIO $ putStrLn "Welcome to Hrolog!"
-    runStateT (feedbackloop (const $ assertFailure "FOO")) initCLIState
-  case result of
-    Left err -> errHandler err
-    Right _  -> pure ()
-  undefined
+-- assertCLI :: [(String, Maybe CLIError)] -> Assertion
+-- assertCLI inputsAndexpErrs = do
+--   let inputs    = fst <$> inputsAndexpErrs
+--   let exrErrArr = listArray (0, length inputsAndexpErrs)
+--                             (snd <$> inputsAndexpErrs)
+--   result <- withStdin (unlines inputs) $ runExceptT . void $ do
+--     liftIO $ putStrLn "Welcome to Hrolog!"
+--     runStateT (feedbackloop (const $ assertFailure "FOO")) initCLIState
+--   case result of
+--     Left err -> errHandler err
+--     Right _  -> pure ()
+--   undefined
 
 -- | Replace the @stdin@ of an @IO@ action with a @String@ for an IO action,
 -- getting back the old @stdin@ at the end.
