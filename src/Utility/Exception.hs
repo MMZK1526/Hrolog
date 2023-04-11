@@ -6,6 +6,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 
 -- | Internal exception handling utilities.
 --
@@ -167,31 +168,31 @@ instance FromError (StringErr '[] '[]) where
 
 -- | An instance where there are no benign errors. We recurse on the type of
 -- the serious errors.
-instance (FromError (StringErr '[] '[ss]), Exception s)
-  => FromError (StringErr '[] '[s, ss]) where
+instance (FromError (StringErr '[] ss), Exception s)
+  => FromError (StringErr '[] (s ': ss)) where
     fromError :: SomeException
-              -> Either SomeException (StringErr '[] '[s, ss])
+              -> Either SomeException (StringErr '[] (s ': ss))
     fromError e = case fromException e :: Maybe s of
       Just t  -> Right $ StringErr True $ show t
       Nothing ->
-        coerce (fromError e :: Either SomeException (StringErr '[] '[ss]))
+        coerce (fromError e :: Either SomeException (StringErr '[] (s ': ss)))
     {-# INLINE fromError #-}
 
-    isSerious :: StringErr '[] '[s, ss] -> Bool
+    isSerious :: StringErr '[] (s ': ss) -> Bool
     isSerious (StringErr b _) = b
     {-# INLINE isSerious #-}
 
 -- | We recurse on the type of the benign errors.
-instance (FromError (StringErr '[bs] '[ss]), Exception b)
-  => FromError (StringErr '[b, bs] '[ss]) where
+instance (FromError (StringErr bs '[ss]), Exception b)
+  => FromError (StringErr (b ': bs) '[ss]) where
     fromError :: SomeException
-              -> Either SomeException (StringErr '[b, bs] '[ss])
+              -> Either SomeException (StringErr (b ': bs) '[ss])
     fromError e = case fromException e :: Maybe b of
       Just t  -> Right $ StringErr True $ show t
       Nothing ->
-        coerce (fromError e :: Either SomeException (StringErr '[bs] '[ss]))
+        coerce (fromError e :: Either SomeException (StringErr (b ': bs) '[ss]))
     {-# INLINE fromError #-}
 
-    isSerious :: StringErr '[b, bs] '[ss] -> Bool
+    isSerious :: StringErr (b ': bs) '[ss] -> Bool
     isSerious (StringErr b _) = b
     {-# INLINE isSerious #-}
