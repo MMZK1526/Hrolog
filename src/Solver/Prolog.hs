@@ -3,7 +3,6 @@
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module Solver.Prolog (prettifySolution, solve, solveIO, solveS) where
 

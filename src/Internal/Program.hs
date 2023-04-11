@@ -86,6 +86,9 @@ pattern Constraint b <- Clause Nothing b
 pattern Fact :: Atom' a -> Clause' a
 pattern Fact h <- Clause (Just h) []
 
+{-# COMPLETE (:?<-) #-}
+{-# COMPLETE Constraint, (:<-) #-}
+
 -- | The data type for a Hrolog program, consisting of a series of clauses.
 -- It also contains the set of predicates, constants, and variables used in the
 -- program.
