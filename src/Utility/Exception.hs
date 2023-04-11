@@ -96,12 +96,12 @@ class MonadIO m => MonadErrHandling m where
   dealWithErr :: (Either SomeException (Err m) -> m (Either (Err m) a))
               -> m a -> m a
 
-  -- | Rethrow all non-fatal errors into a pure @FromError@. It does not care
-  -- about whether they are benign or not.
-  wrapErr :: m a -> m a
-  wrapErr = dealWithErr $ \case
+  -- | Similar to @dealWithErr@, but it only handles non-fatal errors. Fatal
+  -- errors are rethrown as impure @Exception@s.
+  wrapErr :: (Err m -> m (Either (Err m) a)) -> m a -> m a
+  wrapErr f = dealWithErr $ \case
     Left err -> throw err
-    Right e  -> pure $ Left e
+    Right e  -> f e
   {-# INLINE wrapErr #-}
 
 -- | Basic @MonadErrHandling@ instance for @ExceptT@.
