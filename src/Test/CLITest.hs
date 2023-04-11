@@ -14,7 +14,11 @@ import           Utility.Exception
 
 main :: IO ()
 main = runTestTTAndExit
-     $ TestList [ TestCase $ assertCLI [] ]
+     $ TestList [ testEmptyInput ]
+
+-- | Test if the CLI works with no input (immediate quit).
+testEmptyInput :: Test
+testEmptyInput = TestLabel "Test empty input" . TestCase $ assertCLI []
 
 
 --------------------------------------------------------------------------------
