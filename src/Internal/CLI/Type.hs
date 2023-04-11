@@ -21,6 +21,7 @@ import           Utility.Exception
 data CLIError = DNEError (Maybe FilePath)
               | IOException String
               | UserInter
+ deriving (Eq, Show)
 
 -- | The input types of the CLI.
 data InputType = InputTypeFilePath FilePath -- ^ Load a program from a file
@@ -29,6 +30,7 @@ data InputType = InputTypeFilePath FilePath -- ^ Load a program from a file
                | InputHelp -- ^ Print out the help message
                | InputTypeQuit -- ^ Quit the program
                | InputTypeCrash -- ^ Crash the program; for testing purposes
+  deriving (Eq, Show)
 
 -- | The state of the CLI.
 data CLIState = CLIState { _cliSfilePath :: Maybe FilePath
@@ -54,7 +56,7 @@ instance FromError CLIError where
         then Right UserInter
         else Left e
 
+instance HasSeverity CLIError where
   isSerious :: CLIError -> Bool
-  isSerious UserInter     = True
-  isSerious _             = False
-
+  isSerious UserInter = True
+  isSerious _         = False
