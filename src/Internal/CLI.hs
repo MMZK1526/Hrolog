@@ -155,8 +155,9 @@ getLine' = do
 --
 -- It stores the error in the state, and then calls the error handler for the
 -- main function (which is identical to what we want to handle here).
-nonFatalErrHandlerS :: CLIError -> StateT CLIState (ExceptT CLIError IO) ()
-nonFatalErrHandlerS err = cliErr ?= err >> nonFatalErrHandler err
+nonFatalErrHandlerS :: TaggedErr CLIState CLIError
+                    -> StateT CLIState (ExceptT CLIError IO) ()
+nonFatalErrHandlerS (TaggedErr _ err) = cliErr ?= err >> nonFatalErrHandler err
 
 -- | The error handler for the main function for fatal errors. It simply prints
 -- "Fatal Error:" and then rethrows the error.
@@ -200,7 +201,7 @@ handleReload = do
   mfp <- use cliSfilePath -- Get the file path from the state.
   case mfp of
     -- If the file path is not stored, let the user know.
-    Nothing -> liftIO $ putStrLn "No program loaded."
+    Nothing -> liftIO $ putStrLn "No program loaded.\n"
     -- If the file path is stored, reload the program from the file.
     Just fp -> handleLoad fp
 
