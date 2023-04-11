@@ -33,6 +33,7 @@ test-suite cliTest
         Parser,
         Program,
         Solver.Prolog,
+        Utility.Exception,
         Utility.PP,
         Utility.Parser,
         Utility.Unifiers,
@@ -82,6 +83,7 @@ test-suite prologTest
     other-modules:
         Internal.Program,
         Internal.Parser,
+        Parser,
         Solver.Prolog,
         Utility.PP,
         Utility.Parser,
