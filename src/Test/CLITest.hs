@@ -25,26 +25,50 @@ testEmptyInput = TestLabel "Test empty input" . TestCase $ assertCLI []
 -- Helpers
 --------------------------------------------------------------------------------
 
+-- | @CLIError@ but only the constructors.
+data CLIErrorType = DNEErrorT | IOExceptionT | UserInterT
+  deriving (Eq, Show)
+
+-- | Convert a @CLIError@ to a @CLIErrorType@.
+cliErrorToType :: CLIError -> CLIErrorType
+cliErrorToType (DNEError _)    = DNEErrorT
+cliErrorToType (IOException _) = IOExceptionT
+cliErrorToType UserInter       = UserInterT
+
+-- | A "snapshot" of the @CLIState@ that is used for testing.
+data CLISnapshot = CLISnapshot { sfilePath :: Maybe FilePath
+                               , sErrType  :: Maybe CLIErrorType }
+  deriving (Eq, Show)
+
+-- | Take a "snapshot" of the @CLIState@.
+takeSnapshot :: CLIState -> CLISnapshot
+takeSnapshot s = CLISnapshot (_cliSfilePath s) (cliErrorToType <$> _cliErr s)
+
+-- | The initial @Snapshot@ corresponding to the initial @CLIState@.
+initialSnapshot :: CLISnapshot
+initialSnapshot = takeSnapshot initCLIState
+
 -- | Given the inputs and the expected @CLIError@s, run the CLI and check if the
--- errors match.
-assertCLI :: [(String, Maybe CLIError)] -> Assertion
-assertCLI inputsAndexpErrs  = void $ do
-  let inputs                = fst <$> inputsAndexpErrs -- The user inputs
-  -- The expected errors as an array. The first element is @Nothing@ because
-  -- The callback is invoked before any input is processed.
-  let exrErrArr             = listArray (0, length inputsAndexpErrs)
-                                        (Nothing : map snd inputsAndexpErrs)
-  -- Check if the error produced at each iteration matches the expected error.
+-- snapshots match.
+assertCLI :: [(String, CLISnapshot)] -> Assertion
+assertCLI inputsAndsnapshots = void $ do
+  let inputs       = fst <$> inputsAndsnapshots -- The user inputs
+  -- The expected snapshots as an array. We add an initial snapshot because
+  -- the callback is first invoked without any input.
+  let snapshotsArr = listArray (0, length inputsAndsnapshots)
+                              (initialSnapshot : map snd inputsAndsnapshots)
+  -- Check if the snapshot produced at each iteration matches the corresponding
+  -- expected snapshot.
   let testCallback cliState = do
-        let curStep = _cliIteration cliState
-        let curErr  = _cliErr cliState
-        assertEqual ("Match error at step " ++ show curStep)
-                    curErr (exrErrArr ! curStep)
+        let curStep      = _cliIteration cliState
+        let curSnapshot  = takeSnapshot cliState
+        assertEqual ("Match snapshot at step " ++ show curStep)
+                    curSnapshot (snapshotsArr ! curStep)
   -- Check if the iteration count matches the number of inputs.
   let finalCheck tErr       = do
         let TaggedErr s _ = tErr
         liftIO $ assertEqual "Match iteration count"
-                              (length inputsAndexpErrs) (_cliIteration s)
+                              (length inputsAndsnapshots) (_cliIteration s)
         return $ Left tErr
   -- Provide the inputs to the CLI as @stdin@. We add the ":q" command at the
   -- end to quit the program.
