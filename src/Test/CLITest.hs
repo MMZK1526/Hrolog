@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
@@ -85,7 +87,7 @@ assertCLI inputsAndsnapshots = void $ do
   -- end to quit the program.
   withStdin (unlines inputs ++ "\n:q") . runExceptT $ do
     liftIO $ putStrLn "Welcome to Hrolog!"
-    runStateT (wrapErr finalCheck $ feedbackloop testCallback) initCLIState
+    runStateT (wrapErr @(TaggedErr CLIState CLIError) finalCheck $ feedbackloop testCallback) initCLIState
 
 -- | Replace the @stdin@ of an @IO@ action with a @String@ for an IO action,
 -- getting back the old @stdin@ at the end.

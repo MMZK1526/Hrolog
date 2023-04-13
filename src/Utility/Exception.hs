@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -72,15 +73,13 @@ instance (HasSeverity e) => HasSeverity (TaggedErr t e) where
   isSerious (TaggedErr _ e) = isSerious e
 
 -- | A type class representing a monad that can handle errors.
-class MonadIO m => MonadErrHandling m where
-  -- | The monolithic error type that this monad can handle.
-  --
-  -- This type usually implements @FromError@ so that any (non-fatal) impure
-  -- exception can be transformed into this type and then be handled. However,
-  -- this is not required. In fact, it may contain some extra information
-  -- provided by the monad itself.
-  type Err m
-
+--
+-- @e@ is the monolithic error type that this monad can handle. It usually
+-- implements @FromError@ so that any (non-fatal) impure exception can be
+-- transformed into this type and then be handled. However, this is not
+-- required. In fact, it may contain some extra information provided by the
+-- monad itself.
+class MonadIO m => MonadErrHandling e m where
   -- | Handle all impure exceptions, either rethrow them or catch them properly.
   --
   -- It takes a function that takes an error and returns an @Either@ of a
@@ -93,20 +92,18 @@ class MonadIO m => MonadErrHandling m where
   --
   -- The function itself does not mind handling a fatal error; it can always
   -- choose to catch it, but it is recommended to rethrow it in most cases.
-  dealWithErr :: (Either SomeException (Err m) -> m (Either (Err m) a))
-              -> m a -> m a
+  dealWithErr :: (Either SomeException e -> m (Either e a)) -> m a -> m a
 
   -- | Similar to @dealWithErr@, but it only handles non-fatal errors. Fatal
   -- errors are rethrown as impure @Exception@s.
-  wrapErr :: (Err m -> m (Either (Err m) a)) -> m a -> m a
+  wrapErr :: (e -> m (Either e a)) -> m a -> m a
   wrapErr f = dealWithErr $ \case
     Left err -> throw err
     Right e  -> f e
   {-# INLINE wrapErr #-}
 
 -- | Basic @MonadErrHandling@ instance for @ExceptT@.
-instance FromError e => MonadErrHandling (ExceptT e IO) where
-  type Err (ExceptT e IO) = e
+instance FromError e => MonadErrHandling e (ExceptT e IO) where
 
   dealWithErr :: (Either SomeException e -> ExceptT e IO (Either e a))
               -> ExceptT e IO a -> ExceptT e IO a
@@ -124,11 +121,9 @@ instance FromError e => MonadErrHandling (ExceptT e IO) where
 -- When an error is caught, the state is restored to immediately before the
 -- action that caused the error. However, the handler may change the state as
 -- well, for example storing the error in the state for future reference.
-instance MonadErrHandling m => MonadErrHandling (StateT s m) where
-  type Err (StateT s m) = TaggedErr s (Err m)
-
-  dealWithErr :: ( Either SomeException (TaggedErr s (Err m))
-                -> StateT s m (Either (TaggedErr s (Err m)) a) )
+instance MonadErrHandling e m => MonadErrHandling (TaggedErr s e) (StateT s m) where
+  dealWithErr :: ( Either SomeException (TaggedErr s e)
+              -> StateT s m (Either (TaggedErr s e) a) )
               -> StateT s m a -> StateT s m a
   dealWithErr f stateIO = StateT
     $ \s -> dealWithErr (worker s) (runStateT stateIO s)
@@ -144,8 +139,7 @@ instance MonadErrHandling m => MonadErrHandling (StateT s m) where
 --
 -- It is a special case of @dealWithErr@ which uses the semantic meaning of
 -- the three levels of error fatality.
-handleErr :: HasSeverity (Err m) => MonadErrHandling m
-          => (Err m -> m a) -> m a -> m a
+handleErr :: HasSeverity e => MonadErrHandling e m => (e -> m a) -> m a -> m a
 handleErr f = dealWithErr $ \case
   Left err -> throw err
   Right e  -> if isSerious e then pure (Left e) else Right <$> f e
