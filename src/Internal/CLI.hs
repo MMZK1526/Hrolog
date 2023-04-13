@@ -4,9 +4,10 @@
 -- in @Main.hs@ simply reexports the @runCLI@ function here.
 module Internal.CLI where
 
-import           Control.Exception
+import           Control.Exception (AsyncException(UserInterrupt))
 import           Control.Lens
 import           Control.Monad
+import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.State
@@ -155,14 +156,16 @@ getLine' = do
 --
 -- It stores the error in the state, and then calls the error handler for the
 -- main function (which is identical to what we want to handle here).
-nonFatalErrHandlerS :: TaggedErr CLIState CLIError
+nonFatalErrHandlerS :: CLIError
                     -> StateT CLIState (ExceptT CLIError IO) ()
-nonFatalErrHandlerS (TaggedErr _ err) = cliErr ?= err >> nonFatalErrHandler err
+nonFatalErrHandlerS err = cliErr ?= err >> nonFatalErrHandler err
 
 -- | The error handler for the main function for fatal errors. It simply prints
 -- "Fatal Error:" and then rethrows the error.
 fatalErrHandler :: SomeException -> IO ()
-fatalErrHandler err = liftIO (putStrLn "Fatal Error:") >> throw err
+fatalErrHandler err = do
+  liftIO (putStrLn ("Fatal Error: " ++ show err))
+  throwM err
 
 -- | The error handler for the main function for non-fatal errors.
 nonFatalErrHandler :: MonadIO m => CLIError -> m ()
@@ -236,7 +239,7 @@ handleHelp = liftIO $ putStrLn "TODO: Help message."
 {-# INLINE handleHelp #-}
 
 -- | Handle quitting the program.
-handleQuit :: MonadIO m => StateT CLIState m ()
-handleQuit = throw UserInterrupt
+handleQuit :: MonadIO m => MonadThrow m => StateT CLIState m ()
+handleQuit = throwM UserInterrupt
 {-# INLINE handleQuit #-}
 

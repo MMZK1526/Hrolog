@@ -43,6 +43,7 @@ test-suite cliTest
         HUnit,
         containers >=0.6,
         directory >=1.3,
+        exceptions >=0.10,
         lens >=5.2,
         megaparsec >=8,
         process >=1.6,
@@ -145,6 +146,7 @@ executable Hrolog
         base,
         containers >=0.6,
         directory >=1.3,
+        exceptions >=0.10,
         lens >=5.2,
         megaparsec >=8,
         transformers >=0.5
