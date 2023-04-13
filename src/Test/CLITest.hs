@@ -2,6 +2,7 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.State
+import           Data.IORef
 import           GHC.Arr
 import           GHC.IO.Handle
 import           Test.HUnit
@@ -14,11 +15,17 @@ import           Utility.Exception
 
 main :: IO ()
 main = runTestTTAndExit
-     $ TestList [ testEmptyInput ]
+     $ TestList [ testEmptyInput
+                , testReloadBeforeLoad ]
 
 -- | Test if the CLI works with no input (immediate quit).
 testEmptyInput :: Test
 testEmptyInput = TestLabel "Test empty input" . TestCase $ assertCLI []
+
+-- | When the user reloads before loading a program, there should be no program.
+testReloadBeforeLoad :: Test
+testReloadBeforeLoad = TestLabel "Test reload before load" . TestCase
+                     $ assertCLI [ (":r", CLISnapshot Nothing Nothing) ]
 
 
 --------------------------------------------------------------------------------
@@ -52,6 +59,7 @@ initialSnapshot = takeSnapshot initCLIState
 -- snapshots match.
 assertCLI :: [(String, CLISnapshot)] -> Assertion
 assertCLI inputsAndsnapshots = void $ do
+  curStepRef <- newIORef 0
   let inputs       = fst <$> inputsAndsnapshots -- The user inputs
   -- The expected snapshots as an array. We add an initial snapshot because
   -- the callback is first invoked without any input.
@@ -60,16 +68,19 @@ assertCLI inputsAndsnapshots = void $ do
   -- Check if the snapshot produced at each iteration matches the corresponding
   -- expected snapshot.
   let testCallback cliState = do
-        let curStep      = _cliIteration cliState
-        let curSnapshot  = takeSnapshot cliState
+        let curStep     = _cliIteration cliState
+        let curSnapshot = takeSnapshot cliState
         assertEqual ("Match snapshot at step " ++ show curStep)
                     curSnapshot (snapshotsArr ! curStep)
+        modifyIORef' curStepRef succ -- Increment the current step
   -- Check if the iteration count matches the number of inputs.
-  let finalCheck tErr       = do
-        let TaggedErr s _ = tErr
+  let finalCheck            = const $ do
+        stepCount <- liftIO $ readIORef curStepRef
+        -- We add 1 to the length of the inputs because it does not include the
+        -- last ":q" command.
         liftIO $ assertEqual "Match iteration count"
-                              (length inputsAndsnapshots) (_cliIteration s)
-        return $ Left tErr
+                             (length inputsAndsnapshots + 1) stepCount
+        return $ Right ()
   -- Provide the inputs to the CLI as @stdin@. We add the ":q" command at the
   -- end to quit the program.
   withStdin (unlines inputs ++ "\n:q") . runExceptT $ do
