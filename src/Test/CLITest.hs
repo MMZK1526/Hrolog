@@ -35,14 +35,16 @@ testReloadBeforeLoad = TestLabel "Test reload before load" . TestCase
 --------------------------------------------------------------------------------
 
 -- | @CLIError@ but only the constructors.
-data CLIErrorType = DNEErrorT | IOExceptionT | UserInterT
+data CLIErrorType = DNEErrorT | IOExceptionT | UserInterT | FatalErrorT
   deriving (Eq, Show)
 
--- | Convert a @CLIError@ to a @CLIErrorType@.
-cliErrorToType :: CLIError -> CLIErrorType
-cliErrorToType (DNEError _)    = DNEErrorT
-cliErrorToType (IOException _) = IOExceptionT
-cliErrorToType UserInter       = UserInterT
+-- | Convert a @TaggedError CLIError@ to a @CLIErrorType@.
+cliErrorToType :: TaggedError CLIError -> CLIErrorType
+cliErrorToType (TaggedError _ Nothing)    = FatalErrorT
+cliErrorToType (TaggedError _ (Just err)) = case err of
+  DNEError _    -> DNEErrorT
+  IOException _ -> IOExceptionT
+  UserInter     -> UserInterT
 
 -- | A "snapshot" of the @CLIState@ that is used for testing.
 data CLISnapshot = CLISnapshot { sfilePath :: Maybe FilePath
@@ -87,7 +89,7 @@ assertCLI inputsAndsnapshots = void $ do
   -- end to quit the program.
   withStdin (unlines inputs ++ "\n:q") . runExceptT $ do
     liftIO $ putStrLn "Welcome to Hrolog!"
-    runStateT (wrapErr @CLIError finalCheck $ feedbackloop testCallback) initCLIState
+    runStateT (dealWithErr @(TaggedError CLIError) finalCheck $ feedbackloop testCallback) initCLIState
 
 -- | Replace the @stdin@ of an @IO@ action with a @String@ for an IO action,
 -- getting back the old @stdin@ at the end.

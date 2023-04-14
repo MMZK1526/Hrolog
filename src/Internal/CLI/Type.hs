@@ -1,3 +1,4 @@
+{-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -12,16 +13,16 @@ import           System.IO.Error
 import           Program
 import           Utility.Exception
 
--- | A custum error type. It treats @IOError@s as benign errors, printing
+-- | A custom error type. It treats @IOError@s as benign errors, printing
 -- them out differently based on whether it is a @DoesNotExistError@ or not.
 -- It treats @UserInterrupt@ as a serious error because it results in the
 -- termination of the program.
 --
 -- For any other types of errors, it treats them as fatal errors.
-data CLIError = DNEError (Maybe FilePath)
-              | IOException String
-              | UserInter
- deriving (Eq, Show)
+data CLIError = DNEError (Maybe String) -- ^ The file does not exist
+              | IOException String      -- ^ An IO error
+              | UserInter               -- ^ User-induced termination
+  deriving (Eq, Show)
 
 -- | The input types of the CLI.
 data InputType = InputTypeFilePath FilePath -- ^ Load a program from a file
@@ -37,7 +38,7 @@ data CLIState = CLIState { _cliSfilePath :: Maybe FilePath
                          , _cliProgram   :: Maybe Program
                          , _cliPQuery    :: Maybe PQuery
                          , _cliInput     :: Maybe String
-                         , _cliErr       :: Maybe CLIError
+                         , _cliErr       :: Maybe (TaggedError CLIError)
                          , _cliIteration :: Int }
 makeLenses ''CLIState
 
@@ -45,18 +46,17 @@ makeLenses ''CLIState
 initCLIState :: CLIState
 initCLIState = CLIState Nothing Nothing Nothing Nothing Nothing 0
 
-instance FromError CLIError where
-  fromError :: SomeException -> Either SomeException CLIError
-  fromError e = case fromException e :: Maybe IOException of
-    Just ioe -> if isDoesNotExistError ioe
-      then Right $ DNEError (ioeGetFileName ioe)
-      else Right $ IOException (show ioe)
+instance FromSomeError CLIError where
+  fromSomeError :: SomeException -> Maybe CLIError
+  fromSomeError e = case fromException e :: Maybe IOException of
+    Just ioe -> Just $ if isDoesNotExistError ioe
+      then DNEError (ioeGetFileName ioe)
+      else IOException (show ioe)
     Nothing  ->
       if Just UserInterrupt == (fromException e :: Maybe AsyncException)
-        then Right UserInter
-        else Left e
+        then Just UserInter
+        else Nothing
 
 instance HasSeverity CLIError where
   isSerious :: CLIError -> Bool
-  isSerious UserInter = True
-  isSerious _         = False
+  isSerious = (UserInter ==)
