@@ -14,18 +14,30 @@ import           Data.List
 -- | A union-find data structure on @Int@. Each representative (root) is
 -- associated with a an optional value of type @a@.
 data UnionFind a = UnionFind { _ufParent :: IntMap Int
-                             , _ufRank   :: IntMap (Int, Maybe a) }
+                             , _ufRank   :: IntMap (Int, Maybe a)
+                             , _ufSize   :: Int }
+  deriving Show
 $(makeLenses ''UnionFind)
 
--- | Create a new @UnionFind@ with @n@ elements.
-mkUnionFind :: Int -> UnionFind a
-mkUnionFind n
-  = UnionFind (IM.fromDistinctAscList $ zip [0..n - 1] [0..n - 1])
-              (IM.fromDistinctAscList $ zip [0..n - 1] (repeat (1, Nothing)))
+-- | Create a new @UnionFind@ without elements.
+mkUnionFind :: UnionFind a
+mkUnionFind = UnionFind IM.empty IM.empty 0
 {-# INLINE mkUnionFind #-}
+
+-- | Add a new element to the @UnionFind@. The new element belongs to a
+-- singleton set with itself as the root.
+ufAdd :: UnionFind a -> UnionFind a
+ufAdd uf = uf & ufParent.at n ?~ n
+              & ufRank.at n   ?~ (1, Nothing)
+              & ufSize        +~ 1
+  where
+    n = uf ^. ufSize
+{-# INLINE ufAdd #-}
 
 -- | Find the root (as well as the associated value) of the set containing @x@,
 -- updating the parent pointers along the way.
+--
+-- It does not check if @x@ is a valid element.
 ufFind :: Int -> UnionFind a -> (Int, UnionFind a)
 ufFind x uf = case uf ^. ufParent.at x of
   -- The "Nothing" case should be unreachable.
@@ -37,6 +49,8 @@ ufFind x uf = case uf ^. ufParent.at x of
 {-# INLINE ufFind #-}
 
 -- | Apply @ufFind@ to each element of the list.
+--
+-- It does not check if any of the elements are valid.
 ufFinds :: [Int] -> UnionFind a -> ([Int], UnionFind a)
 ufFinds xs uf = foldl' worker ([], uf) xs
   where
@@ -46,6 +60,8 @@ ufFinds xs uf = foldl' worker ([], uf) xs
 
 -- | Adjust the value associated with the set containing @x@ using @f@,
 -- returning the new value and the updated @UnionFind@.
+--
+-- It does not check if @x@ is a valid element.
 ufAdjust :: (Maybe a -> Maybe a) -> Int -> UnionFind a -> (Maybe a, UnionFind a)
 ufAdjust f x uf = (f a, uf' & ufRank.at r ?~ (rank, f a))
   where
@@ -55,10 +71,14 @@ ufAdjust f x uf = (f a, uf' & ufRank.at r ?~ (rank, f a))
 
 -- | Get the value associated with the set containing @x@, returning the value
 -- and the updated @UnionFind@.
+--
+-- It does not check if the element is valid.
 ufGet :: Int -> UnionFind a -> (Maybe a, UnionFind a)
 ufGet = ufAdjust id
 
 -- | Apply @ufGet@ to each element of the list.
+--
+-- It does not check if any of the elements are valid.
 ufGets :: [Int] -> UnionFind a -> ([Maybe a], UnionFind a)
 ufGets xs uf = foldl' worker ([], uf) xs
   where
@@ -67,20 +87,24 @@ ufGets xs uf = foldl' worker ([], uf) xs
 {-# INLINE ufGets #-}
 
 -- | Set the value associated with the set containing @x@.
+--
+-- It does not check if the element is valid.
 ufSet :: Maybe a -> Int -> UnionFind a -> UnionFind a
 ufSet v = (snd .) . ufAdjust (const v)
 
 -- | Merge the sets containing @x@ and @y@.
+--
+-- It does not check if the @x@ and @y@ are valid.
 ufUnion :: Int -> Int -> UnionFind a -> UnionFind a
+ufUnion x y uf
+  | x == y = uf -- x and y are already in the same set
 ufUnion x y uf = case rxr `compare` ryr of
   -- Use ry as parent of rx and increment rank of ry.
   LT -> uf'' & ufParent . at rx ?~ ry
-             & ufRank . at ry %~ fmap (first succ)
+             & ufRank . at ry %~ fmap (first (+ rxr))
   -- Use rx as parent of ry and increment rank of rx.
-  GT -> uf'' & ufParent . at ry ?~ rx
-             & ufRank . at rx %~ fmap (first succ)
-  -- x and y are already in the same set.
-  EQ -> uf''
+  _  -> uf'' & ufParent . at ry ?~ rx
+             & ufRank . at rx %~ fmap (first (+ ryr))
   where
     (rx, uf')  = ufFind x uf  -- Find the root of the set containing x
     (ry, uf'') = ufFind y uf' -- Find the root of the set containing y
