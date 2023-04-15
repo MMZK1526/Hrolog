@@ -27,9 +27,9 @@ canPickUpFacts = TestLabel "Can pick up facts" $ TestList (worker <$> queries)
   where
     worker q = TestCase $ assertSolutionFromFile "./src/Test/programs/facts.hrolog"
                                                  q (Just . Solution $ M.empty)
-    queries  = [ mkPQuery [Atom (Predicate "a" 0) [] []]
-               , mkPQuery [Atom (Predicate "b" 1) [VariableTerm "A"] ["A"]]
-               , mkPQuery [Atom (Predicate "c" 2) [VariableTerm "X", VariableTerm "Y"] ["X", "Y"]] ]
+    queries  = [ mkPQuery [Atom (Predicate "a" 0) []]
+               , mkPQuery [Atom (Predicate "b" 1) [VariableTerm "A"]]
+               , mkPQuery [Atom (Predicate "c" 2) [VariableTerm "X", VariableTerm "Y"]] ]
 
 -- | Does not derive false facts.
 cannotPickUpWrongFacts :: Test
@@ -37,8 +37,8 @@ cannotPickUpWrongFacts = TestLabel "Cannot pick up wrong facts" $ TestList (work
   where
     worker q = TestCase $ assertSolutionFromFile "./src/Test/programs/facts.hrolog"
                                                  q Nothing
-    queries  = [ mkPQuery [Atom (Predicate "d" 0) [] []]
-               , mkPQuery [Atom (Predicate "a" 1) [VariableTerm "A", VariableTerm "B"] ["A", "B"]] ]
+    queries  = [ mkPQuery [Atom (Predicate "d" 0) []]
+               , mkPQuery [Atom (Predicate "a" 1) [VariableTerm "A", VariableTerm "B"]] ]
 
 -- | A simple test with basic facts and rules, testing for the first solution.
 simpleNumberTestOne :: Test
@@ -46,10 +46,8 @@ simpleNumberTestOne = TestLabel "Simple number test" . TestCase $
   assertSolutionFromFile "./src/Test/programs/simpleNumbers.hrolog"
                           (mkPQuery [ Atom (Predicate "gt" 2) [ VariableTerm "X"
                                                               , VariableTerm "Y" ]
-                                                              ["X", "Y"]
                                     , Atom (Predicate "gt" 2) [ VariableTerm "Y"
-                                                              , VariableTerm "Z" ]
-                                                              ["Y", "Z"] ])
+                                                              , VariableTerm "Z" ] ])
                           ( Just . Solution $ M.fromList [ ("X", ConstantTerm (Constant "2"))
                                                          , ("Y", ConstantTerm (Constant "1"))
                                                          , ("Z", ConstantTerm (Constant "0")) ] )
@@ -60,10 +58,8 @@ simpleNumberTestAll = TestLabel "Simple number test" . TestCase $
   assertSolutionsFromFile "./src/Test/programs/simpleNumbers.hrolog"
                           (mkPQuery [ Atom (Predicate "gt" 2) [ VariableTerm "X"
                                                               , VariableTerm "Y" ]
-                                                              ["X", "Y"]
                                     , Atom (Predicate "gt" 2) [ VariableTerm "Y"
-                                                              , VariableTerm "Z" ]
-                                                              ["Y", "Z"] ])
+                                                              , VariableTerm "Z" ] ])
                           [ Solution $ M.fromList [ ("X", ConstantTerm (Constant "2"))
                                                   , ("Y", ConstantTerm (Constant "1"))
                                                   , ("Z", ConstantTerm (Constant "0")) ]
@@ -82,8 +78,7 @@ aGTaIsFalse :: Test
 aGTaIsFalse = TestLabel "a > a is false" . TestCase $
   assertSolutionFromFile "./src/Test/programs/simpleNumbers.hrolog"
                           (mkPQuery [ Atom (Predicate "gt" 2) [ VariableTerm "X"
-                                                              , VariableTerm "X" ]
-                                                              ["X"] ])
+                                                              , VariableTerm "X" ] ])
                           Nothing
 
 

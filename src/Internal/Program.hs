@@ -53,8 +53,7 @@ data Term' a = ConstantTerm Constant
 type Term = Term' String
 
 -- | A Hrolog atom, consisting of a predicate and a list of terms as arguments.
--- It also stores the list of variables in the atom.
-data Atom' a = Atom Predicate [Term' a] [a]
+data Atom' a = Atom Predicate [Term' a]
   deriving (Eq, Ord, Show)
 type Atom = Atom' String
 
@@ -135,7 +134,7 @@ instance PP () Term where
 
 instance PP () Atom where
   pShowF :: () -> Atom -> String
-  pShowF _ (Atom p as _) = case _predicateArity p of
+  pShowF _ (Atom p as) = case _predicateArity p of
     0 -> _predicateName p
     _ -> concat [_predicateName p, "(", intercalate ", " (pShow <$> as), ")"]
 
@@ -214,7 +213,7 @@ mkProgram cs
     workClause (Clause mHead body) = do
       forM_ mHead workAtom
       forM_ body workAtom
-    workAtom (Atom p ts _)         = do
+    workAtom (Atom p ts)           = do
       predicates %= S.insert p
       forM_ ts workTerm
     workTerm (ConstantTerm c)      = constants %= S.insert c
@@ -228,7 +227,7 @@ mkPQuery :: [Atom] -> PQuery
 mkPQuery as
   = execState (forM_ as worker) (PQuery S.empty as)
   where
-    worker (Atom _ ts _) = forM_ ts $ \case
+    worker (Atom _ ts) = forM_ ts $ \case
       VariableTerm v -> pqVariables %= S.insert v
       _              -> pure ()
 
@@ -242,8 +241,6 @@ mkPQuery as
 -- 3. All predicates have the correct arity.
 -- 4. All constants are in the set of constants as described by the @Program@.
 -- 5. All variables are in the set of variables as described by the @Program@.
--- 6. All variables in an @Atom@ are in the set of variables as described by
---    the @Atom@ itself.
 isProgramLegal :: Program -> Bool
 isProgramLegal Program {..}
     -- Check legality of identifiers.
@@ -254,24 +251,22 @@ isProgramLegal Program {..}
     -- Check legality of clauses, which means checking all its components.
  && all clauseLegal _clauses
   where
-    indentifierLegal name     = not (null name)
+    indentifierLegal name   = not (null name)
                            && (isLower (head name) || isDigit (head name))
                            && all isAlphaNum (tail name)
-    variableLegal var         = not (null var) && isUpper (head var)
-                             && all isAlphaNum (tail var)
+    variableLegal var        = not (null var) && isUpper (head var)
+                            && all isAlphaNum (tail var)
     -- A term is legal if it is a constant and is in the set of constants, or
-    -- it is a variable and is in the set of variables as well as in the set of
-    -- variables of the atom that it lives in.
-    termLegal avs term        = case term of
+    -- it is a variable and is in the set of variables
+    termLegal  term         = case term of
       ConstantTerm c -> c `elem` _constants
-      VariableTerm v -> v `elem` _variables && v `elem` avs
+      VariableTerm v -> v `elem` _variables
     -- An atom is legal if its predicate is in the set of predicates, has the
     -- correct arity, all its arguments are legal, and all its variables are
     -- legal.
-    atomLegal (Atom p as avs) =  _predicateArity p == length as
-                           && p `elem` _predicates
-                           && all (termLegal avs) as
-                           && all variableLegal avs
+    atomLegal (Atom p as)   =  _predicateArity p == length as
+                            && p `elem` _predicates
+                            && all termLegal as
     -- A clause is legal if its head and all its body atoms are legal.
     clauseLegal Clause {..} = maybe True atomLegal _clauseHead
                            && all atomLegal _clauseBody
