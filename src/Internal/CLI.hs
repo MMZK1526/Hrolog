@@ -28,13 +28,12 @@ import           Utility.Parser
 runCLI :: IO ()
 -- Since all benign errors are handled by the feedback loop already, we only
 -- need to handle fatal errors here.
---
 -- For serious and fatal errors, they will be wrapped in an "ExceptT". We read
 -- it from "result" and handle it using "errHandler".
 runCLI = do
   result <- runExceptT . void $ do
     liftIO $ putStrLn "Welcome to Hrolog!"
-    runStateT (feedbackloop (const $ pure ())) initCLIState
+    evalStateT (feedbackloop (const $ pure ())) initCLIState
   case result of
     Left err -> errHandler err
     Right _  -> pure ()
@@ -44,7 +43,8 @@ runCLI = do
 --
 -- It takes a callback that is called at start of each loop. This callback is
 -- useful for testing purposes as it has access to the state of the program.
-feedbackloop :: (CLIState -> IO ()) -> StateT CLIState (ExceptT (TaggedError CLIError) IO) ()
+feedbackloop :: (CLIState -> IO ())
+             -> StateT CLIState (ExceptT (TaggedError CLIError) IO) ()
 -- The "forever" indicates that the loop will never terminate unless there is
 -- an uncaught exception.
 -- "handleErrS" is a utility function that catches all benign errors by
@@ -161,7 +161,7 @@ errHandlerS err = cliErr ?= err >> errHandler err
 -- | The error handler for the main function for both fatal and non-fatal
 -- errors.
 errHandler :: MonadErrHandling (TaggedError CLIError) m
-                   => TaggedError CLIError -> m ()
+           => TaggedError CLIError -> m ()
 errHandler (TaggedError e Nothing)    = do
   liftIO (putStrLn ("Fatal Error:\n" ++ show e))
   throwM e

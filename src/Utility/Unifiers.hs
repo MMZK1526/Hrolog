@@ -4,8 +4,10 @@
 module Utility.Unifiers where
 
 import           Control.Applicative
-import           Control.Lens hiding (un)
+import           Control.Lens hiding (ix, un)
 import           Control.Monad
+import           Control.Monad.Trans.Maybe
+import           Control.Monad.Trans.State
 import           Data.Functor
 import           Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
@@ -57,6 +59,56 @@ emptyUS = UnifyState 0 M.empty IM.empty
 emptyUS' :: Int -> UnifyState' a
 emptyUS' = UnifyState' 0 M.empty . mkUnionFind
 {-# INLINE emptyUS' #-}
+
+newNodeIx :: Monad m => StateT (UnifyState' a) m Int
+newNodeIx = do
+  ix <- use usNode'
+  usNode' += 1
+  return ix
+{-# INLINE newNodeIx #-}
+
+addVar :: Ord a => Monad m => a -> StateT (UnifyState' a) m ()
+addVar var = do
+  varMap <- use usVarMap'
+  case varMap M.!? var of
+    Just _  -> return ()
+    Nothing -> do
+      ix <- newNodeIx
+      usVarMap' . at var ?= ix
+{-# INLINE addVar #-}
+
+unifyTermS :: Ord a => Monad m
+           => Term' a -> Term' a -> StateT (UnifyState' a) (MaybeT m) ()
+unifyTermS (ConstantTerm c) (ConstantTerm c') = guard (c == c') $> ()
+unifyTermS (VariableTerm v) t                 = do
+  addVar v -- Make sure the variable is in the var map
+  case t of
+    -- If the term is a constant, we can just set the value of the variable
+    -- to the constant, subjecting to the constraint that the variable is
+    -- not already set to a different constant.
+    ConstantTerm c -> do
+      varMap <- use usVarMap'
+      uf     <- use usUF'
+      let ix = varMap M.! v
+      let (mVal, uf') = ufGet ix uf
+      case mVal of
+        Nothing -> usUF' .= ufSet (Just c) ix uf'
+        Just c' -> guard (c == c') >> (usUF' .= uf')
+    -- If the term is another variable, we can just union the two variables,
+    -- subjecting to the constraint that the two variables are not already
+    -- set to different constants.
+    VariableTerm v' -> do
+      addVar v' -- Make sure the other variable is in the var map
+      varMap <- use usVarMap'
+      uf     <- use usUF'
+      let ix  = varMap M.! v
+      let ix' = varMap M.! v'
+      let (mVal, uf')   = ufGet ix uf
+      let (mVal', uf'') = ufGet ix' uf'
+      case (mVal, mVal') of
+        (Just c, Just c') -> guard (c == c') >> (usUF' .= uf'')
+        _                 -> usUF' .= ufUnion ix ix' uf''
+unifyTermS t (VariableTerm v)                 = unifyTermS (VariableTerm v) t
 
 -- | Unify two terms. Returns a substitution that, when applied, would make the
 -- two terms equal. Returns 'Nothing' if the terms cannot be unified.

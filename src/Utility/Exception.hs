@@ -8,8 +8,6 @@
 {-# LANGUAGE TupleSections #-}
 
 -- | Internal exception handling utilities.
---
--- They seem to be quite useful; I might consider exposing them in the future.
 module Utility.Exception where
 
 import           Control.Lens
