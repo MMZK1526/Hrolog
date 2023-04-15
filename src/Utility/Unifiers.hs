@@ -18,11 +18,15 @@ import           Data.Tuple
 import           Internal.Program
 import           Utility.UnionFind
 
+-- | The state that keeps track of the variables that have been encountered as
+-- well as a union-find data structure recording the equivalences between
+-- variables.
 data UnifyState a = UnifyState { _usVarMap :: Map a Int
                                , _usUF     :: UnionFind Constant }
   deriving Show
 $(makeLenses ''UnifyState)
 
+-- | The initial unification state.
 mkUnifyState :: Ord a => UnifyState a
 mkUnifyState = UnifyState M.empty mkUnionFind
 {-# INLINE mkUnifyState #-}
@@ -41,6 +45,8 @@ addVar var = do
       usUF %= ufAdd
 {-# INLINE addVar #-}
 
+-- | Unify two terms under a given @UnifyState@ context. Returns 'Nothing' if
+-- the terms cannot be unified.
 unifyTermS :: Ord a => Monad m
            => Term' a -> Term' a -> StateT (UnifyState a) (MaybeT m) ()
 unifyTermS (ConstantTerm c) (ConstantTerm c') = guard (c == c') $> ()
@@ -74,6 +80,8 @@ unifyTermS (VariableTerm v) t                 = do
         _                 -> usUF .= ufUnion ix ix' uf''
 unifyTermS t (VariableTerm v)                 = unifyTermS (VariableTerm v) t
 
+-- | Unify two atoms under a given @UnifyState@ context. Returns 'Nothing' if
+-- the atoms cannot be unified.
 unifyAtomS :: Ord a => Monad m
            => Atom' a -> Atom' a -> StateT (UnifyState a) (MaybeT m) ()
 unifyAtomS (Atom p ts) (Atom p' ts')
