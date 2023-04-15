@@ -86,17 +86,28 @@ unifyAtomS (Atom p ts) (Atom p' ts')
 -- The substitution is represented as a @Map@ from variables to terms.
 unifyAtom :: Show a => Ord a => Atom' a -> Atom' a -> Maybe (Map a (Term' a))
 unifyAtom a1 a2 = case mUS of
-  Nothing -> Nothing
-  Just us -> do
+  Nothing -> Nothing -- Unification failed
+  Just us -> fst <$> do
+    -- Convert the union-find indices to variables
     let ixToVarMap = IM.fromList $ map swap $ M.assocs (us ^. usVarMap)
-    let uf         = us ^. usUF
-    Just $ flip execState M.empty
-         $ forM_ (M.assocs (us ^. usVarMap))
-         $ \(v, ix) -> at v ?= case fst $ ufGet ix uf of
-              Nothing -> VariableTerm (ixToVarMap IM.! fst (ufFind ix uf))
-              Just c  -> ConstantTerm c
+    let uf         = us ^. usUF -- The union-find after unification
+    -- For each variable in the var map, map it to the term corresponding to its
+    -- representative in the union-find.
+    Just . flip execState (M.empty, uf)
+         . forM_ (M.assocs (us ^. usVarMap)) $ \(v, ix) -> do
+      let (mVal, uf') = ufGet ix uf -- Get the value of the representative
+      case mVal of
+        -- If the value is Nothing, we map the variable to its representative.
+        Nothing -> do
+          let (ix', uf'') = ufFind ix uf'
+          _1 . at v ?= VariableTerm (ixToVarMap IM.! ix')
+          _2 .= uf'' -- Update the union-find
+        -- If the value is Just c, we map the variable to the constant c.
+        Just c  -> do
+          _1 . at v ?= ConstantTerm c
+          _2 .= uf' -- Update the union-find
   where
-    mUS = runIdentity $ runMaybeT $ execStateT (unifyAtomS a1 a2) mkUnifyState
+    mUS = runIdentity . runMaybeT $ execStateT (unifyAtomS a1 a2) mkUnifyState
 
 -- | Unify two terms. Returns a substitution that, when applied, would make the
 -- two terms equal. Returns 'Nothing' if the terms cannot be unified.
