@@ -110,15 +110,3 @@ ufUnion x y uf = case rxr `compare` ryr of
     (ry, uf'') = ufFind y uf' -- Find the root of the set containing y
     Just rxr   = fst <$> uf'' ^. ufRank . at rx -- Rank of rx
     Just ryr   = fst <$> uf'' ^. ufRank . at ry -- Rank of ry
-
--- | Find all equivalence classes of the @UnionFind@, toegether with their
--- associated value.
-ufEquivClasses :: UnionFind a -> [([Int], Maybe a)]
-ufEquivClasses uf
-  = IM.elems $ IM.fromListWith (\(x1s, a) (x2s, _) -> (x1s ++ x2s, a))
-                               [(r, ([x], a)) | (x, a, r) <- elemValReps]
-  where
-    allElems    = IM.keys $ uf ^. ufParent
-    elemValReps = zip3 (fst $ ufFinds allElems uf)
-                       (fst $ ufGets allElems uf)
-                       allElems 
