@@ -76,8 +76,10 @@ unifyTermS (VariableTerm v) t                 = do
       let (mVal, uf')   = ufGet ix uf
       let (mVal', uf'') = ufGet ix' uf'
       case (mVal, mVal') of
-        (Just c, Just c') -> guard (c == c') >> (usUF .= uf'')
-        _                 -> usUF .= ufUnion ix ix' uf''
+        -- Cannot unify if the two variables are set to different constants.
+        (Just c, Just c')  -> guard (c == c') >> (usUF .= uf'')
+        -- If only one of the variables is set, union with the other variable.
+        _usUF              -> usUF .= ufUnion ix ix' uf''
 unifyTermS t (VariableTerm v)                 = unifyTermS (VariableTerm v) t
 
 -- | Unify two atoms under a given @UnifyState@ context. Returns 'Nothing' if

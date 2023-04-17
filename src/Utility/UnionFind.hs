@@ -5,8 +5,8 @@
 -- | A Internal union-find data structure on @Int@ used for unification.
 module Utility.UnionFind where
 
+import           Control.Applicative
 import           Control.Lens
-import           Data.Bifunctor
 import           Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 import           Data.List
@@ -92,7 +92,8 @@ ufGets xs uf = foldl' worker ([], uf) xs
 ufSet :: Maybe a -> Int -> UnionFind a -> UnionFind a
 ufSet v = (snd .) . ufAdjust (const v)
 
--- | Merge the sets containing @x@ and @y@.
+-- | Merge the sets containing @x@ and @y@, taking the one of the non-Nothing
+-- value from the two sets as the new value for the union.
 --
 -- It does not check if the @x@ and @y@ are valid.
 ufUnion :: Int -> Int -> UnionFind a -> UnionFind a
@@ -101,12 +102,12 @@ ufUnion x y uf
 ufUnion x y uf = case rxr `compare` ryr of
   -- Use ry as parent of rx and increment rank of ry.
   LT -> uf'' & ufParent . at rx ?~ ry
-             & ufRank . at ry %~ fmap (first (+ rxr))
+             & ufRank . at ry %~ fmap (bimap (+ rxr) (<|> rxv))
   -- Use rx as parent of ry and increment rank of rx.
   _  -> uf'' & ufParent . at ry ?~ rx
-             & ufRank . at rx %~ fmap (first (+ ryr))
+             & ufRank . at rx %~ fmap (bimap (+ ryr) (<|> ryv))
   where
-    (rx, uf')  = ufFind x uf  -- Find the root of the set containing x
-    (ry, uf'') = ufFind y uf' -- Find the root of the set containing y
-    Just rxr   = fst <$> uf'' ^. ufRank . at rx -- Rank of rx
-    Just ryr   = fst <$> uf'' ^. ufRank . at ry -- Rank of ry
+    (rx, uf')       = ufFind x uf  -- Find the root of the set containing x
+    (ry, uf'')      = ufFind y uf' -- Find the root of the set containing y
+    Just (rxr, rxv) = uf'' ^. ufRank . at rx -- Rank and value of rx
+    Just (ryr, ryv) = uf'' ^. ufRank . at ry -- Rank and value of ry
