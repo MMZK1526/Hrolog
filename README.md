@@ -1,5 +1,11 @@
 # Hrolog
 
+TODO:
+1. Support function terms and their unification
+2. Optimise with tabling
+3. Use Haskeline for better REPL experience
+4. Documentation
+
 ## Introduction
 Hrolog is a [logic programming language](https://en.wikipedia.org/wiki/Logic_programming) that highly resembles [Prolog](https://en.wikipedia.org/wiki/Prolog). It will support both SLDNF-deduction and abduction as well as some logic-based learning algorithms. In the future, it may also support a Clingo-like Answer Set Programming semantics.
 
