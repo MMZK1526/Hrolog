@@ -19,8 +19,8 @@ main :: IO ()
 main = runTestTTAndExit
      $ TestList [ canParseVariable
                 , genVarsAreValid
-                , canParseConstant
-                , genConstsAreValid
+                , canParseFunction
+                , genFunctionsAreValid
                 , canParseTerm
                 , genTermsAreValid
                 , canParseAtom
@@ -49,23 +49,23 @@ genVarsAreValid
       let parseVariable str = evalState (parseT space variable str) (Identity emptyProgram)
       assertValid ("Valid variable " ++ show v) (Just v) (parseVariable v)
 
-canParseConstant :: Test
-canParseConstant
-  = TestLabel "Can parse variable" . TestCase $ do
-      let parseConstant str = evalState (parseT space identifier str) (Identity emptyProgram)
-      assertValid "Empty string" Nothing (parseConstant "")
-      assertValid "Lowercase letter" (Just "a") (parseConstant "a")
-      assertValid "Lowercase word" (Just "aBC") (parseConstant "aBC")
-      assertValid "Uppercase" Nothing (parseConstant "ABC")
-      assertValid "Underscore" Nothing (parseConstant "_")
+canParseFunction :: Test
+canParseFunction
+  = TestLabel "Can parse function" . TestCase $ do
+      let parseFunction str = evalState (parseT space functionTerm str) (Identity emptyProgram)
+      assertValid "Empty string" Nothing (parseFunction "")
+      assertValid "Lowercase letter" (Just $ FTerm (Function "a" 0) []) (parseFunction "a")
+      assertValid "Lowercase word" (Just $ FTerm (Function "aBC" 0) []) (parseFunction "aBC")
+      assertValid "Uppercase" Nothing (parseFunction "ABC")
+      assertValid "Underscore" Nothing (parseFunction "_")
 
-genConstsAreValid :: Test
-genConstsAreValid
-  = TestLabel "Generated constants are valid" . TestCase
+genFunctionsAreValid :: Test
+genFunctionsAreValid
+  = TestLabel "Generated functions are valid" . TestCase
   . forM_ [1..7] $ \l -> forM_ [0..114] $ \g -> do
-      let c                 = fst $ genConstant l (mkStdGen g)
-      let parseConstant str = evalState (parseT space identifier str) (Identity emptyProgram)
-      assertValid ("Valid constant " ++ show c) (Just c) (parseConstant c)
+      let f                 = fst $ genFunction l (mkStdGen g)
+      let parseFunction str = evalState (parseT space functionTerm str) (Identity emptyProgram)
+      assertValid ("Valid function " ++ show f) (Just f) (parseFunction (pShow f))
 
 canParseTerm :: Test
 canParseTerm
@@ -209,9 +209,9 @@ genVariable = runState . worker 1 26
          | r <= 36   -> (chr (ord '0' + r - 27) :) <$> worker 0 62 (l - 1)
          | otherwise -> (chr (ord 'a' + r - 37) :) <$> worker 0 62 (l - 1)
 
--- | Generate a @Constant@ with the given length.
-genConstant :: Int -> StdGen -> (String, StdGen)
-genConstant = runState . worker 1 36
+-- | Generate an identifer with the given length.
+genIdentifier :: Int -> StdGen -> (String, StdGen)
+genIdentifier = runState . worker 1 26
   where
     worker _ _ 0 = pure ""
     worker m n l = do
@@ -221,12 +221,16 @@ genConstant = runState . worker 1 36
          | r <= 36   -> (chr (ord '0' + r - 27) :) <$> worker 0 62 (l - 1)
          | otherwise -> (chr (ord 'A' + r - 37) :) <$> worker 0 62 (l - 1)
 
+-- | Generate a @FunctionTerm@ with the given length.
+genFunction :: Int -> StdGen -> (FunctionTerm, StdGen)
+genFunction = (first (flip FTerm [] . flip Function 0) .) . genIdentifier
+
 -- | Generate a @Variable@ with the given length.
 --
 -- TODO: Generate function terms.
 genTerm :: Int -> StdGen -> (Term, StdGen)
 genTerm l gen
-  | r == 0    = first Constant $ genConstant l gen'
+  | r == 0    = first FunctionTerm $ genFunction l gen'
   | otherwise = first VariableTerm $ genVariable l gen'
   where
     (r, gen') = randomR @Int (0, 1) gen
@@ -238,7 +242,7 @@ genAtom arity len = runState worker
   where
     worker = do
       len'         <- randomRS 1 (max 1 len)
-      (pName, gen) <- genConstant len' <$> get
+      (pName, gen) <- genIdentifier len' <$> get
       put gen
       ts           <- replicateM arity $ do
         len''     <- randomRS 1 (max 1 len)

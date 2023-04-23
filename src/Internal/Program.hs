@@ -141,12 +141,16 @@ instance PP () Function where
   pShowF :: () -> Function -> String
   pShowF _ Function {..} = concat [_functionName, "/", show _functionArity]
 
+instance PP () FunctionTerm where
+  pShowF :: () -> FunctionTerm -> String
+  pShowF _ (FTerm f []) = _functionName f
+  pShowF _ (FTerm f as)
+    = concat [_functionName f, "(", intercalate ", " (pShow <$> as), ")"]
+
 instance PP () Term where
   pShowF :: () -> Term -> String
   pShowF _ (VariableTerm v) = v
-  pShowF _ (F f as)         = case _functionArity f of
-    0 -> _functionName f
-    _ -> concat [_functionName f, "(", intercalate ", " (pShow <$> as), ")"]
+  pShowF _ (F f as)         = pShow (FTerm f as)
 
 instance PP () Atom where
   pShowF :: () -> Atom -> String
