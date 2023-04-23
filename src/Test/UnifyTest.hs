@@ -85,6 +85,7 @@ cannotUnifyVariableWithVariableBoundToDifferentConstants = TestLabel "Cannot uni
                   (Atom (Predicate "a" 3) [Constant "1", Constant "2", VariableTerm "B"])
                   Nothing
 
+
 --------------------------------------------------------------------------------
 -- Helpers
 --------------------------------------------------------------------------------
