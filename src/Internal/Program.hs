@@ -36,6 +36,10 @@ import           Utility.PP
 data Predicate = Predicate { _predicateName :: String, _predicateArity :: Int }
   deriving (Eq, Ord, Show)
 
+-- | A Hrolog function with its name and arity.
+data Function = Function { _functionName :: String, _functionArity :: Int }
+  deriving (Eq, Ord, Show)
+
 -- | A Hrolog constant, starting with a capital letter.
 newtype Constant = Constant { _constantName :: String }
   deriving (Eq, Ord, Show)
@@ -49,6 +53,7 @@ newtype Constant = Constant { _constantName :: String }
 -- TODO: Add a type constructor for function terms.
 data Term' a = ConstantTerm Constant
              | VariableTerm a
+             | FunctionTerm Function [Term' a]
   deriving (Eq, Ord, Show)
 type Term = Term' String
 
@@ -94,6 +99,7 @@ pattern Fact h <- Clause (Just h) []
 data Program' a = Program { _predicates :: Set Predicate
                           , _constants  :: Set Constant
                           , _variables  :: Set String
+                          , _functions  :: Set Function
                           , _clauses    :: [Clause' a] }
   deriving (Eq, Ord, Show)
 type Program = Program' String
@@ -123,6 +129,10 @@ instance PP () Predicate where
   pShowF :: () -> Predicate -> String
   pShowF _ Predicate {..} = concat [_predicateName, "/", show _predicateArity]
 
+instance PP () Function where
+  pShowF :: () -> Function -> String
+  pShowF _ Function {..} = concat [_functionName, "/", show _functionArity]
+
 instance PP () Constant where
   pShowF :: () -> Constant -> String
   pShowF = const _constantName
@@ -131,6 +141,8 @@ instance PP () Term where
   pShowF :: () -> Term -> String
   pShowF _ (ConstantTerm c) = pShow c
   pShowF _ (VariableTerm v) = v
+  pShowF _ (FunctionTerm f as)
+    = concat [show f, "(", intercalate ", " (pShow <$> as), ")"]
 
 instance PP () Atom where
   pShowF :: () -> Atom -> String
@@ -155,7 +167,7 @@ instance PP PPOp Program where
   pShowF :: PPOp -> Program -> String
   pShowF vbLvl Program {..} = case vbLvl of
     Succinct -> clStr
-    Verbose  -> intercalate "\n" [clStr, csStr, vsStr, psStr]
+    Verbose  -> intercalate "\n" [clStr, csStr, vsStr, psStr, fsStr]
     where
       clStr = unlines (pShow <$> _clauses)
       csStr = case S.toList _constants of
@@ -167,6 +179,9 @@ instance PP PPOp Program where
       psStr = case S.toList _predicates of
         [] -> ""
         ps -> concat ["Predicates: ", intercalate ", " (pShow <$> ps), ".\n"]
+      fsStr = case S.toList _functions of
+        [] -> ""
+        fs -> concat ["Functions: ", intercalate ", " (pShow <$> fs), ".\n"]
 
 instance PP () PQuery where
   pShowF :: () -> PQuery -> String
@@ -199,7 +214,7 @@ emptyClause = EmptyClause
 
 -- | The empty @Program@ (entails nothing).
 emptyProgram :: Program
-emptyProgram = Program S.empty S.empty S.empty []
+emptyProgram = Program S.empty S.empty S.empty S.empty []
 
 -- | Turn a list of @Clause@s into a @Program@ by calculating the set of
 -- predicates, constants, and variables.
@@ -208,7 +223,7 @@ emptyProgram = Program S.empty S.empty S.empty []
 -- create a @Program@ by using @parseProgram@ in module Parser.
 mkProgram :: [Clause] -> Program
 mkProgram cs
-  = execState (forM_ cs workClause) (Program S.empty S.empty S.empty cs)
+  = execState (forM_ cs workClause) (Program S.empty S.empty S.empty S.empty cs)
   where
     workClause (Clause mHead body) = do
       forM_ mHead workAtom
@@ -218,6 +233,9 @@ mkProgram cs
       forM_ ts workTerm
     workTerm (ConstantTerm c)      = constants %= S.insert c
     workTerm (VariableTerm v)      = variables %= S.insert v
+    workTerm (FunctionTerm f as)   = do
+      functions %= S.insert f
+      forM_ as workTerm
 
 -- | Turn a list of @Atom@s into a @PQuery@ by calculating the set of variables.
 --
@@ -261,6 +279,8 @@ isProgramLegal Program {..}
     termLegal  term         = case term of
       ConstantTerm c -> c `elem` _constants
       VariableTerm v -> v `elem` _variables
+      FunctionTerm f ts -> f `elem` _functions
+                        && all termLegal ts
     -- An atom is legal if its predicate is in the set of predicates, has the
     -- correct arity, all its arguments are legal, and all its variables are
     -- legal.

@@ -71,7 +71,15 @@ constant = do
 -- | Parse a @Term@, which is either a @Constant@ or a @Variable@.
 term :: Functor f => Monad m => ParserT (StateT (f Program) m) Term
 term = P.choice [ ConstantTerm <$> constant
-                , VariableTerm <$> variable ] P.<?> "term"
+                , VariableTerm <$> variable
+                , functionTerm ] P.<?> "term"
+  where
+    functionTerm = do
+      name <- identifier
+      ts   <- P.between (char '(') (char ')') (P.sepBy term (char ','))
+      let fd = Function name (length ts)
+      lift $ modify' (fmap (functions %~ S.insert fd))
+      return $ FunctionTerm fd ts
 
 -- | Parse an @Atom@, which is a @Predicate@ followed by a list of @Term@s.
 atom :: Functor f => Monad m => ParserT (StateT (f Program) m) Atom

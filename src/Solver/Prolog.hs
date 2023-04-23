@@ -107,7 +107,7 @@ solveS :: Monad m => (SolvePQuery -> StateT PState m a) -> StateT PState m b
 -- Once we have the solutions in the form of series of substitutions, we apply
 -- them to the variables in the query to get the monolithic substitutions, which
 -- describe the solutions.
-solveS onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
+solveS onNewStep onFail onBacktrackEnd (Program _ _ _ _ cs) pquery
   = fmap (map (optimiseSub . findVarSub))
          (evalStateT (worker M.empty query') newPState)
   where
