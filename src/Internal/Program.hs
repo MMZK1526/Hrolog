@@ -253,6 +253,13 @@ mkPQuery as
       VariableTerm v -> pqVariables %= S.insert v
       _              -> pure ()
 
+-- | Retrieve the set of variables from a "FunctionTerm".
+getVariables :: FunctionTerm -> Set String
+getVariables (FTerm _ ts) = S.unions (worker <$> ts)
+  where
+    worker (VariableTerm v) = S.singleton v
+    worker (F _ as)         = S.unions (worker <$> as)
+
 -- | Check if the @Program@ specification is consistent.
 --
 -- It checks the following:

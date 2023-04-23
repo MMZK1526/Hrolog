@@ -54,20 +54,17 @@ unifyTermS (F f ts) (F f' ts')
 unifyTermS (VariableTerm v) t                 = do
   addVar v -- Make sure the variable is in the var map
   case t of
-    -- If the term is a constant, we can just set the value of the variable
-    -- to the constant, subjecting to the constraint that the variable is
-    -- not already set to a different constant.
-    F c [] -> do
+    -- If the term is a function, we can just set the value of the variable
+    -- to the function, as long as there are no recursive usages of the variable
+    -- itself. TODO: Check recursive usages.
+    F f ts -> do
       varMap <- use usVarMap
       uf     <- use usUF
       let ix = varMap M.! v
       let (mVal, uf') = ufGet ix uf
       case mVal of
-        Nothing            -> usUF .= ufSet (Just $ FTerm c []) ix uf'
-        Just (FTerm c' []) -> guard (c == c') >> (usUF .= uf')
-        _              -> mzero -- TODO: Check if it is closed
-    -- TODO: Handle general function term
-    F _ _ -> undefined
+        Nothing -> usUF .= ufSet (Just $ FTerm f ts) ix uf'
+        Just ft -> unifyTermS t (FunctionTerm ft) >> usUF .= uf'
     -- If the term is another variable, we can just union the two variables,
     -- subjecting to the constraint that the two variables are not already
     -- set to different constants.
@@ -75,13 +72,14 @@ unifyTermS (VariableTerm v) t                 = do
       addVar v' -- Make sure the other variable is in the var map
       varMap <- use usVarMap
       uf     <- use usUF
-      let ix  = varMap M.! v
-      let ix' = varMap M.! v'
+      let (ix, ix')     = (varMap M.! v, varMap M.! v')
       let (mVal, uf')   = ufGet ix uf
       let (mVal', uf'') = ufGet ix' uf'
       case (mVal, mVal') of
-        -- Cannot unify if the two variables are set to different constants.
-        (Just c, Just c')  -> guard (c == c') >> (usUF .= uf'')
+        -- Unify the values.
+        (Just c, Just c')  -> do
+          unifyTermS (FunctionTerm c) (FunctionTerm c')
+          usUF .= uf''
         -- If only one of the variables is set, union with the other variable.
         _usUF              -> usUF .= ufUnion ix ix' uf''
 unifyTermS t (VariableTerm v)                 = unifyTermS (VariableTerm v) t
@@ -112,24 +110,27 @@ unifyAtom a1 a2 = case mUS of
       let (mVal, uf') = ufGet ix uf -- Get the value of the representative
       case mVal of
         -- If the value is Nothing, we map the variable to its representative.
-        Nothing                  -> do
+        Nothing           -> do
           let (ix', uf'') = ufFind ix uf'
           _1 . at v ?= VariableTerm (ixToVarMap IM.! ix')
           _2 .= uf'' -- Update the union-find
         -- If the value is a constant, we map the variable to it.
-        Just (FTerm c [])        -> do
-          _1 . at v ?= F c []
+        Just (FTerm f ts) -> do
+          _1 . at v ?= F f ts
           _2 .= uf' -- Update the union-find
-        -- TODO: If the value is a function, we map all variables in it to their
-        -- representatives.
-        Just (FTerm f ts) -> undefined
   where
     mUS = runIdentity . runMaybeT $ execStateT (unifyAtomS a1 a2) mkUnifyState
 
 -- | Substitute a term with the given substitution map.
+--
+-- Need to apply the substitution until the result is fixed because the result
+-- of the substitution may itself contain variables that need to be substituted.
 substituteTerm :: Ord a => Map a (Term' a) -> Term' a -> Term' a
-substituteTerm m t@(VariableTerm x) = fromMaybe t (M.lookup x m)
-substituteTerm _ t                  = t
+substituteTerm sub = fixPoint worker
+  where
+    worker t = case t of
+      VariableTerm v -> fromMaybe t (M.lookup v sub)
+      F f ts         -> F f (map worker ts)
 {-# INLINE substituteTerm #-}
 
 -- | Substitute an atom with the given substitution map.
@@ -163,3 +164,7 @@ renamePQuery :: Ord b => (a -> b) -> PQuery' a -> PQuery' b
 renamePQuery f q = q { _pqVariables  = S.map f (_pqVariables q)
                      , _pqAtoms      = map (renameAtom f) (_pqAtoms q) }
 {-# INLINE renamePQuery #-}
+
+-- | Apply an automorphism until the result is fixed.
+fixPoint :: Eq a => (a -> a) -> a -> a
+fixPoint f x = let x' = f x in if x == x' then x else fixPoint f x'
