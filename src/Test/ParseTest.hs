@@ -7,6 +7,7 @@ import           Data.Bifunctor
 import           Data.Char
 import           Data.Functor
 import           Data.Functor.Identity
+import           GHC.Stack
 import           System.Random
 import           Test.HUnit
 
@@ -51,10 +52,10 @@ genVarsAreValid
 canParseConstant :: Test
 canParseConstant
   = TestLabel "Can parse variable" . TestCase $ do
-      let parseConstant str = evalState (parseT space constant str) (Identity emptyProgram)
+      let parseConstant str = evalState (parseT space identifier str) (Identity emptyProgram)
       assertValid "Empty string" Nothing (parseConstant "")
-      assertValid "Lowercase letter" (Just $ Constant "a") (parseConstant "a")
-      assertValid "Lowercase word" (Just $ Constant "aBC") (parseConstant "aBC")
+      assertValid "Lowercase letter" (Just "a") (parseConstant "a")
+      assertValid "Lowercase word" (Just "aBC") (parseConstant "aBC")
       assertValid "Uppercase" Nothing (parseConstant "ABC")
       assertValid "Underscore" Nothing (parseConstant "_")
 
@@ -63,9 +64,8 @@ genConstsAreValid
   = TestLabel "Generated constants are valid" . TestCase
   . forM_ [1..7] $ \l -> forM_ [0..114] $ \g -> do
       let c                 = fst $ genConstant l (mkStdGen g)
-      let parseConstant str = evalState (parseT space constant str) (Identity emptyProgram)
-      assertValid ("Valid constant " ++ show c)
-                  (Just c) (parseConstant (pShow c))
+      let parseConstant str = evalState (parseT space identifier str) (Identity emptyProgram)
+      assertValid ("Valid constant " ++ show c) (Just c) (parseConstant c)
 
 canParseTerm :: Test
 canParseTerm
@@ -73,9 +73,9 @@ canParseTerm
       let parseTerm str = evalState (parseT space term str) (Identity emptyProgram)
       assertValid "Empty string" Nothing (parseTerm "")
       assertValid "Lowercase letter"
-                  (Just . ConstantTerm $ Constant "a") (parseTerm "a")
+                  (Just $ Constant "a") (parseTerm "a")
       assertValid "Lowercase word"
-                  (Just . ConstantTerm $ Constant "abc") (parseTerm "abc")
+                  (Just $ Constant "abc") (parseTerm "abc")
       assertValid "Uppercase" (Just $ VariableTerm "ABC") (parseTerm "ABC")
       assertValid "Underscore" Nothing (parseTerm "_")
 
@@ -101,8 +101,7 @@ canParseAtom
                   (parseAtom "flies(X)")
       assertValid "Binary predicate"
                   ( Just $ Atom (Predicate "mother" 2)
-                                [ ConstantTerm $ Constant "qeii"
-                                , ConstantTerm $ Constant "kciii" ] )
+                                [ Constant "qeii", Constant "kciii" ] )
                   (parseAtom "mother(qeii, kciii)")
       assertValid "Missing parenthesis" Nothing (parseAtom "foo(")
       assertValid "Bad separator" Nothing (parseAtom "foo(x; y)")
@@ -164,14 +163,14 @@ canParsePQuery
                   (parsePQuery "me.")
       assertValid "Singleton query"
                   ( Just $ mkPQuery [ Atom (Predicate "gt" 1)
-                                           [ConstantTerm (Constant "a")] ] )
+                                           [Constant "a"] ] )
                   (parsePQuery "gt(a).")
       assertValid "Long query"
                   ( Just $ mkPQuery [ Atom (Predicate "gt" 1)
-                                           [ConstantTerm (Constant "a")]
+                                           [Constant "a"]
                                     , Atom (Predicate "foo" 2)
                                            [ VariableTerm "B"
-                                           , ConstantTerm (Constant "c") ] ] )
+                                           , Constant "c" ] ] )
                   (parsePQuery "gt(a), foo(B, c).")
       assertValid "Missing period" Nothing (parsePQuery "gt(a)")
       assertValid "Missing parenthesis" Nothing (parsePQuery "gt(a")
@@ -190,7 +189,7 @@ genPQueriesAreValid
 -- Helpers
 --------------------------------------------------------------------------------
 
-assertValid :: Eq a => Show a => String -> Maybe a -> Either e a -> Assertion
+assertValid :: HasCallStack => Eq a => Show a => String -> Maybe a -> Either e a -> Assertion
 assertValid str Nothing act = case act of
     Left _  -> pure ()
     Right _ -> assertFailure $ "Shouldn't parse: " ++ str
@@ -211,8 +210,8 @@ genVariable = runState . worker 1 26
          | otherwise -> (chr (ord 'a' + r - 37) :) <$> worker 0 62 (l - 1)
 
 -- | Generate a @Constant@ with the given length.
-genConstant :: Int -> StdGen -> (Constant, StdGen)
-genConstant = (first Constant .) . runState . worker 1 36
+genConstant :: Int -> StdGen -> (String, StdGen)
+genConstant = runState . worker 1 36
   where
     worker _ _ 0 = pure ""
     worker m n l = do
@@ -223,9 +222,11 @@ genConstant = (first Constant .) . runState . worker 1 36
          | otherwise -> (chr (ord 'A' + r - 37) :) <$> worker 0 62 (l - 1)
 
 -- | Generate a @Variable@ with the given length.
+--
+-- TODO: Generate function terms.
 genTerm :: Int -> StdGen -> (Term, StdGen)
 genTerm l gen
-  | r == 0    = first ConstantTerm $ genConstant l gen'
+  | r == 0    = first Constant $ genConstant l gen'
   | otherwise = first VariableTerm $ genVariable l gen'
   where
     (r, gen') = randomR @Int (0, 1) gen
@@ -236,10 +237,10 @@ genAtom :: Int -> Int -> StdGen -> (Atom, StdGen)
 genAtom arity len = runState worker
   where
     worker = do
-      len'                  <- randomRS 1 (max 1 len)
-      (Constant pName, gen) <- genConstant len' <$> get
+      len'         <- randomRS 1 (max 1 len)
+      (pName, gen) <- genConstant len' <$> get
       put gen
-      ts                    <- replicateM arity $ do
+      ts           <- replicateM arity $ do
         len''     <- randomRS 1 (max 1 len)
         (t, gen') <- genTerm len'' <$> get
         put gen'

@@ -1,5 +1,6 @@
 import           Data.Map (Map)
 import qualified Data.Map as M
+import           GHC.Stack
 import           Test.HUnit
 
 import           Internal.Program
@@ -36,23 +37,23 @@ cannotUnifyDifferentArity = TestLabel "Cannot unify predicates with different ar
 -- | Can unify predicates with the same constants.
 canUnifyPredicatesWithSameConstants :: Test
 canUnifyPredicatesWithSameConstants = TestLabel "Can unify predicates with the same constants" $ TestCase $
-  assertUnifyAtom (Atom (Predicate "a" 2) [ConstantTerm (Constant "1"), ConstantTerm (Constant "2")])
-                  (Atom (Predicate "a" 2) [ConstantTerm (Constant "1"), ConstantTerm (Constant "2")])
+  assertUnifyAtom (Atom (Predicate "a" 2) [Constant "1", Constant "2"])
+                  (Atom (Predicate "a" 2) [Constant "1", Constant "2"])
                   (Just M.empty)
 
 -- | Cannot unify predicates with different constants.
 cannotUnifyDifferentConstants :: Test
 cannotUnifyDifferentConstants = TestLabel "Cannot unify predicates with different constants" $ TestCase $
-  assertUnifyAtom (Atom (Predicate "a" 2) [ConstantTerm (Constant "1"), ConstantTerm (Constant "2")])
-                  (Atom (Predicate "a" 2) [ConstantTerm (Constant "2"), ConstantTerm (Constant "1")])
+  assertUnifyAtom (Atom (Predicate "a" 2) [Constant "1", Constant "2"])
+                  (Atom (Predicate "a" 2) [Constant "2", Constant "1"])
                   Nothing
 
 -- | Can unify variable with constant.
 canUnifyVariableWithConstant :: Test
 canUnifyVariableWithConstant = TestLabel "Can unify variable with constant" $ TestCase $
-  assertUnifyAtom (Atom (Predicate "a" 2) [ConstantTerm (Constant "1"), VariableTerm "A"])
-                  (Atom (Predicate "a" 2) [ConstantTerm (Constant "1"), ConstantTerm (Constant "2")])
-                  (Just $ M.fromList [("A", ConstantTerm (Constant "2"))])
+  assertUnifyAtom (Atom (Predicate "a" 2) [Constant "1", VariableTerm "A"])
+                  (Atom (Predicate "a" 2) [Constant "1", Constant "2"])
+                  (Just $ M.fromList [("A", Constant "2")])
 
 -- | Can unify variable with another variable.
 canUnifyVariableWithVariable :: Test
@@ -66,7 +67,7 @@ canUnifyVariableWithVariable = TestLabel "Can unify variable with variable" $ Te
 cannotUnifyVariableWithNewConstant :: Test
 cannotUnifyVariableWithNewConstant = TestLabel "Cannot unify variable with new constant" $ TestCase $
   assertUnifyAtom (Atom (Predicate "a" 2) [VariableTerm "A", VariableTerm "A"])
-                  (Atom (Predicate "a" 2) [ConstantTerm (Constant "1"), ConstantTerm (Constant "2")])
+                  (Atom (Predicate "a" 2) [Constant "1", Constant "2"])
                   Nothing
 
 -- | If a variable is bound to a constant, all other variables that bind to the
@@ -74,20 +75,20 @@ cannotUnifyVariableWithNewConstant = TestLabel "Cannot unify variable with new c
 canUnifyVariableWithVariableBoundToConstant :: Test
 canUnifyVariableWithVariableBoundToConstant = TestLabel "Can unify variable with variable bound to constant" $ TestCase $
   assertUnifyAtom (Atom (Predicate "a" 2) [VariableTerm "A", VariableTerm "B"])
-                  (Atom (Predicate "a" 2) [ConstantTerm (Constant "1"), VariableTerm "A"])
-                  (Just $ M.fromList [("A", ConstantTerm (Constant "1")), ("B", ConstantTerm (Constant "1"))])
+                  (Atom (Predicate "a" 2) [Constant "1", VariableTerm "A"])
+                  (Just $ M.fromList [("A", Constant "1"), ("B", Constant "1")])
 
 -- | If two variables are bound to different constants, they cannot be unified.
 cannotUnifyVariableWithVariableBoundToDifferentConstants :: Test
 cannotUnifyVariableWithVariableBoundToDifferentConstants = TestLabel "Cannot unify variable with variable bound to different constants" $ TestCase $
   assertUnifyAtom (Atom (Predicate "a" 3) [VariableTerm "A", VariableTerm "B", VariableTerm "A"])
-                  (Atom (Predicate "a" 3) [ConstantTerm (Constant "1"), ConstantTerm (Constant "2"), VariableTerm "B"])
+                  (Atom (Predicate "a" 3) [Constant "1", Constant "2", VariableTerm "B"])
                   Nothing
 
 --------------------------------------------------------------------------------
 -- Helpers
 --------------------------------------------------------------------------------
 
-assertUnifyAtom :: Atom -> Atom -> Maybe (Map String Term) -> Assertion
+assertUnifyAtom :: HasCallStack => Atom -> Atom -> Maybe (Map String Term) -> Assertion
 assertUnifyAtom a1 a2 expSub = do
   assertEqual "Atom Unification" expSub (unifyAtom a1 a2)

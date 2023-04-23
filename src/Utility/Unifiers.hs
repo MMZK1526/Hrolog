@@ -7,7 +7,6 @@ import           Control.Lens hiding (ix)
 import           Control.Monad
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.State
-import           Data.Functor
 import qualified Data.IntMap as IM
 import           Data.Map (Map)
 import qualified Data.Map as M
@@ -22,7 +21,7 @@ import           Utility.UnionFind
 -- well as a union-find data structure recording the equivalences between
 -- variables.
 data UnifyState a = UnifyState { _usVarMap :: Map a Int
-                               , _usUF     :: UnionFind (Term' a) }
+                               , _usUF     :: UnionFind (FunctionTerm' a) }
   deriving Show
 $(makeLenses ''UnifyState)
 
@@ -49,24 +48,26 @@ addVar var = do
 -- the terms cannot be unified.
 unifyTermS :: Ord a => Monad m
            => Term' a -> Term' a -> StateT (UnifyState a) (MaybeT m) ()
-unifyTermS (ConstantTerm c) (ConstantTerm c') = guard (c == c') $> ()
+unifyTermS (F f ts) (F f' ts')
+  | f /= f'   = mzero
+  | otherwise = mapM_ (uncurry unifyTermS) (zip ts ts')
 unifyTermS (VariableTerm v) t                 = do
   addVar v -- Make sure the variable is in the var map
   case t of
-    -- TODO: Handle function term
-    FunctionTerm _ _ -> undefined
     -- If the term is a constant, we can just set the value of the variable
     -- to the constant, subjecting to the constraint that the variable is
     -- not already set to a different constant.
-    ConstantTerm c -> do
+    F c [] -> do
       varMap <- use usVarMap
       uf     <- use usUF
       let ix = varMap M.! v
       let (mVal, uf') = ufGet ix uf
       case mVal of
-        Nothing                -> usUF .= ufSet (Just $ ConstantTerm c) ix uf'
-        Just (ConstantTerm c') -> guard (c == c') >> (usUF .= uf')
-        _                      -> mzero
+        Nothing            -> usUF .= ufSet (Just $ FTerm c []) ix uf'
+        Just (FTerm c' []) -> guard (c == c') >> (usUF .= uf')
+        _              -> mzero -- TODO: Check if it is closed
+    -- TODO: Handle general function term
+    F _ _ -> undefined
     -- If the term is another variable, we can just union the two variables,
     -- subjecting to the constraint that the two variables are not already
     -- set to different constants.
@@ -83,11 +84,7 @@ unifyTermS (VariableTerm v) t                 = do
         (Just c, Just c')  -> guard (c == c') >> (usUF .= uf'')
         -- If only one of the variables is set, union with the other variable.
         _usUF              -> usUF .= ufUnion ix ix' uf''
-unifyTermS (FunctionTerm f ts) (FunctionTerm f' ts')
-  | f /= f'   = mzero
-  | otherwise = mapM_ (uncurry unifyTermS) (zip ts ts')
 unifyTermS t (VariableTerm v)                 = unifyTermS (VariableTerm v) t
-unifyTermS _ _                                = mzero
 
 -- | Unify two atoms under a given @UnifyState@ context. Returns 'Nothing' if
 -- the atoms cannot be unified.
@@ -119,13 +116,13 @@ unifyAtom a1 a2 = case mUS of
           let (ix', uf'') = ufFind ix uf'
           _1 . at v ?= VariableTerm (ixToVarMap IM.! ix')
           _2 .= uf'' -- Update the union-find
+        -- If the value is a constant, we map the variable to it.
+        Just (FTerm c [])        -> do
+          _1 . at v ?= F c []
+          _2 .= uf' -- Update the union-find
         -- TODO: If the value is a function, we map all variables in it to their
         -- representatives.
-        Just (FunctionTerm f ts) -> undefined
-        -- If the value is a constant, we map the variable to it.
-        Just c                   -> do
-          _1 . at v ?= c
-          _2 .= uf' -- Update the union-find
+        Just (FTerm f ts) -> undefined
   where
     mUS = runIdentity . runMaybeT $ execStateT (unifyAtomS a1 a2) mkUnifyState
 
@@ -142,9 +139,8 @@ substituteAtom m (Atom p ts) = Atom p (map (substituteTerm m) ts)
 
 -- Apply the renaming function to all variables in the term.
 renameTerm :: (a -> b) -> Term' a -> Term' b
-renameTerm f (VariableTerm x)    = VariableTerm $ f x
-renameTerm _ (ConstantTerm c)    = ConstantTerm c
-renameTerm f (FunctionTerm p ts) = FunctionTerm p (map (renameTerm f) ts)
+renameTerm f (VariableTerm x) = VariableTerm $ f x
+renameTerm f (F t ts)         = F t (map (renameTerm f) ts)
 {-# INLINE renameTerm #-}
 
 -- Apply the renaming function to all variables in the atom.
@@ -159,7 +155,7 @@ renameClause f (Clause h b) = Clause (renameAtom f <$> h) (map (renameAtom f) b)
 
 -- | Apply the renaming function to all variables in the program.
 renameProgram :: (a -> b) -> Program' a -> Program' b
-renameProgram f p = p & clauses %~ map (renameClause f)
+renameProgram f p = p & clauses %~  map (renameClause f)
 {-# INLINE renameProgram #-}
 
 -- | Apply the renaming function to all variables in the query.

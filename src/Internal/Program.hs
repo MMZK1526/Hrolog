@@ -36,26 +36,35 @@ import           Utility.PP
 data Predicate = Predicate { _predicateName :: String, _predicateArity :: Int }
   deriving (Eq, Ord, Show)
 
--- | A Hrolog function with its name and arity.
+-- | A Hrolog function with its name and arity. A constant is treated as a
+-- function with arity 0.
 data Function = Function { _functionName :: String, _functionArity :: Int }
   deriving (Eq, Ord, Show)
 
--- | A Hrolog constant, starting with a capital letter.
-newtype Constant = Constant { _constantName :: String }
+-- | A Hrolog function term with its name and a list of arguments.
+data FunctionTerm' a = FTerm Function [Term' a]
   deriving (Eq, Ord, Show)
+type FunctionTerm = FunctionTerm' String
 
 -- | A Hrolog term, either a constant or a variable. The type variable @a@ is
 -- used to represent the variable type.
 --
 -- In a real program, "a" should always be a @String@, but it can carry
 -- additional metadata during the solving process.
---
--- TODO: Add a type constructor for function terms.
-data Term' a = ConstantTerm Constant
-             | VariableTerm a
-             | FunctionTerm Function [Term' a]
+data Term' a = VariableTerm a
+             | FunctionTerm (FunctionTerm' a)
   deriving (Eq, Ord, Show)
 type Term = Term' String
+
+-- | The pattern for a constant.
+pattern Constant :: String -> Term' a
+pattern Constant s = FunctionTerm (FTerm (Function s 0) [])
+
+-- | The pattern for a function term.
+pattern F :: Function -> [Term' a] -> Term' a
+pattern F f ts = FunctionTerm (FTerm f ts)
+
+{-# COMPLETE VariableTerm, F #-}
 
 -- | A Hrolog atom, consisting of a predicate and a list of terms as arguments.
 data Atom' a = Atom Predicate [Term' a]
@@ -97,7 +106,6 @@ pattern Fact h <- Clause (Just h) []
 -- It also contains the set of predicates, constants, and variables used in the
 -- program.
 data Program' a = Program { _predicates :: Set Predicate
-                          , _constants  :: Set Constant
                           , _variables  :: Set String
                           , _functions  :: Set Function
                           , _clauses    :: [Clause' a] }
@@ -133,16 +141,12 @@ instance PP () Function where
   pShowF :: () -> Function -> String
   pShowF _ Function {..} = concat [_functionName, "/", show _functionArity]
 
-instance PP () Constant where
-  pShowF :: () -> Constant -> String
-  pShowF = const _constantName
-
 instance PP () Term where
   pShowF :: () -> Term -> String
-  pShowF _ (ConstantTerm c) = pShow c
   pShowF _ (VariableTerm v) = v
-  pShowF _ (FunctionTerm f as)
-    = concat [show f, "(", intercalate ", " (pShow <$> as), ")"]
+  pShowF _ (F f as)         = case _functionArity f of
+    0 -> _functionName f
+    _ -> concat [_functionName f, "(", intercalate ", " (pShow <$> as), ")"]
 
 instance PP () Atom where
   pShowF :: () -> Atom -> String
@@ -167,12 +171,9 @@ instance PP PPOp Program where
   pShowF :: PPOp -> Program -> String
   pShowF vbLvl Program {..} = case vbLvl of
     Succinct -> clStr
-    Verbose  -> intercalate "\n" [clStr, csStr, vsStr, psStr, fsStr]
+    Verbose  -> intercalate "\n" [clStr, vsStr, psStr, fsStr]
     where
       clStr = unlines (pShow <$> _clauses)
-      csStr = case S.toList _constants of
-        [] -> ""
-        cs -> concat ["Constants: ", intercalate ", " (pShow <$> cs), ".\n"]
       vsStr = case S.toList _variables of
         [] -> ""
         vs -> concat ["Variables: ", intercalate ", " vs, ".\n"]
@@ -214,7 +215,7 @@ emptyClause = EmptyClause
 
 -- | The empty @Program@ (entails nothing).
 emptyProgram :: Program
-emptyProgram = Program S.empty S.empty S.empty S.empty []
+emptyProgram = Program S.empty S.empty S.empty []
 
 -- | Turn a list of @Clause@s into a @Program@ by calculating the set of
 -- predicates, constants, and variables.
@@ -223,7 +224,7 @@ emptyProgram = Program S.empty S.empty S.empty S.empty []
 -- create a @Program@ by using @parseProgram@ in module Parser.
 mkProgram :: [Clause] -> Program
 mkProgram cs
-  = execState (forM_ cs workClause) (Program S.empty S.empty S.empty S.empty cs)
+  = execState (forM_ cs workClause) (Program S.empty S.empty S.empty cs)
   where
     workClause (Clause mHead body) = do
       forM_ mHead workAtom
@@ -231,9 +232,8 @@ mkProgram cs
     workAtom (Atom p ts)           = do
       predicates %= S.insert p
       forM_ ts workTerm
-    workTerm (ConstantTerm c)      = constants %= S.insert c
     workTerm (VariableTerm v)      = variables %= S.insert v
-    workTerm (FunctionTerm f as)   = do
+    workTerm (F f as)              = do
       functions %= S.insert f
       forM_ as workTerm
 
@@ -262,7 +262,7 @@ mkPQuery as
 isProgramLegal :: Program -> Bool
 isProgramLegal Program {..}
     -- Check legality of identifiers.
-  = all indentifierLegal ( S.union (S.map _constantName _constants)
+  = all indentifierLegal ( S.union (S.map _functionName _functions)
                                    (S.map _predicateName _predicates) )
     -- Check legality of variables.
  && all variableLegal _variables
@@ -272,15 +272,14 @@ isProgramLegal Program {..}
     indentifierLegal name   = not (null name)
                            && (isLower (head name) || isDigit (head name))
                            && all isAlphaNum (tail name)
-    variableLegal var        = not (null var) && isUpper (head var)
-                            && all isAlphaNum (tail var)
+    variableLegal var       = not (null var) && isUpper (head var)
+                           && all isAlphaNum (tail var)
     -- A term is legal if it is a constant and is in the set of constants, or
     -- it is a variable and is in the set of variables
     termLegal  term         = case term of
-      ConstantTerm c -> c `elem` _constants
       VariableTerm v -> v `elem` _variables
-      FunctionTerm f ts -> f `elem` _functions
-                        && all termLegal ts
+      F f ts         -> f `elem` _functions && length ts == _functionArity f
+                     && all termLegal ts
     -- An atom is legal if its predicate is in the set of predicates, has the
     -- correct arity, all its arguments are legal, and all its variables are
     -- legal.

@@ -59,34 +59,28 @@ variable = do
   lift $ modify' (fmap (variables %~ S.insert v))
   return v
 
--- | Parse a @Constant@, which is the same as an identifier, with space after
--- it.
-constant :: Functor f => Monad m => ParserT (StateT (f Program) m) Constant
-constant = do
+-- | Parse a "FunctionTerm".
+functionTerm :: Functor f => Monad m
+             => ParserT (StateT (f Program) m) FunctionTerm
+functionTerm = do
   name <- identifier
-  let c = Constant name
-  lift $ modify' (fmap (constants %~ S.insert c))
-  return c
+  ts   <- P.option []
+                   (P.between (char '(') (char ')') (P.sepBy term (char ',')))
+  let fd = Function name (length ts)
+  lift $ modify' (fmap (functions %~ S.insert fd))
+  return $ FTerm fd ts
 
 -- | Parse a @Term@, which is either a @Constant@ or a @Variable@.
 term :: Functor f => Monad m => ParserT (StateT (f Program) m) Term
-term = P.choice [ ConstantTerm <$> constant
-                , VariableTerm <$> variable
-                , functionTerm ] P.<?> "term"
-  where
-    functionTerm = do
-      name <- identifier
-      ts   <- P.between (char '(') (char ')') (P.sepBy term (char ','))
-      let fd = Function name (length ts)
-      lift $ modify' (fmap (functions %~ S.insert fd))
-      return $ FunctionTerm fd ts
+term = P.choice [ VariableTerm <$> variable
+                , FunctionTerm <$> functionTerm ] P.<?> "term"
 
 -- | Parse an @Atom@, which is a @Predicate@ followed by a list of @Term@s.
 atom :: Functor f => Monad m => ParserT (StateT (f Program) m) Atom
 atom = do
   name <- identifier
   ts   <- P.option []
-    (P.between (char '(') (char ')') (P.sepBy term (char ',')))
+                   (P.between (char '(') (char ')') (P.sepBy term (char ',')))
   let pd = Predicate name (length ts)
   lift $ modify (fmap (predicates %~ S.insert pd))
   return $ Atom pd ts

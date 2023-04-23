@@ -6,6 +6,7 @@ import           Control.Monad.Trans.Except
 import           Data.List
 import qualified Data.Map as M
 import           Data.Maybe
+import           GHC.Stack
 
 import           Internal.Program
 import           Parser
@@ -48,9 +49,9 @@ simpleNumberTestOne = TestLabel "Simple number test" . TestCase $
                                                               , VariableTerm "Y" ]
                                     , Atom (Predicate "gt" 2) [ VariableTerm "Y"
                                                               , VariableTerm "Z" ] ])
-                          ( Just . Solution $ M.fromList [ ("X", ConstantTerm (Constant "2"))
-                                                         , ("Y", ConstantTerm (Constant "1"))
-                                                         , ("Z", ConstantTerm (Constant "0")) ] )
+                          ( Just . Solution $ M.fromList [ ("X", Constant "2")
+                                                         , ("Y", Constant "1")
+                                                         , ("Z", Constant "0") ] )
 
 -- | A simple test with basic facts and rules, testing for all solutions.
 simpleNumberTestAll :: Test
@@ -60,18 +61,18 @@ simpleNumberTestAll = TestLabel "Simple number test" . TestCase $
                                                               , VariableTerm "Y" ]
                                     , Atom (Predicate "gt" 2) [ VariableTerm "Y"
                                                               , VariableTerm "Z" ] ])
-                          [ Solution $ M.fromList [ ("X", ConstantTerm (Constant "2"))
-                                                  , ("Y", ConstantTerm (Constant "1"))
-                                                  , ("Z", ConstantTerm (Constant "0")) ]
-                          , Solution $ M.fromList [ ("X", ConstantTerm (Constant "3"))
-                                                  , ("Y", ConstantTerm (Constant "1"))
-                                                  , ("Z", ConstantTerm (Constant "0")) ]
-                          , Solution $ M.fromList [ ("X", ConstantTerm (Constant "3"))
-                                                  , ("Y", ConstantTerm (Constant "2"))
-                                                  , ("Z", ConstantTerm (Constant "0")) ]
-                          , Solution $ M.fromList [ ("X", ConstantTerm (Constant "3"))
-                                                  , ("Y", ConstantTerm (Constant "2"))
-                                                  , ("Z", ConstantTerm (Constant "1")) ] ]
+                          [ Solution $ M.fromList [ ("X", Constant "2")
+                                                  , ("Y", Constant "1")
+                                                  , ("Z", Constant "0") ]
+                          , Solution $ M.fromList [ ("X", Constant "3")
+                                                  , ("Y", Constant "1")
+                                                  , ("Z", Constant "0") ]
+                          , Solution $ M.fromList [ ("X", Constant "3")
+                                                  , ("Y", Constant "2")
+                                                  , ("Z", Constant "0") ]
+                          , Solution $ M.fromList [ ("X", Constant "3")
+                                                  , ("Y", Constant "2")
+                                                  , ("Z", Constant "1") ] ]
 
 -- | Test that a > a is False.
 aGTaIsFalse :: Test
@@ -88,13 +89,13 @@ aGTaIsFalse = TestLabel "a > a is false" . TestCase $
 
 -- | Read the given file and run the given test on the resulting @Program@, see
 -- if the first @Solution@ matches.
-assertSolutionFromFile :: FilePath -> PQuery -> Maybe Solution -> Assertion
+assertSolutionFromFile :: HasCallStack => FilePath -> PQuery -> Maybe Solution -> Assertion
 assertSolutionFromFile filePath q expSol
   = assertFromFile filePath (\p -> assertSolution p q expSol)
 
 -- | Read the given file and run the given test on the resulting @Program@, see
 -- if the @Solution@s match.
-assertSolutionsFromFile :: FilePath -> PQuery -> [Solution] -> Assertion
+assertSolutionsFromFile :: HasCallStack => FilePath -> PQuery -> [Solution] -> Assertion
 assertSolutionsFromFile filePath q expSols
   = assertFromFile filePath (\p -> assertSolutions p q expSols)
 
@@ -107,7 +108,7 @@ handleErr = mapExceptT (`catches` [Handler rethrowTestFailure, Handler logOtherE
 
 -- | Use the given @Assertion@ which takes a @Program@. The @Program@ comes from
 -- reading the given file.
-assertFromFile :: FilePath -> (Program -> Assertion) -> Assertion
+assertFromFile :: HasCallStack => FilePath -> (Program -> Assertion) -> Assertion
 assertFromFile filePath testFun = do
   result <- runExceptT . handleErr $ do
     p <- lift (parseProgram <$> readFile filePath) >>= ExceptT . pure
@@ -118,12 +119,12 @@ assertFromFile filePath testFun = do
 
 -- | Assert that the given @Program@ and @PQuery@ produce the expected first
 -- @Solution@.
-assertSolution :: Program -> PQuery -> Maybe Solution -> Assertion
+assertSolution :: HasCallStack => Program -> PQuery -> Maybe Solution -> Assertion
 assertSolution p q expSol
   = assertEqual "solution" expSol (listToMaybe (solve p q))
 
 -- | Assert that the given @Program@ and @PQuery@ produce the expected
 -- @Solution@s.
-assertSolutions :: Program -> PQuery -> [Solution] -> Assertion
+assertSolutions :: HasCallStack => Program -> PQuery -> [Solution] -> Assertion
 assertSolutions p q expSols
   = assertEqual "solutions" (sort expSols) (sort (solve p q))
