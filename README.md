@@ -8,9 +8,9 @@ TODO:
    - [ ] Use topological sort to detect recursive usage
    - [ ] Write tests on unification with function terms
    - [ ] Add example programs with function terms
-2. [] Optimise with tabling
-3. [] Use Haskeline for better REPL experience
-4. [] Documentation
+2. [ ] Optimise with tabling
+3. [ ] Use Haskeline for better REPL experience
+4. [ ] Documentation
 
 ## Introduction
 Hrolog is a [logic programming language](https://en.wikipedia.org/wiki/Logic_programming) that highly resembles [Prolog](https://en.wikipedia.org/wiki/Prolog). It will support both SLDNF-deduction and abduction as well as some logic-based learning algorithms. In the future, it may also support a Clingo-like Answer Set Programming semantics.
