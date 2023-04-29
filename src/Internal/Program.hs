@@ -25,8 +25,8 @@ import           Control.Monad
 import           Control.Monad.Trans.State
 import           Data.Char
 import           Data.List
-import           Data.Map (Map)
-import qualified Data.Map as M
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
 import           Data.Set (Set)
 import qualified Data.Set as S
 

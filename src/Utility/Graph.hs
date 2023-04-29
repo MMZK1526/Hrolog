@@ -8,8 +8,8 @@ import           Control.Lens
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.State
-import           Data.IntMap (IntMap)
-import qualified Data.IntMap as IM
+import           Data.IntMap.Strict (IntMap)
+import qualified Data.IntMap.Strict as IM
 import qualified Data.IntSet as IS
 import           Data.Maybe
 

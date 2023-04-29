@@ -4,7 +4,7 @@ import           Control.Exception
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
 import           Data.List
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import           Data.Maybe
 import           GHC.Stack
 

@@ -7,8 +7,8 @@ module Utility.UnionFind where
 
 import           Control.Applicative
 import           Control.Lens
-import           Data.IntMap (IntMap)
-import qualified Data.IntMap as IM
+import           Data.IntMap.Strict (IntMap)
+import qualified Data.IntMap.Strict as IM
 import           Data.List
 
 -- | A union-find data structure on @Int@. Each representative (root) is

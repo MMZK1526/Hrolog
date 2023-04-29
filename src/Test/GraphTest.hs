@@ -1,4 +1,4 @@
-import qualified Data.IntMap as IM
+import qualified Data.IntMap.Strict as IM
 import           Test.HUnit
 
 import           Utility.Graph
