@@ -9,7 +9,8 @@ main = runTestTTAndExit
                 , testSingleNodeGraph
                 , testSingleLoopGraph
                 , testCircularPathGraph
-                , testDAG ]
+                , testDAG
+                , testDirectedTree ]
 
 -- | Test if the empty graph contains a cycle.
 testEmptyGraph :: Test
@@ -42,4 +43,10 @@ testCircularPathGraph = TestLabel "Test circular path graph" . TestCase
 testDAG :: Test
 testDAG = TestLabel "Test DAG" . TestCase
         $ assertBool "DAG should not contain a cycle"
-                     (not (hasCycle (Graph (IM.fromList [(0, [1, 2]), (1, [3]), (2, [3, 4]), (3, [5]), (4, []), (5, [4])]))))
+                     (not (hasCycle (Graph (IM.fromList [(0, [1, 2]), (1, [3]), (2, [3, 4]), (3, [5]), (5, [4])]))))
+
+-- | Test if a directed tree contains a cycle.
+testDirectedTree :: Test
+testDirectedTree = TestLabel "Test directed tree" . TestCase
+                 $ assertBool "Directed tree should not contain a cycle"
+                              (not (hasCycle (Graph (IM.fromList [(0, [1, 2]), (1, [3]), (2, [4])]))))
