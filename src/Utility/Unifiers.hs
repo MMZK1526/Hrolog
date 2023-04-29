@@ -10,11 +10,11 @@ import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.State
 import           Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IM
-import           Data.IntSet (IntSet)
 import qualified Data.IntSet as IS
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import           Data.Maybe
+import           Data.Set (Set)
 import qualified Data.Set as S
 import           Data.Tuple
 
@@ -27,7 +27,7 @@ import           Utility.UnionFind
 -- variables.
 data UnifyState a = UnifyState { _usVarMap :: Map a Int
                                , _usUF     :: UnionFind (FunctionTerm' a)
-                               , _usUseMap :: IntMap IntSet }
+                               , _usUseMap :: IntMap (Set a) }
   deriving Show
 $(makeLenses ''UnifyState)
 
@@ -38,16 +38,19 @@ mkUnifyState = UnifyState M.empty mkUnionFind IM.empty
 
 -- | Add a new variable to the unification state. If the variable is already
 -- present, do nothing.
-addVar :: Ord a => Monad m => a -> StateT (UnifyState a) m ()
+--
+-- Return the index of the variable in the unification state.
+addVar :: Ord a => Monad m => a -> StateT (UnifyState a) m Int
 addVar var = do
   varMap <- use usVarMap
   case varMap M.!? var of
-    Just _  -> pure ()
+    Just ix -> pure ix
     Nothing -> do
       ix <- use $ usUF . ufSize -- Get the next index
       usVarMap . at var ?= ix -- Add the variable to the var map
       -- Add the variable to the union-find, this also increments the size.
       usUF %= ufAdd
+      pure ix
 {-# INLINE addVar #-}
 
 -- | Unify two terms under a given @UnifyState@ context. Returns 'Nothing' if
@@ -56,13 +59,13 @@ unifyTermS :: Ord a => Monad m
            => Term' a -> Term' a -> StateT (UnifyState a) (MaybeT m) ()
 unifyTermS t t' = do
   unifyTermS' t t'
+  useMap <- use usUseMap >>= mapM (mapM addVar . S.toList)
   uf     <- use usUF
-  useMap <- use usUseMap
   let graph                = Graph . fmap IS.toList
                            $ fst (IM.foldlWithKey' worker (IM.empty, uf) useMap)
       worker (g, uf') ix s = do
         let (rep, uf'')  = ufFind ix uf'
-        let (pts, uf''') = ufFinds (IS.toList s) uf''
+        let (pts, uf''') = ufFinds s uf''
         (IM.insertWith IS.union rep (IS.fromList pts) g, uf''')
   guard (not $ hasCycle graph)
 
@@ -73,7 +76,7 @@ unifyTermS' (F f ts) (F f' ts')
   | f /= f'   = mzero
   | otherwise = mapM_ (uncurry unifyTermS') (zip ts ts')
 unifyTermS' (VariableTerm v) t                 = do
-  addVar v -- Make sure the variable is in the var map
+  void $ addVar v -- Make sure the variable is in the var map
   case t of
     -- If the term is a function, we can just set the value of the variable
     -- to the function, as long as there are no recursive usages of the variable
@@ -88,15 +91,15 @@ unifyTermS' (VariableTerm v) t                 = do
         Just ft -> unifyTermS' t (FunctionTerm ft) >> usUF .= uf'
         Nothing -> do
           usUF .= ufSet (Just $ FTerm f ts) ix uf'
-          let usedVars = IS.fromList . fmap (varMap M.!) $ mapMaybe (\case
+          let usedVars = S.fromList $ mapMaybe (\case
                 VariableTerm v' -> Just v'
                 _               -> Nothing) ts
-          usUseMap . at ix %= Just . IS.union usedVars . fromMaybe IS.empty
+          usUseMap . at ix %= Just . S.union usedVars . fromMaybe S.empty
     -- If the term is another variable, we can just union the two variables,
     -- subjecting to the constraint that the two variables are not already
     -- set to different constants.
     VariableTerm v' -> do
-      addVar v' -- Make sure the other variable is in the var map
+      void $ addVar v' -- Make sure the other variable is in the var map
       varMap <- use usVarMap
       uf     <- use usUF
       let (ix, ix')     = (varMap M.! v, varMap M.! v')
@@ -123,7 +126,7 @@ unifyAtomS (Atom p ts) (Atom p' ts')
 -- two atoms equal. Returns 'Nothing' if the atoms cannot be unified.
 --
 -- The substitution is represented as a @Map@ from variables to terms.
-unifyAtom :: Show a => Ord a => Atom' a -> Atom' a -> Maybe (Map a (Term' a))
+unifyAtom :: Ord a => Atom' a -> Atom' a -> Maybe (Map a (Term' a))
 unifyAtom a1 a2 = case mUS of
   Nothing -> Nothing -- Unification failed
   Just us -> fst <$> do

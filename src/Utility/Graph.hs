@@ -28,6 +28,6 @@ hasCycle (Graph g)
         | IS.member node entering -> lift Nothing
         | otherwise               -> do
           _2 %= IS.insert node
-          forM_ (g IM.! node) go
+          forM_ (fromMaybe [] $ g IM.!? node) go
           _2 %= IS.delete node
           _1 %= IS.insert node
