@@ -17,7 +17,12 @@ main = runTestTTAndExit
                 , canUnifyVariableWithVariable
                 , cannotUnifyVariableWithNewConstant
                 , canUnifyVariableWithVariableBoundToConstant
-                , cannotUnifyVariableWithVariableBoundToDifferentConstants ]
+                , cannotUnifyVariableWithVariableBoundToDifferentConstants
+                , canUnifyVariableWithFunctionTerm
+                , cannotUnifyDifferentFunctionNames
+                , cannotUnifyVariableWithFunctionTermUsingSelfAsArgument
+                , cannotUnifyRecursiveFunctionTerms
+                , canUnifyFunctionsWithUnifiableShapes ]
 
 -- | Can unify the same 0-ary predicate.
 canUnifySameLiteral :: Test
@@ -84,6 +89,42 @@ cannotUnifyVariableWithVariableBoundToDifferentConstants = TestLabel "Cannot uni
   assertUnifyAtom (Atom (Predicate "a" 3) [VariableTerm "A", VariableTerm "B", VariableTerm "A"])
                   (Atom (Predicate "a" 3) [Constant "1", Constant "2", VariableTerm "B"])
                   Nothing
+
+-- | Can unify a variable with a function term.
+canUnifyVariableWithFunctionTerm :: Test
+canUnifyVariableWithFunctionTerm = TestLabel "Can unify variable with function term" $ TestCase $
+  assertUnifyAtom (Atom (Predicate "a" 2) [VariableTerm "A", VariableTerm "B"])
+                  (Atom (Predicate "a" 2) [F (Function "f" 1) [Constant "1"], VariableTerm "A"])
+                  (Just $ M.fromList [("A", F (Function "f" 1) [Constant "1"]), ("B", F (Function "f" 1) [Constant "1"])])
+
+-- | Cannot unify functions with different names.
+cannotUnifyDifferentFunctionNames :: Test
+cannotUnifyDifferentFunctionNames = TestLabel "Cannot unify functions with different names" $ TestCase $
+  assertUnifyAtom (Atom (Predicate "a" 2) [F (Function "f" 1) [Constant "1"], VariableTerm "A"])
+                  (Atom (Predicate "a" 2) [F (Function "g" 1) [Constant "1"], VariableTerm "A"])
+                  Nothing
+
+-- | Cannot unify a variable with a function term that uses itself as an
+-- argument.
+cannotUnifyVariableWithFunctionTermUsingSelfAsArgument :: Test
+cannotUnifyVariableWithFunctionTermUsingSelfAsArgument = TestLabel "Cannot unify variable with function term using self as argument" $ TestCase $
+  assertUnifyAtom (Atom (Predicate "a" 1) [VariableTerm "A"])
+                  (Atom (Predicate "a" 1) [F (Function "f" 1) [VariableTerm "A"]])
+                  Nothing
+
+-- | Cannot unify function terms that refers each other recursively.
+cannotUnifyRecursiveFunctionTerms :: Test
+cannotUnifyRecursiveFunctionTerms = TestLabel "Cannot unify recursive function terms" $ TestCase $
+  assertUnifyAtom (Atom (Predicate "a" 2) [VariableTerm "A", VariableTerm "B"])
+                  (Atom (Predicate "a" 2) [F (Function "f" 1) [VariableTerm "B"], F (Function "f" 1) [VariableTerm "A"]])
+                  Nothing
+
+-- | Can unify functions with functions if they have unifiable shapes.
+canUnifyFunctionsWithUnifiableShapes :: Test
+canUnifyFunctionsWithUnifiableShapes = TestLabel "Can unify functions with unifiable shapes" $ TestCase $
+  assertUnifyAtom (Atom (Predicate "a" 1) [F (Function "f" 1) [VariableTerm "A"]])
+                  (Atom (Predicate "a" 1) [F (Function "f" 1) [F (Function "g" 2) [Constant "1", VariableTerm "C"]]])
+                  (Just $ M.fromList [("A", F (Function "g" 2) [Constant "1", VariableTerm "C"]), ("C",VariableTerm "C")])
 
 
 --------------------------------------------------------------------------------
