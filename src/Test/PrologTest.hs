@@ -20,7 +20,8 @@ main = runTestTTAndExit
                 , cannotPickUpWrongFacts
                 , simpleNumberTestOne
                 , simpleNumberTestAll
-                , aGTaIsFalse ]
+                , aGTaIsFalse
+                , twoPlusThreeIsFive ]
 
 -- | Can pick up facts.
 canPickUpFacts :: Test
@@ -81,6 +82,20 @@ aGTaIsFalse = TestLabel "a > a is false" . TestCase $
                           (mkPQuery [ Atom (Predicate "gt" 2) [ VariableTerm "X"
                                                               , VariableTerm "X" ] ])
                           Nothing
+
+-- | Calculate 2 + 3.
+twoPlusThreeIsFive :: Test
+twoPlusThreeIsFive = TestLabel "2 + 3 = 5" . TestCase $
+  assertSolutionFromFile "./src/Test/programs/peanoNumbers.hrolog"
+                          (mkPQuery [ Atom (Predicate "add" 3) [two, three, VariableTerm "X"]])
+                          (Just . Solution $ M.fromList [("X", five)])
+  where
+    zero   = Constant "0"
+    sukk x = F (Function "s" 1) [x]
+    nats   = iterate sukk zero
+    two    = nats !! 2
+    three  = nats !! 3
+    five   = nats !! 5
 
 
 --------------------------------------------------------------------------------

@@ -1,0 +1,4 @@
+# Peano Numbers with the definition for addition
+
+add(0, Y, Y).
+add(s(X), Y, s(Z)) <- add(X, Y, Z).

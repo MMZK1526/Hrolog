@@ -7,7 +7,7 @@ TODO:
    - [x] Implement function unification (without considering recursive usage)
    - [x] Use topological sort to detect recursive usage
    - [x] Write tests on unification with function terms
-   - [ ] Add example programs with function terms
+   - [x] Add example programs with function terms
 2. [ ] Optimise with tabling
 3. [ ] Use Haskeline for better REPL experience
 4. [ ] Documentation
