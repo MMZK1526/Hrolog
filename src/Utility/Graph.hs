@@ -17,9 +17,9 @@ newtype Graph = Graph (IntMap [Int])
   deriving (Eq, Show)
 
 -- | Return @True@ if the graph contains a cycle.
-checkCycle :: Graph -> Bool
-checkCycle (Graph g)
-  = isJust (execStateT (forM_ (IM.keys g) go) (IS.empty, IS.empty))
+hasCycle :: Graph -> Bool
+hasCycle (Graph g)
+  = isNothing (execStateT (forM_ (IM.keys g) go) (IS.empty, IS.empty))
   where
     go node = do
       visited  <- use _1
@@ -28,7 +28,7 @@ checkCycle (Graph g)
         | IS.member node visited  -> pure ()
         | IS.member node entering -> lift Nothing
         | otherwise               -> do
-          _1 %= IS.insert node
           _2 %= IS.insert node
           forM_ (g IM.! node) go
           _2 %= IS.delete node
+          _1 %= IS.insert node
