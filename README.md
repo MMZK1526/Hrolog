@@ -5,7 +5,7 @@ TODO:
    - [x] Support function terms and parse them
    - [ ] Write tests on function term parsing
    - [x] Implement function unification (without considering recursive usage)
-   - [ ] Use topological sort to detect recursive usage
+   - [x] Use topological sort to detect recursive usage
    - [ ] Write tests on unification with function terms
    - [ ] Add example programs with function terms
 2. [ ] Optimise with tabling

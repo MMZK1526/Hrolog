@@ -8,17 +8,18 @@ import           Control.Lens hiding (ix)
 import           Control.Monad
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.State
-import           Data.IntMap (IntMap)
-import qualified Data.IntMap as IM
+import           Data.IntMap.Strict (IntMap)
+import qualified Data.IntMap.Strict as IM
 import           Data.IntSet (IntSet)
 import qualified Data.IntSet as IS
-import           Data.Map (Map)
-import qualified Data.Map as M
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
 import           Data.Maybe
 import qualified Data.Set as S
 import           Data.Tuple
 
 import           Internal.Program
+import           Utility.Graph
 import           Utility.UnionFind
 
 -- | The state that keeps track of the variables that have been encountered as
@@ -54,8 +55,16 @@ addVar var = do
 unifyTermS :: Ord a => Monad m
            => Term' a -> Term' a -> StateT (UnifyState a) (MaybeT m) ()
 unifyTermS t t' = do
-  result <- unifyTermS' t t'
-  pure result
+  unifyTermS' t t'
+  uf     <- use usUF
+  useMap <- use usUseMap
+  let graph                = Graph . fmap IS.toList
+                           $ fst (IM.foldlWithKey' worker (IM.empty, uf) useMap)
+      worker (g, uf') ix s = do
+        let (rep, uf'')  = ufFind ix uf'
+        let (pts, uf''') = ufFinds (IS.toList s) uf''
+        (IM.insertWith IS.union rep (IS.fromList pts) g, uf''')
+  guard (not $ hasCycle graph)
 
 -- | Similar to @unifyTerm@, but do not eliminate recursive usages of variables.
 unifyTermS' :: Ord a => Monad m
