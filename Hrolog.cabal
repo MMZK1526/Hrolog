@@ -34,6 +34,7 @@ test-suite cliTest
         Program,
         Solver.Prolog,
         Utility.Exception,
+        Utility.Graph,
         Utility.PP,
         Utility.Parser,
         Utility.Unifiers,
@@ -86,6 +87,7 @@ test-suite prologTest
         Internal.Parser,
         Parser,
         Solver.Prolog,
+        Utility.Graph,
         Utility.PP,
         Utility.Parser,
         Utility.Unifiers,
@@ -108,6 +110,7 @@ test-suite unifyTest
     main-is:          Test/UnifyTest.hs
     other-modules:
         Internal.Program,
+        Utility.Graph,
         Utility.PP,
         Utility.Unifiers,
         Utility.UnionFind
@@ -131,6 +134,7 @@ library
     other-modules:
         Internal.Program,
         Internal.Parser,
+        Utility.Graph,
         Utility.PP,
         Utility.Unifiers,
         Utility.UnionFind
