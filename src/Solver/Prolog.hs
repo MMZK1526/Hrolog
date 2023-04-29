@@ -54,7 +54,7 @@ $(makeLenses ''PState)
 newPState :: PState
 newPState = PState 1 S.empty M.empty M.empty False
 
--- | Given the @Program@ and the Prolog query, return a list of variable
+-- | Given the @Program@ and the Prolog query, pure a list of variable
 -- substitutions and all intermediate substitutions, each representing a
 -- solution.
 --
@@ -94,8 +94,8 @@ solveIO = solveS onNewStep onFail onBacktractEnd
 -- The fourth argument is the @Program@, and the fifth argument is the original
 -- query.
 --
--- The return value is a list of @Solution@s, which describes how each variable
--- in the @PQuery@ is mapped to a term. If the return value is empty, then there
+-- The pure value is a list of @Solution@s, which describes how each variable
+-- in the @PQuery@ is mapped to a term. If the pure value is empty, then there
 -- is no solution.
 solveS :: Monad m => (SolvePQuery -> StateT PState m a) -> StateT PState m b
        -> (SolvePQuery -> StateT PState m a) -> Program -> PQuery
@@ -141,7 +141,7 @@ solveS onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
       void $ onNewStep (PQuery vars' [])
       pIsBT .= True
       pStep += 1
-      return [[sub]]
+      pure [[sub]]
     -- Take the first atom in the query, and try to unify it with each clause.
     worker sub q@(t : ts) = do
       result <- fmap concat . forM cs' $ \(mH :?<- b) -> case mH of
@@ -161,8 +161,8 @@ solveS onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
               let nextQuery = substituteAtom sub' <$> (map rename b ++ ts)
               -- Recursively solve the new query.
               rest <- worker sub' nextQuery
-              return $ (sub :) <$> rest
+              pure $ (sub :) <$> rest
       -- If "result" is empty, it means we didn't find any solution in the
       -- current branch. Backtracking happens automatically via recursion.
       when (null result) $ onFail >> pStep += 1 >> pIsBT .= True
-      return result
+      pure result

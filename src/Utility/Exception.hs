@@ -120,7 +120,7 @@ instance MonadErrHandling e m => MonadErrHandling e (StateT s m) where
           Right a -> pure a
       worker s e = do
         (result, s') <- runStateT (f e) s
-        return $ second (, s') result
+        pure $ second (, s') result
 
   throwErr :: e -> StateT s m a
   throwErr = lift . throwErr

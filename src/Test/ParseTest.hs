@@ -248,8 +248,8 @@ genAtom arity len = runState worker
         len''     <- randomRS 1 (max 1 len)
         (t, gen') <- genTerm len'' <$> get
         put gen'
-        return t
-      return $ Atom (Predicate pName arity) ts
+        pure t
+      pure $ Atom (Predicate pName arity) ts
 
 -- | Generate a @Clause@ with the given body length, and the arity and length
 -- of each atoms are at most "arity" and "len".
@@ -262,13 +262,13 @@ genClause arity len = runState worker
         arity'    <- randomRS 0 arity
         (at, gen) <- genAtom arity' len <$> get
         put gen
-        return $ Just at
+        pure $ Just at
       body   <- replicateM len $ do
         arity'    <- randomRS 0 arity
         (at, gen) <- genAtom arity' len <$> get
         put gen
-        return at
-      return $ Clause mHead body
+        pure at
+      pure $ Clause mHead body
 
 -- | Generate a @Clause@ with the given number of clauses, and all other
 -- parameters are upper-bounded by "maxParam".
@@ -280,7 +280,7 @@ genProgram lineCount maxParam = runState worker
       len      <- randomRS 0 maxParam
       (c, gen) <- genClause arity len <$> get
       put gen
-      return c
+      pure c
 
 -- | Generate an @PQuery@ with @count@ @Atoms@a and all other parameters are
 -- upper-bounded by "maxParam".
@@ -291,7 +291,7 @@ genPQuery count maxParam = runState worker
       arity <- randomRS 0 maxParam
       (a, gen) <- genAtom arity maxParam <$> get
       put gen
-      return a
+      pure a
 
 randomRS :: Random a => Monad m => RandomGen s => a -> a -> StateT s m a
 randomRS a b = do

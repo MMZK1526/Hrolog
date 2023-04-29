@@ -57,7 +57,7 @@ variable = do
   v <- L.lexeme space
      $ liftM2 (:) P.upperChar (P.many (P.alphaNumChar P.<?> "variable"))
   lift $ modify' (fmap (variables %~ S.insert v))
-  return v
+  pure v
 
 -- | Parse a "FunctionTerm".
 functionTerm :: Functor f => Monad m
@@ -68,7 +68,7 @@ functionTerm = do
                    (P.between (char '(') (char ')') (P.sepBy term (char ',')))
   let fd = Function name (length ts)
   lift $ modify' (fmap (functions %~ S.insert fd))
-  return $ FTerm fd ts
+  pure $ FTerm fd ts
 
 -- | Parse a @Term@, which is either a @Constant@ or a @Variable@.
 term :: Functor f => Monad m => ParserT (StateT (f Program) m) Term
@@ -83,7 +83,7 @@ atom = do
                    (P.between (char '(') (char ')') (P.sepBy term (char ',')))
   let pd = Predicate name (length ts)
   lift $ modify (fmap (predicates %~ S.insert pd))
-  return $ Atom pd ts
+  pure $ Atom pd ts
 
 -- | Parse a @Clause@, which is an optional @Atom@ head followed by a list of
 -- @Atom@ bodies.
@@ -98,7 +98,7 @@ program :: Functor f => Monad m => ParserT (StateT (f Program) m) (f Program)
 program = do
   cs <- P.many clause
   p  <- lift get
-  return $ fmap (clauses .~ cs) p
+  pure $ fmap (clauses .~ cs) p
 
 -- | Parse a Hrolog query.
 --
@@ -114,4 +114,4 @@ pQuery = do
   -- The variables are the ones in the query since we cleared the variables in
   -- the program.
   vs <- lift $ fmap (view variables) <$> get
-  return $ (`PQuery` as) <$> vs
+  pure $ (`PQuery` as) <$> vs

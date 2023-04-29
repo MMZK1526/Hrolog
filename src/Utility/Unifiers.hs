@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE LambdaCase #-}
 
 -- | Internal helper functions for unification.
 module Utility.Unifiers where
@@ -7,7 +8,10 @@ import           Control.Lens hiding (ix)
 import           Control.Monad
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.State
+import           Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
+import           Data.IntSet (IntSet)
+import qualified Data.IntSet as IS
 import           Data.Map (Map)
 import qualified Data.Map as M
 import           Data.Maybe
@@ -21,13 +25,14 @@ import           Utility.UnionFind
 -- well as a union-find data structure recording the equivalences between
 -- variables.
 data UnifyState a = UnifyState { _usVarMap :: Map a Int
-                               , _usUF     :: UnionFind (FunctionTerm' a) }
+                               , _usUF     :: UnionFind (FunctionTerm' a)
+                               , _usUseMap :: IntMap IntSet }
   deriving Show
 $(makeLenses ''UnifyState)
 
 -- | The initial unification state.
 mkUnifyState :: Ord a => UnifyState a
-mkUnifyState = UnifyState M.empty mkUnionFind
+mkUnifyState = UnifyState M.empty mkUnionFind IM.empty
 {-# INLINE mkUnifyState #-}
 
 -- | Add a new variable to the unification state. If the variable is already
@@ -36,7 +41,7 @@ addVar :: Ord a => Monad m => a -> StateT (UnifyState a) m ()
 addVar var = do
   varMap <- use usVarMap
   case varMap M.!? var of
-    Just _  -> return ()
+    Just _  -> pure ()
     Nothing -> do
       ix <- use $ usUF . ufSize -- Get the next index
       usVarMap . at var ?= ix -- Add the variable to the var map
@@ -48,23 +53,36 @@ addVar var = do
 -- the terms cannot be unified.
 unifyTermS :: Ord a => Monad m
            => Term' a -> Term' a -> StateT (UnifyState a) (MaybeT m) ()
-unifyTermS (F f ts) (F f' ts')
+unifyTermS t t' = do
+  result <- unifyTermS' t t'
+  pure result
+
+-- | Similar to @unifyTerm@, but do not eliminate recursive usages of variables.
+unifyTermS' :: Ord a => Monad m
+            => Term' a -> Term' a -> StateT (UnifyState a) (MaybeT m) ()
+unifyTermS' (F f ts) (F f' ts')
   | f /= f'   = mzero
-  | otherwise = mapM_ (uncurry unifyTermS) (zip ts ts')
-unifyTermS (VariableTerm v) t                 = do
+  | otherwise = mapM_ (uncurry unifyTermS') (zip ts ts')
+unifyTermS' (VariableTerm v) t                 = do
   addVar v -- Make sure the variable is in the var map
   case t of
     -- If the term is a function, we can just set the value of the variable
     -- to the function, as long as there are no recursive usages of the variable
-    -- itself. TODO: Check recursive usages.
+    -- itself. We store the set of variables that are used in the function in
+    -- the @UnifyState@.
     F f ts -> do
       varMap <- use usVarMap
       uf     <- use usUF
       let ix = varMap M.! v
       let (mVal, uf') = ufGet ix uf
       case mVal of
-        Nothing -> usUF .= ufSet (Just $ FTerm f ts) ix uf'
-        Just ft -> unifyTermS t (FunctionTerm ft) >> usUF .= uf'
+        Just ft -> unifyTermS' t (FunctionTerm ft) >> usUF .= uf'
+        Nothing -> do
+          usUF .= ufSet (Just $ FTerm f ts) ix uf'
+          let usedVars = IS.fromList . fmap (varMap M.!) $ mapMaybe (\case
+                VariableTerm v' -> Just v'
+                _               -> Nothing) ts
+          usUseMap . at ix %= Just . IS.union usedVars . fromMaybe IS.empty
     -- If the term is another variable, we can just union the two variables,
     -- subjecting to the constraint that the two variables are not already
     -- set to different constants.
@@ -77,12 +95,12 @@ unifyTermS (VariableTerm v) t                 = do
       let (mVal', uf'') = ufGet ix' uf'
       case (mVal, mVal') of
         -- Unify the values.
-        (Just c, Just c')  -> do
-          unifyTermS (FunctionTerm c) (FunctionTerm c')
+        (Just f, Just f')  -> do
+          unifyTermS' (FunctionTerm f) (FunctionTerm f')
           usUF .= uf''
         -- If only one of the variables is set, union with the other variable.
         _usUF              -> usUF .= ufUnion ix ix' uf''
-unifyTermS t (VariableTerm v)                 = unifyTermS (VariableTerm v) t
+unifyTermS' t (VariableTerm v)                 = unifyTermS' (VariableTerm v) t
 
 -- | Unify two atoms under a given @UnifyState@ context. Returns 'Nothing' if
 -- the atoms cannot be unified.

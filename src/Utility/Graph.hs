@@ -14,9 +14,8 @@ import qualified Data.IntSet as IS
 import           Data.Maybe
 
 newtype Graph = Graph (IntMap [Int])
-  deriving (Eq, Show)
 
--- | Return @True@ if the graph contains a cycle.
+-- | pure @True@ if the graph contains a cycle.
 hasCycle :: Graph -> Bool
 hasCycle (Graph g)
   = isNothing (execStateT (forM_ (IM.keys g) go) (IS.empty, IS.empty))

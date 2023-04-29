@@ -84,7 +84,7 @@ assertCLI inputsAndsnapshots = void $ do
         -- last ":q" command.
         liftIO $ assertEqual "Match iteration count"
                              (length inputsAndsnapshots + 1) stepCount
-        return $ Right ()
+        pure $ Right ()
   -- Provide the inputs to the CLI as @stdin@. We add the ":q" command at the
   -- end to quit the program.
   withStdin (unlines inputs ++ "\n:q") . runExceptT $ do
@@ -100,7 +100,7 @@ withStdin input action = do
   hDuplicateTo newStdin stdin
   result <- action
   hDuplicateTo oldStdin stdin
-  return result
+  pure result
 
 -- | Turn a @String@ into a read-end @Handle@.
 stringInput :: String -> IO Handle
@@ -108,4 +108,4 @@ stringInput input = do
   (r, w) <- createPipe
   hPutStr w input
   hClose w
-  return r
+  pure r
