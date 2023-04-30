@@ -1,15 +1,16 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 -- | A Internal union-find data structure on @Int@ used for unification.
 module Utility.UnionFind where
-import GHC.Stack
+
 import           Control.Applicative
+import           Utility.Exception
 import           Control.Lens
 import           Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IM
 import           Data.List
+import           Data.Maybe
+import           GHC.Stack
 
 -- | A union-find data structure on @Int@. Each representative (root) is
 -- associated with a an optional value of type @a@.
@@ -36,12 +37,9 @@ ufAdd uf = uf & ufParent.at n ?~ n
 
 -- | Find the root (as well as the associated value) of the set containing @x@,
 -- updating the parent pointers along the way.
---
--- It does not check if @x@ is a valid element.
 ufFind :: HasCallStack => Int -> UnionFind a -> (Int, UnionFind a)
 ufFind x uf = case uf ^. ufParent.at x of
-  -- The "Nothing" case should be unreachable.
-  Nothing -> error "FOO"
+  Nothing -> throw $ concat ["ufFind: The element ", show x," does not exist."]
   Just p  -> if p == x
     then (x, uf) -- x is already the root
     -- Recursively find the root and updated parent pointers.
@@ -63,11 +61,13 @@ ufFinds xs uf = foldl' worker ([], uf) xs
 -- returning the new value and the updated @UnionFind@.
 --
 -- It does not check if @x@ is a valid element.
-ufAdjust :: HasCallStack => (Maybe a -> Maybe a) -> Int -> UnionFind a -> (Maybe a, UnionFind a)
+ufAdjust :: HasCallStack
+         => (Maybe a -> Maybe a) -> Int -> UnionFind a -> (Maybe a, UnionFind a)
 ufAdjust f x uf = (f a, uf' & ufRank.at r ?~ (rank, f a))
   where
-    Just (rank, a) = uf' ^. ufRank.at r
-    (r, uf')       = ufFind x uf
+    (rank, a) = fromMaybe (throw err) $ uf' ^. ufRank.at r
+    (r, uf')  = ufFind x uf
+    err       = concat ["ufAdjust: The element ", show x," does not exist."]
 {-# INLINE ufAdjust #-}
 
 -- | Get the value associated with the set containing @x@, returning the value
@@ -108,7 +108,10 @@ ufUnion x y uf = case rxr `compare` ryr of
   _  -> uf'' & ufParent . at ry ?~ rx
              & ufRank . at rx %~ fmap (bimap (+ ryr) (<|> ryv))
   where
-    (rx, uf')       = ufFind x uf  -- Find the root of the set containing x
-    (ry, uf'')      = ufFind y uf' -- Find the root of the set containing y
-    Just (rxr, rxv) = uf'' ^. ufRank . at rx -- Rank and value of rx
-    Just (ryr, ryv) = uf'' ^. ufRank . at ry -- Rank and value of ry
+    (rx, uf')  = ufFind x uf  -- Find the root of the set containing x
+    (ry, uf'') = ufFind y uf' -- Find the root of the set containing y
+    -- Rank and value of rx and ry.
+    (rxr, rxv) = fromMaybe (throw err1) $ uf'' ^. ufRank . at rx
+    (ryr, ryv) = fromMaybe (throw err2) $ uf'' ^. ufRank . at ry
+    err1       = concat ["ufUnion: The element ", show rx," does not exist."]
+    err2       = concat ["ufUnion: The element ", show ry," does not exist."]

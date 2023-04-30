@@ -105,6 +105,7 @@ test-suite hrologTest
         Internal.Parser,
         Parser,
         Solver.Prolog,
+        Utility.Exception,
         Utility.Graph,
         Utility.PP,
         Utility.Parser,
@@ -128,6 +129,7 @@ test-suite unifyTest
     main-is:          Test/UnifyTest.hs
     other-modules:
         Internal.Program,
+        Utility.Exception,
         Utility.Graph,
         Utility.PP,
         Utility.Unifiers,
@@ -152,6 +154,7 @@ library
     other-modules:
         Internal.Program,
         Internal.Parser,
+        Utility.Exception,
         Utility.Graph,
         Utility.PP,
         Utility.Unifiers,

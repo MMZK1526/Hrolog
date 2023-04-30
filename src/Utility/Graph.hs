@@ -12,11 +12,12 @@ import           Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IM
 import qualified Data.IntSet as IS
 import           Data.Maybe
+import           GHC.Stack
 
 newtype Graph = Graph (IntMap [Int])
 
 -- | pure @True@ if the graph contains a cycle.
-hasCycle :: Graph -> Bool
+hasCycle :: HasCallStack => Graph -> Bool
 hasCycle (Graph g)
   = isNothing (execStateT (forM_ (IM.keys g) go) (IS.empty, IS.empty))
   where

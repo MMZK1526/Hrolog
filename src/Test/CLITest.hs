@@ -35,16 +35,21 @@ testReloadBeforeLoad = TestLabel "Test reload before load" . TestCase
 --------------------------------------------------------------------------------
 
 -- | @CLIError@ but only the constructors.
-data CLIErrorType = DNEErrorT | IOExceptionT | UserInterT | FatalErrorT
+data CLIErrorType = DNEErrT
+                  | IOErrT
+                  | UserInterT
+                  | InternalErrT
+                  | FatalErrT
   deriving (Eq, Show)
 
 -- | Convert a @TaggedError CLIError@ to a @CLIErrorType@.
 cliErrorToType :: TaggedError CLIError -> CLIErrorType
-cliErrorToType (TaggedError _ Nothing)    = FatalErrorT
+cliErrorToType (TaggedError _ Nothing)    = FatalErrT
 cliErrorToType (TaggedError _ (Just err)) = case err of
-  DNEError _    -> DNEErrorT
-  IOException _ -> IOExceptionT
+  DNEErr _      -> DNEErrT
+  IOErr _       -> IOErrT
   UserInter     -> UserInterT
+  InternalErr _ -> InternalErrT
 
 -- | A "snapshot" of the @CLIState@ that is used for testing.
 data CLISnapshot = CLISnapshot { sfilePath :: Maybe FilePath
@@ -53,7 +58,7 @@ data CLISnapshot = CLISnapshot { sfilePath :: Maybe FilePath
 
 -- | Take a "snapshot" of the @CLIState@.
 takeSnapshot :: CLIState -> CLISnapshot
-takeSnapshot s = CLISnapshot (_cliSfilePath s) (cliErrorToType <$> _cliErr s)
+takeSnapshot s = CLISnapshot (_cliFilePath s) (cliErrorToType <$> _cliErr s)
 
 -- | The initial @Snapshot@ corresponding to the initial @CLIState@.
 initialSnapshot :: CLISnapshot

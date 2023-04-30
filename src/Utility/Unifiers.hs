@@ -17,6 +17,7 @@ import           Data.Maybe
 import           Data.Set (Set)
 import qualified Data.Set as S
 import           Data.Tuple
+import           GHC.Stack
 
 import           Internal.Program
 import           Utility.Graph
@@ -40,7 +41,7 @@ mkUnifyState = UnifyState M.empty mkUnionFind IM.empty
 -- present, do nothing.
 --
 -- Return the index of the variable in the unification state.
-addVar :: Ord a => Monad m => a -> StateT (UnifyState a) m Int
+addVar :: HasCallStack => Ord a => Monad m => a -> StateT (UnifyState a) m Int
 addVar var = do
   varMap <- use usVarMap
   case varMap M.!? var of
@@ -55,7 +56,7 @@ addVar var = do
 
 -- | Unify two terms under a given @UnifyState@ context. Returns 'Nothing' if
 -- the terms cannot be unified.
-unifyTermS :: Ord a => Monad m
+unifyTermS :: HasCallStack => Ord a => Monad m
            => Term' a -> Term' a -> StateT (UnifyState a) (MaybeT m) ()
 unifyTermS t t' = do
   unifyTermS' t t'
@@ -70,7 +71,7 @@ unifyTermS t t' = do
   guard (not $ hasCycle graph)
 
 -- | Similar to @unifyTerm@, but do not eliminate recursive usages of variables.
-unifyTermS' :: Ord a => Monad m
+unifyTermS' :: HasCallStack => Ord a => Monad m
             => Term' a -> Term' a -> StateT (UnifyState a) (MaybeT m) ()
 unifyTermS' (F f ts) (F f' ts')
   | f /= f'   = mzero
@@ -116,7 +117,7 @@ unifyTermS' t (VariableTerm v)                 = unifyTermS' (VariableTerm v) t
 
 -- | Unify two atoms under a given @UnifyState@ context. Returns 'Nothing' if
 -- the atoms cannot be unified.
-unifyAtomS :: Ord a => Monad m
+unifyAtomS :: HasCallStack => Ord a => Monad m
            => Atom' a -> Atom' a -> StateT (UnifyState a) (MaybeT m) ()
 unifyAtomS (Atom p ts) (Atom p' ts')
   | p /= p'   = mzero
@@ -126,7 +127,8 @@ unifyAtomS (Atom p ts) (Atom p' ts')
 -- two atoms equal. Returns 'Nothing' if the atoms cannot be unified.
 --
 -- The substitution is represented as a @Map@ from variables to terms.
-unifyAtom :: Ord a => Atom' a -> Atom' a -> Maybe (Map a (Term' a))
+unifyAtom :: HasCallStack => Ord a
+          => Atom' a -> Atom' a -> Maybe (Map a (Term' a))
 unifyAtom a1 a2 = case mUS of
   Nothing -> Nothing -- Unification failed
   Just us -> fst <$> do

@@ -11,6 +11,7 @@ import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.State
+import           GHC.Stack
 import           System.Directory
 import qualified Text.Megaparsec as P
 import qualified Text.Megaparsec.Char as P
@@ -22,10 +23,11 @@ import           Program
 import           Solver.Prolog
 import           Utility.Exception
 import           Utility.Parser
+import           Utility.PP
 
 -- | The main function of the program. It runs the CLI feedback loop, handling
 -- any errors that may propagate to this stage.
-runCLI :: IO ()
+runCLI :: HasCallStack => IO ()
 -- Since all benign errors are handled by the feedback loop already, we only
 -- need to handle fatal errors here.
 -- For serious and fatal errors, they will be wrapped in an "ExceptT". We read
@@ -35,7 +37,7 @@ runCLI = do
     liftIO $ putStrLn "Welcome to Hrolog!"
     evalStateT (feedbackloop (const $ pure ())) initCLIState
   case result of
-    Left err -> errHandler err
+    Left err -> errHandler err Nothing
     Right _  -> pure ()
 
 -- | The CLI feedback loop. It takes an input, parses it, and executes the
@@ -43,17 +45,17 @@ runCLI = do
 --
 -- It takes a callback that is called at start of each loop. This callback is
 -- useful for testing purposes as it has access to the state of the program.
-feedbackloop :: (CLIState -> IO ())
+feedbackloop :: HasCallStack => (CLIState -> IO ())
              -> StateT CLIState (ExceptT (TaggedError CLIError) IO) ()
 -- The "forever" indicates that the loop will never terminate unless there is
 -- an uncaught exception.
 -- "handleErrS" is a utility function that catches all benign errors by
--- printing them out. In other words, if an "IOException" is thrown, the program
+-- printing them out. In other words, if an "IOError" is thrown, the program
 -- will ignore the current progress, print out the error, and continue to the
 -- next loop.
 -- On the other hand, it does not catch serious and fatal errors (such as 
 -- user-induced termination). In this case, the function transforms this error
--- into a pure @TaggedError CLIError@ wrapped in an "ExceptT", and the program
+-- into a pure "TaggedError CLIError" wrapped in an "ExceptT", and the program
 -- will break from "forever" and terminate with a message corresponding to the
 -- content of the "String". The pure error can then be handled by another
 -- handler.
@@ -84,9 +86,8 @@ feedbackloop callback = forever . handleErr errHandlerS $ do
       InputTypeFilePath fp -> handleLoad fp
       InputTypeReload      -> handleReload
       InputTypePQuery q    -> handlePQuery q
-      InputHelp            -> handleHelp
+      InputTypeHelp        -> handleHelp
       InputTypeQuit        -> handleQuit
-      InputTypeCrash       -> error "Crashed!"
   cliErr .= Nothing -- Reset the error state
 
 
@@ -98,10 +99,9 @@ feedbackloop callback = forever . handleErr errHandlerS $ do
 -- "Program" in the @CLIState@.
 inputP :: Monad m => ParserT (StateT (Maybe Program) m) (Maybe InputType)
 inputP = P.choice [ Just . InputTypeFilePath <$> inputFilePath
-                  , Just InputTypeCrash <$ inputCrash
                   , Just InputTypeReload <$ inputReload
                   , Just InputTypeQuit <$ inputQuit
-                  , Just InputHelp <$ inputHelp
+                  , Just InputTypeHelp <$ inputHelp
                   , fmap InputTypePQuery <$> pQuery ]
 
 -- | Parse a file path.
@@ -154,32 +154,41 @@ getLine' = do
 --
 -- It stores the error in the state, and then calls the error handler for the
 -- main function (which is identical to what we want to handle here).
-errHandlerS :: TaggedError CLIError
-                    -> StateT CLIState (ExceptT (TaggedError CLIError) IO) ()
-errHandlerS err = cliErr ?= err >> errHandler err
+errHandlerS :: HasCallStack => TaggedError CLIError
+            -> StateT CLIState (ExceptT (TaggedError CLIError) IO) ()
+errHandlerS err = cliErr ?= err >> get >>= errHandler err . Just
 
 -- | The error handler for the main function for both fatal and non-fatal
 -- errors.
-errHandler :: MonadErrHandling (TaggedError CLIError) m
-           => TaggedError CLIError -> m ()
-errHandler (TaggedError e Nothing)    = do
-  liftIO (putStrLn ("Fatal Error:\n" ++ show e))
+errHandler :: HasCallStack => MonadErrHandling (TaggedError CLIError) m
+           => TaggedError CLIError -> Maybe CLIState -> m ()
+errHandler (TaggedError e Nothing) _      = liftIO $ do
+  putStrLn "Fatal Error!"
+  putStrLn "The developer would be most grateful if you can report this."
+  putStrLn "Please send this error message to mmzk1526@outlook.com."
   throwM e
-errHandler (TaggedError _ (Just err)) = case err of
-  DNEError mfp  -> do
+errHandler (TaggedError _ (Just err)) mCS = case err of
+  DNEErr mfp      -> do
     curDir <- liftIO getCurrentDirectory
     let fileDNEErrMsg = case mfp of
           Just fp -> concat ["File ", show fp, " does not exist."]
           _       -> "File does not exist."
     let curDirMsg     = concat ["Current directory is ", show curDir, "."]
     liftIO $ putStrLn $ unlines [fileDNEErrMsg, curDirMsg]
-  IOException e -> liftIO $ putStrLn ("IO Error:\n" ++ e)
-  UserInter     -> liftIO $ putStrLn "Quit by user."
+  IOErr e -> liftIO $ putStrLn ("IO Error:\n" ++ e)
+  UserInter       -> liftIO $ putStrLn "Quit by user."
+  InternalErr msg -> liftIO $ do
+    putStrLn "Internal Error:"
+    putStrLn msg
+    forM_ mCS pPrint
+    putStrLn "The developer would be most grateful if you can report this."
+    putStrLn "Please send this error message to mmzk1526@outlook.com.\n"
+    putStrLn "Meanwhile, you could continue with your other queries."
 
 -- | Handle loading a program from a path.
-handleLoad :: MonadIO m => FilePath -> StateT CLIState m ()
+handleLoad :: HasCallStack => MonadIO m => FilePath -> StateT CLIState m ()
 handleLoad fp = do
-  cliSfilePath ?= fp -- Store the file path in the state.
+  cliFilePath ?= fp -- Store the file path in the state.
   newProg <- liftIO $ readFile fp -- Read the program from the file.
   case parseProgram newProg of
     -- If the program is invalid, print an error message.
@@ -193,9 +202,9 @@ handleLoad fp = do
       liftIO $ putStrLn $ prettifyProgram prog
 
 -- | Handle reloading the program from the file path stored in the state.
-handleReload :: MonadIO m => StateT CLIState m ()
+handleReload :: HasCallStack => MonadIO m => StateT CLIState m ()
 handleReload = do
-  mfp <- use cliSfilePath -- Get the file path from the state.
+  mfp <- use cliFilePath -- Get the file path from the state.
   case mfp of
     -- If the file path is not stored, let the user know.
     Nothing -> liftIO $ putStrLn "No program loaded.\n"
@@ -203,7 +212,7 @@ handleReload = do
     Just fp -> handleLoad fp
 
 -- | Handle parsing and solving with a query.
-handlePQuery :: MonadIO m => PQuery -> StateT CLIState m ()
+handlePQuery :: HasCallStack => MonadIO m => PQuery -> StateT CLIState m ()
 handlePQuery q = do
   mProg <- use cliProgram -- Get the program from the state.
   case mProg of
@@ -228,11 +237,11 @@ handlePQuery q = do
         sols -> handleSolutions sols
 
 -- | Handle printing out the help message.
-handleHelp :: MonadIO m => StateT CLIState m ()
+handleHelp :: HasCallStack => MonadIO m => StateT CLIState m ()
 handleHelp = liftIO $ putStrLn "TODO: Help message."
 {-# INLINE handleHelp #-}
 
 -- | Handle quitting the program.
-handleQuit :: MonadIO m => MonadThrow m => StateT CLIState m ()
+handleQuit :: HasCallStack => MonadIO m => MonadThrow m => StateT CLIState m ()
 handleQuit = throwM UserInterrupt
 {-# INLINE handleQuit #-}
