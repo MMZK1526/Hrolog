@@ -20,6 +20,7 @@ import           Data.Tuple
 import           GHC.Stack
 
 import           Internal.Program
+import           Utility.Exception
 import           Utility.Graph
 import           Utility.UnionFind
 
@@ -86,7 +87,9 @@ unifyTermS' (VariableTerm v) t                 = do
     F f ts -> do
       varMap <- use usVarMap
       uf     <- use usUF
-      let ix = varMap M.! v
+      let errMsg
+            = concat ["unifyTermS': The element ", show ix," does not exist."]
+          ix     = fromMaybe (throw errMsg) $ varMap M.!? v
       let (mVal, uf') = ufGet ix uf
       case mVal of
         Just ft -> unifyTermS' t (FunctionTerm ft)
@@ -103,7 +106,9 @@ unifyTermS' (VariableTerm v) t                 = do
       void $ addVar v' -- Make sure the other variable is in the var map
       varMap <- use usVarMap
       uf     <- use usUF
-      let (ix, ix')     = (varMap M.! v, varMap M.! v')
+      let errMsg        = "unifyTermS': Accessing elements not in the var map."
+      let ix            = fromMaybe (throw errMsg) $ varMap M.!? v
+      let ix'           = fromMaybe (throw errMsg) $ varMap M.!? v'
       let (mVal, uf')   = ufGet ix uf
       let (mVal', uf'') = ufGet ix' uf'
       case (mVal, mVal') of
@@ -144,7 +149,10 @@ unifyAtom a1 a2 = case mUS of
         -- If the value is Nothing, we map the variable to its representative.
         Nothing           -> do
           let (ix', uf'') = ufFind ix uf'
-          _1 . at v ?= VariableTerm (ixToVarMap IM.! ix')
+          let errMsg      = concat [ "unifyAtom: The element ", show ix'
+                                   , " does not exist." ]
+          _1 . at v
+            ?= VariableTerm (fromMaybe (throw errMsg) $ ixToVarMap IM.!? ix')
           _2 .= uf'' -- Update the union-find
         -- If the value is a constant, we map the variable to it.
         Just (FTerm f ts) -> do
