@@ -249,11 +249,11 @@ mkProgram cs
 -- create a @PQuery@ by using @parsePQuery@ in module Parser.
 mkPQuery :: [Atom] -> PQuery
 mkPQuery as
-  = execState (forM_ as worker) (PQuery S.empty as)
+  = execState (forM_ ((\(Atom _ ts) -> ts) <$> as) worker) (PQuery S.empty as)
   where
-    worker (Atom _ ts) = forM_ ts $ \case
+    worker ts = forM_ ts $ \case
       VariableTerm v -> pqVariables %= S.insert v
-      _              -> pure ()
+      F _ ts'        -> worker ts'
 
 -- | Retrieve the set of variables from a "FunctionTerm".
 getVariables :: FunctionTerm -> Set String

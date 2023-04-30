@@ -62,8 +62,8 @@ canParseFunction
 genFunctionsAreValid :: Test
 genFunctionsAreValid
   = TestLabel "Generated functions are valid" . TestCase
-  . forM_ [1..7] $ \l -> forM_ [0..114] $ \g -> do
-      let f                 = fst $ genFunction l (mkStdGen g)
+  . forM_ [1..4] $ \d -> forM_ [1..4] $ \l -> forM_ [0..114] $ \g -> do
+      let f                 = fst $ genFunction d l (mkStdGen g)
       let parseFunction str = evalState (parseT space functionTerm str) (Identity emptyProgram)
       assertValid ("Valid function " ++ show f) (Just f) (parseFunction (pShow f))
 
@@ -82,8 +82,8 @@ canParseTerm
 genTermsAreValid :: Test
 genTermsAreValid
   = TestLabel "Generated terms are valid" . TestCase
-  . forM_ [1..7] $ \l -> forM_ [0..114] $ \g -> do
-      let t             = fst $ genTerm l (mkStdGen g)
+  . forM_ [1..4] $ \d -> forM_ [1..4] $ \l -> forM_ [0..114] $ \g -> do
+      let t             = fst $ genTerm d l (mkStdGen g)
       let parseTerm str = evalState (parseT space term str) (Identity emptyProgram)
       assertValid ("Valid term " ++ show t) (Just t) (parseTerm (pShow t))
 
@@ -142,16 +142,16 @@ genClausesAreValid
   . forM_ [1..3] $ \a -> forM_ [1..3] $ \l -> forM_ [0..114] $ \g -> do
       let c               = fst $ genClause a l (mkStdGen g)
       let parseClause str = evalState (parseT space clause str) (Identity emptyProgram)
-      assertValid ("Valid clause " ++ pShow c) (Just c) (parseClause (pShow c))
+      assertValid ("Valid clause: " ++ pShow c) (Just c) (parseClause (pShow c))
 
 genProgramsAreValid :: Test
 genProgramsAreValid
   = TestLabel "Generated programs are valid" . TestCase
   . forM_ [1..3] $ \a -> forM_ [1..3] $ \l -> forM_ [0..114] $ \g -> do
-      let c = fst $ genProgram a l (mkStdGen g)
-      assertBool ("Legal program " ++ show c) (isProgramLegal c)
-      assertValid ("Valid program " ++ show c)
-                  (Just c) (parseProgram (pShowF Succinct c))
+      let p = fst $ genProgram a l (mkStdGen g)
+      assertBool ("Legal program: " ++ show p) (isProgramLegal p)
+      assertValid ("Valid program " ++ show p)
+                  (Just p) (parseProgram (pShowF Succinct p))
 
 canParsePQuery :: Test
 canParsePQuery
@@ -222,15 +222,29 @@ genIdentifier = runState . worker 1 26
          | otherwise -> (chr (ord 'A' + r - 37) :) <$> worker 0 62 (l - 1)
 
 -- | Generate a @FunctionTerm@ with the given length.
-genFunction :: Int -> StdGen -> (FunctionTerm, StdGen)
-genFunction = (first (flip FTerm [] . flip Function 0) .) . genIdentifier
+genFunction :: Int -> Int -> StdGen -> (FunctionTerm, StdGen)
+genFunction depth len = runState (worker depth len)
+  where
+    worker 0 l = do
+      len'        <- randomRS 1 (max 1 l)
+      (name, gen) <- genIdentifier len' <$> get
+      put gen
+      pure $ FTerm (Function name 0) []
+    worker d l = do
+      len'        <- randomRS 1 (max 1 l)
+      (name, gen) <- genIdentifier len' <$> get
+      put gen
+      arity       <- randomRS 1 (max 1 l)
+      ts          <- replicateM arity $ do
+        (t, gen') <- genTerm (d - 1) l <$> get
+        put gen'
+        pure t
+      pure $ FTerm (Function name arity) ts
 
 -- | Generate a @Variable@ with the given length.
---
--- TODO: Generate function terms.
-genTerm :: Int -> StdGen -> (Term, StdGen)
-genTerm l gen
-  | r == 0    = first FunctionTerm $ genFunction l gen'
+genTerm :: Int -> Int -> StdGen -> (Term, StdGen)
+genTerm d l gen
+  | r == 0    = first FunctionTerm $ genFunction d l gen'
   | otherwise = first VariableTerm $ genVariable l gen'
   where
     (r, gen') = randomR @Int (0, 1) gen
@@ -245,8 +259,9 @@ genAtom arity len = runState worker
       (pName, gen) <- genIdentifier len' <$> get
       put gen
       ts           <- replicateM arity $ do
+        depth     <- randomRS 1 (max 1 len)
         len''     <- randomRS 1 (max 1 len)
-        (t, gen') <- genTerm len'' <$> get
+        (t, gen') <- genTerm depth len'' <$> get
         put gen'
         pure t
       pure $ Atom (Predicate pName arity) ts

@@ -1,9 +1,9 @@
 # Hrolog
 
 ## Checklist
-1. [ ] Support function terms and their unification
+1. [x] Support function terms and their unification
    - [x] Support function terms and parse them
-   - [ ] Write tests on function term parsing
+   - [x] Write tests on function term parsing
    - [x] Implement function unification (without considering recursive usage)
    - [x] Use topological sort to detect recursive usage
    - [x] Write tests on unification with function terms
