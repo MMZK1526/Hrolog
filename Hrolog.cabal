@@ -180,6 +180,7 @@ executable Hrolog
         Program,
         Solver.Prolog,
         Utility.Exception,
+        Utility.Graph,
         Utility.PP,
         Utility.Parser,
         Utility.Unifiers,

@@ -88,7 +88,7 @@ unifyTermS' (VariableTerm v) t                 = do
       let ix = varMap M.! v
       let (mVal, uf') = ufGet ix uf
       case mVal of
-        Just ft -> unifyTermS' t (FunctionTerm ft) >> usUF .= uf'
+        Just ft -> unifyTermS' t (FunctionTerm ft)
         Nothing -> do
           usUF .= ufSet (Just $ FTerm f ts) ix uf'
           let usedVars = S.fromList $ mapMaybe (\case
