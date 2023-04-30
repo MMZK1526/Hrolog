@@ -1,5 +1,12 @@
 # Revision history for Hrolog
 
+## 0.1.0.2 -- 2023-04-30
+
+* Support functional terms.
+* Write tests on their parsing and unification.
+* Add an example "peanoNumbers.hrolog" to demonstrate the use of functional terms.
+
+
 ## 0.1.0.1 -- 2023-04-08
 
 * Basic functionality for Prolog-style logic programming.
