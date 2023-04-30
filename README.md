@@ -1,6 +1,6 @@
 # Hrolog
 
-TODO:
+## Checklist
 1. [ ] Support function terms and their unification
    - [x] Support function terms and parse them
    - [ ] Write tests on function term parsing
@@ -10,7 +10,8 @@ TODO:
    - [x] Add example programs with function terms
 2. [ ] Optimise with tabling
 3. [ ] Use Haskeline for better REPL experience
-4. [ ] Documentation
+4. [ ] Add a timeout to each query. Allow user to set the timeout or quit with `:k`.
+5. [ ] Documentation
 
 ## Introduction
 Hrolog is a [logic programming language](https://en.wikipedia.org/wiki/Logic_programming) that highly resembles [Prolog](https://en.wikipedia.org/wiki/Prolog). It will support both SLDNF-deduction and abduction as well as some logic-based learning algorithms. In the future, it may also support a Clingo-like Answer Set Programming semantics.
