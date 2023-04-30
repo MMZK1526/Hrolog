@@ -46,8 +46,10 @@ data FunctionTerm' a = FTerm Function [Term' a]
   deriving (Eq, Ord, Show)
 type FunctionTerm = FunctionTerm' String
 
--- | A Hrolog term, either a constant or a variable. The type variable @a@ is
+-- | A Hrolog term, either a function or a variable. The type variable @a@ is
 -- used to represent the variable type.
+--
+-- A constant is considered the same as a function with arity 0.
 --
 -- In a real program, "a" should always be a @String@, but it can carry
 -- additional metadata during the solving process.
