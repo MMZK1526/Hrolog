@@ -20,7 +20,8 @@ main = runTestTTAndExit
                 , simpleNumberTestOne
                 , simpleNumberTestAll
                 , aGTaIsFalse
-                , twoPlusThreeIsFive ]
+                , arithmeticTest
+                 ]
 
 -- | Can pick up facts.
 canPickUpFacts :: Test
@@ -82,19 +83,42 @@ aGTaIsFalse = TestLabel "a > a is false" . TestCase $
                                                               , VariableTerm "X" ] ])
                           Nothing
 
--- | Calculate 2 + 3.
-twoPlusThreeIsFive :: Test
-twoPlusThreeIsFive = TestLabel "2 + 3 = 5" . TestCase $
-  assertSolutionFromFile "./src/Test/programs/peanoNumbers.hrolog"
-                          (mkPQuery [ Atom (Predicate "add" 3) [two, three, VariableTerm "X"]])
-                          (Just . Solution $ M.fromList [("X", five)])
+-- | Arithmetic test.
+arithmeticTest :: Test
+arithmeticTest = TestLabel "Arithmetic test" . TestList $
+  [ TestLabel "Add tests" $ TestList addTests
+  , TestLabel "Sub tests" $ TestList subTests
+  ]
   where
+    addTest x y z
+      = assertSolutionFromFile "./src/Test/programs/peanoNumbers.hrolog"
+                               (mkPQuery [ Atom (Predicate "add" 3) [x, y, VariableTerm "Z"]])
+                               (Just . Solution $ M.fromList [("Z", z)])
+    addTests = do
+      x <- [0..5]
+      y <- [0..5]
+      let z = x + y
+      pure . TestLabel (concat [show x, " + ", show y, " = ", show z])
+           . TestCase $ addTest (nats !! x) (nats !! y) (nats !! z)
+
+    subTest x y Nothing
+      = assertSolutionFromFile "./src/Test/programs/peanoNumbers.hrolog"
+                               (mkPQuery [ Atom (Predicate "sub" 3) [x, y, VariableTerm "Z"]])
+                               Nothing
+    subTest x y (Just z)
+      = assertSolutionFromFile "./src/Test/programs/peanoNumbers.hrolog"
+                               (mkPQuery [ Atom (Predicate "sub" 3) [x, y, VariableTerm "Z"]])
+                               (Just . Solution $ M.fromList [("Z", z)])
+    subTests = do
+      x <- [0..5]
+      y <- [0..5]
+      let z = x - y
+      pure . TestLabel (concat [show x, " - ", show y, " = ", show z])
+           . TestCase $ subTest (nats !! x) (nats !! y) (if z >= 0 then Just (nats !! z) else Nothing)
+
     zero   = Constant "0"
     sukk x = F (Function "s" 1) [x]
     nats   = iterate sukk zero
-    two    = nats !! 2
-    three  = nats !! 3
-    five   = nats !! 5
 
 
 --------------------------------------------------------------------------------
