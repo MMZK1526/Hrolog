@@ -15,7 +15,6 @@ import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import           Data.Set (Set)
 import qualified Data.Set as S
-import           GHC.Stack
 
 import           Internal.Program
 import           Utility.PP
@@ -62,11 +61,11 @@ newPState = PState 1 S.empty M.empty M.empty False
 -- Solutions are evaluated in the normal Prolog order. The evaluation is lazy,
 -- so it is always possible to get the first few solutions even if there are
 -- infinitely many.
-solve :: HasCallStack => Program -> PQuery -> [Solution]
+solve :: Program -> PQuery -> [Solution]
 solve p q = runIdentity $ solveS pure (pure ()) pure p q
 
 -- | Similar to @solve@, but prints out each step.
-solveIO :: HasCallStack => Program -> PQuery -> IO [Solution]
+solveIO :: Program -> PQuery -> IO [Solution]
 solveIO = solveS onNewStep onFail onBacktractEnd
   where
     untagged    = renamePQuery untag
@@ -98,7 +97,7 @@ solveIO = solveS onNewStep onFail onBacktractEnd
 -- The pure value is a list of @Solution@s, which describes how each variable
 -- in the @PQuery@ is mapped to a term. If the pure value is empty, then there
 -- is no solution.
-solveS :: HasCallStack => Monad m
+solveS :: Monad m
        => (SolvePQuery -> StateT PState m a) -> StateT PState m b
        -> (SolvePQuery -> StateT PState m a) -> Program -> PQuery
        -> m [Solution]

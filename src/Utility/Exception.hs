@@ -19,7 +19,6 @@ import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.State
 import           Data.Bifunctor
-import           GHC.Stack
 
 -- | A type class that can be converted from and to a @SomeException@. We could
 -- then use this representation of the same type to handle it.
@@ -131,7 +130,7 @@ instance MonadErrHandling e m => MonadErrHandling e (StateT s m) where
 -- It is a special case of @dealWithErr@ which uses the semantic meaning of
 -- the levels of error severity. Serious errors are rethrown, while benign
 -- errors are handled by the given handler.
-handleErr :: HasCallStack => HasSeverity e => MonadErrHandling e m => (e -> m a) -> m a -> m a
+handleErr :: HasSeverity e => MonadErrHandling e m => (e -> m a) -> m a -> m a
 handleErr f = dealWithErr $
   \e -> if isSerious e then pure $ Left e else Right <$> f e
 {-# INLINE handleErr #-}
@@ -163,5 +162,5 @@ instance (HasSeverity e) => HasSeverity (TaggedError e) where
   isSerious (TaggedError _ (Just e)) = isSerious e
 
 -- | Throw an internal error with the given message.
-throw :: HasCallStack => String -> a
+throw :: String -> a
 throw = E.throw . userError

@@ -6,7 +6,6 @@ import           Control.Monad.Trans.Except
 import           Data.List
 import qualified Data.Map.Strict as M
 import           Data.Maybe
-import           GHC.Stack
 
 import           Internal.Program
 import           Parser
@@ -104,13 +103,13 @@ twoPlusThreeIsFive = TestLabel "2 + 3 = 5" . TestCase $
 
 -- | Read the given file and run the given test on the resulting @Program@, see
 -- if the first @Solution@ matches.
-assertSolutionFromFile :: HasCallStack => FilePath -> PQuery -> Maybe Solution -> Assertion
+assertSolutionFromFile :: FilePath -> PQuery -> Maybe Solution -> Assertion
 assertSolutionFromFile filePath q expSol
   = assertFromFile filePath (\p -> assertSolution p q expSol)
 
 -- | Read the given file and run the given test on the resulting @Program@, see
 -- if the @Solution@s match.
-assertSolutionsFromFile :: HasCallStack => FilePath -> PQuery -> [Solution] -> Assertion
+assertSolutionsFromFile :: FilePath -> PQuery -> [Solution] -> Assertion
 assertSolutionsFromFile filePath q expSols
   = assertFromFile filePath (\p -> assertSolutions p q expSols)
 
@@ -123,7 +122,7 @@ handleErr = mapExceptT (`catches` [Handler rethrowTestFailure, Handler logOtherE
 
 -- | Use the given @Assertion@ which takes a @Program@. The @Program@ comes from
 -- reading the given file.
-assertFromFile :: HasCallStack => FilePath -> (Program -> Assertion) -> Assertion
+assertFromFile :: FilePath -> (Program -> Assertion) -> Assertion
 assertFromFile filePath testFun = do
   result <- runExceptT . handleErr $ do
     p <- lift (parseProgram <$> readFile filePath) >>= ExceptT . pure
@@ -134,12 +133,12 @@ assertFromFile filePath testFun = do
 
 -- | Assert that the given @Program@ and @PQuery@ produce the expected first
 -- @Solution@.
-assertSolution :: HasCallStack => Program -> PQuery -> Maybe Solution -> Assertion
+assertSolution :: Program -> PQuery -> Maybe Solution -> Assertion
 assertSolution p q expSol
   = assertEqual "solution" expSol (listToMaybe (solve p q))
 
 -- | Assert that the given @Program@ and @PQuery@ produce the expected
 -- @Solution@s.
-assertSolutions :: HasCallStack => Program -> PQuery -> [Solution] -> Assertion
+assertSolutions :: Program -> PQuery -> [Solution] -> Assertion
 assertSolutions p q expSols
   = assertEqual "solutions" (sort expSols) (sort (solve p q))

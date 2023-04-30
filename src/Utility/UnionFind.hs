@@ -10,7 +10,6 @@ import           Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IM
 import           Data.List
 import           Data.Maybe
-import           GHC.Stack
 
 -- | A union-find data structure on @Int@. Each representative (root) is
 -- associated with a an optional value of type @a@.
@@ -27,7 +26,7 @@ mkUnionFind = UnionFind IM.empty IM.empty 0
 
 -- | Add a new element to the @UnionFind@. The new element belongs to a
 -- singleton set with itself as the root.
-ufAdd :: HasCallStack => UnionFind a -> UnionFind a
+ufAdd :: UnionFind a -> UnionFind a
 ufAdd uf = uf & ufParent.at n ?~ n
               & ufRank.at n   ?~ (1, Nothing)
               & ufSize        +~ 1
@@ -37,7 +36,7 @@ ufAdd uf = uf & ufParent.at n ?~ n
 
 -- | Find the root (as well as the associated value) of the set containing @x@,
 -- updating the parent pointers along the way.
-ufFind :: HasCallStack => Int -> UnionFind a -> (Int, UnionFind a)
+ufFind :: Int -> UnionFind a -> (Int, UnionFind a)
 ufFind x uf = case uf ^. ufParent.at x of
   Nothing -> throw $ concat ["ufFind: The element ", show x," does not exist."]
   Just p  -> if p == x
@@ -50,7 +49,7 @@ ufFind x uf = case uf ^. ufParent.at x of
 -- | Apply @ufFind@ to each element of the list.
 --
 -- It does not check if any of the elements are valid.
-ufFinds :: HasCallStack => [Int] -> UnionFind a -> ([Int], UnionFind a)
+ufFinds :: [Int] -> UnionFind a -> ([Int], UnionFind a)
 ufFinds xs uf = foldl' worker ([], uf) xs
   where
     worker (rs, uf') x = let (r, uf'') = ufFind x uf'
@@ -61,8 +60,7 @@ ufFinds xs uf = foldl' worker ([], uf) xs
 -- returning the new value and the updated @UnionFind@.
 --
 -- It does not check if @x@ is a valid element.
-ufAdjust :: HasCallStack
-         => (Maybe a -> Maybe a) -> Int -> UnionFind a -> (Maybe a, UnionFind a)
+ufAdjust :: (Maybe a -> Maybe a) -> Int -> UnionFind a -> (Maybe a, UnionFind a)
 ufAdjust f x uf = (f a, uf' & ufRank.at r ?~ (rank, f a))
   where
     (rank, a) = fromMaybe (throw err) $ uf' ^. ufRank.at r
@@ -74,13 +72,13 @@ ufAdjust f x uf = (f a, uf' & ufRank.at r ?~ (rank, f a))
 -- and the updated @UnionFind@.
 --
 -- It does not check if the element is valid.
-ufGet :: HasCallStack => Int -> UnionFind a -> (Maybe a, UnionFind a)
+ufGet :: Int -> UnionFind a -> (Maybe a, UnionFind a)
 ufGet = ufAdjust id
 
 -- | Apply @ufGet@ to each element of the list.
 --
 -- It does not check if any of the elements are valid.
-ufGets :: HasCallStack => [Int] -> UnionFind a -> ([Maybe a], UnionFind a)
+ufGets :: [Int] -> UnionFind a -> ([Maybe a], UnionFind a)
 ufGets xs uf = foldl' worker ([], uf) xs
   where
     worker (as, uf') x = let (a, uf'') = ufGet x uf'
@@ -90,14 +88,14 @@ ufGets xs uf = foldl' worker ([], uf) xs
 -- | Set the value associated with the set containing @x@.
 --
 -- It does not check if the element is valid.
-ufSet :: HasCallStack => Maybe a -> Int -> UnionFind a -> UnionFind a
+ufSet :: Maybe a -> Int -> UnionFind a -> UnionFind a
 ufSet v = (snd .) . ufAdjust (const v)
 
 -- | Merge the sets containing @x@ and @y@, taking the one of the non-Nothing
 -- value from the two sets as the new value for the union.
 --
 -- It does not check if the @x@ and @y@ are valid.
-ufUnion :: HasCallStack => Int -> Int -> UnionFind a -> UnionFind a
+ufUnion :: Int -> Int -> UnionFind a -> UnionFind a
 ufUnion x y uf
   | x == y = uf -- x and y are already in the same set
 ufUnion x y uf = case rxr `compare` ryr of
