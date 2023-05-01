@@ -8,10 +8,16 @@
    - [x] Use topological sort to detect recursive usage
    - [x] Write tests on unification with function terms
    - [x] Add example programs with function terms
-2. [ ] Optimise with tabling
-3. [ ] Use Haskeline for better REPL experience
-4. [ ] Add a timeout to each query. Allow user to set the timeout or quit with `:k`.
-5. [ ] Documentation
+2. [ ] Refactor `PP` to use `Text` rather than `String` for better performance
+3. [ ] Optimise with tabling
+   - [ ] Check for atom subsumption
+   - [ ] Implement logic that determines proven and proving atoms
+4. [ ] Use Haskeline for better REPL experience
+5. [ ] Add a timeout to each query. Allow user to set the timeout or quit with `:k`.
+6. [ ] Documentation
+7. [ ] Support negation
+  - [ ] Implement negation as failure
+  - [ ] Write tests on negation
 
 ## Introduction
 Hrolog is a [logic programming language](https://en.wikipedia.org/wiki/Logic_programming) that highly resembles [Prolog](https://en.wikipedia.org/wiki/Prolog). It will support both SLDNF-deduction and abduction as well as some logic-based learning algorithms. In the future, it may also support a Clingo-like Answer Set Programming semantics.
