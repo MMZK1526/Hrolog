@@ -12,6 +12,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.State
 import           System.Directory
+import           System.IO
 import qualified Text.Megaparsec as P
 import qualified Text.Megaparsec.Char as P
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -62,8 +63,7 @@ feedbackloop callback = forever . handleErr errHandlerS $ do
   get >>= liftIO . callback -- Call the callback
   cliIteration += 1 -- Increment the iteration counter
   mProg <- use cliProgram -- Get the program from the state
-  -- Get the user input.
-  input <- do
+  input <- do -- Get the user input
     mInput <- use cliInput
     case mInput of
       -- If the input is already stored in the state, we use it.
@@ -134,6 +134,7 @@ string = L.lexeme space . P.string
 -- | Repeatedly read input from the user until a non-empty @String@ is read.
 getLine' :: IO String
 getLine' = do
+  putStr "> " >> hFlush stdout -- Prompt the user for input
   input <- getLine
   case parse space (pure ()) input of 
     Left _  -> pure input
@@ -208,6 +209,7 @@ handleReload = do
 -- | Handle parsing and solving with a query.
 handlePQuery :: MonadIO m => PQuery -> StateT CLIState m ()
 handlePQuery q = do
+  cliPQuery ?= q -- Store the query in the state.
   mProg <- use cliProgram -- Get the program from the state.
   case mProg of
     -- If the program is not stored, let the user know.

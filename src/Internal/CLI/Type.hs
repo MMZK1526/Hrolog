@@ -9,6 +9,7 @@
 module Internal.CLI.Type where
 
 import           Control.Exception
+import           Control.Monad.Trans.Writer.CPS
 import           Control.Lens
 import           System.IO.Error
 
@@ -42,7 +43,17 @@ makeLenses ''CLIState
 
 instance PP () CLIState where
   pShowF :: () -> CLIState -> String
-  pShowF _ _ = "TODO"
+  pShowF _ cliState = execWriter $ do
+    tell "CLI State:\n"
+    case cliState ^. cliFilePath of
+      Just fp -> tell $ "  File path: " ++ fp ++ "\n"
+      Nothing -> pure ()
+    case cliState ^. cliProgram of
+      Just p  -> tell $ "  Program:\n" ++ pShow p ++ "\n"
+      Nothing -> pure ()
+    case cliState ^. cliPQuery of
+      Just pq -> tell $ "  Query:\n" ++ pShow pq ++ "\n"
+      Nothing -> pure ()
 
 -- | The initial state of the CLI.
 initCLIState :: CLIState
