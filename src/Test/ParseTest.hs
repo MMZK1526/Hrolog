@@ -156,25 +156,25 @@ genProgramsAreValid
 canParsePQuery :: Test
 canParsePQuery
   = TestLabel "Can parse Prolog query" . TestCase $ do
-      assertValid "Empty string" Nothing (parsePQuery "")
-      assertValid "Empty query" (Just $ mkPQuery []) (parsePQuery ".")
+      assertValid "Empty string" Nothing (parsePQuery Nothing "")
+      assertValid "Empty query" (Just $ mkPQuery []) (parsePQuery Nothing ".")
       assertValid "Propositional atom"
                   ( Just $ mkPQuery [Atom (Predicate "me" 0) []] )
-                  (parsePQuery "me.")
+                  (parsePQuery Nothing "me.")
       assertValid "Singleton query"
                   ( Just $ mkPQuery [ Atom (Predicate "gt" 1)
                                            [Constant "a"] ] )
-                  (parsePQuery "gt(a).")
+                  (parsePQuery Nothing "gt(a).")
       assertValid "Long query"
                   ( Just $ mkPQuery [ Atom (Predicate "gt" 1)
                                            [Constant "a"]
                                     , Atom (Predicate "foo" 2)
                                            [ VariableTerm "B"
                                            , Constant "c" ] ] )
-                  (parsePQuery "gt(a), foo(B, c).")
-      assertValid "Missing period" Nothing (parsePQuery "gt(a)")
-      assertValid "Missing parenthesis" Nothing (parsePQuery "gt(a")
-      assertValid "Capital letter predicate" Nothing (parsePQuery "Bad(apple)")
+                  (parsePQuery Nothing "gt(a), foo(B, c).")
+      assertValid "Missing period" Nothing (parsePQuery Nothing "gt(a)")
+      assertValid "Missing parenthesis" Nothing (parsePQuery Nothing "gt(a")
+      assertValid "Capital letter predicate" Nothing (parsePQuery Nothing "Bad(apple)")
 
 genPQueriesAreValid :: Test
 genPQueriesAreValid
@@ -182,7 +182,7 @@ genPQueriesAreValid
   . forM_ [1..3] $ \k -> forM_ [1..3] $ \l -> forM_ [0..114] $ \g -> do
       let c = fst $ genPQuery k l (mkStdGen g)
       assertValid ("Valid prolog query " ++ show c)
-                  (Just c) (parsePQuery (pShow c))
+                  (Just c) (parsePQuery Nothing (pShow c))
 
 
 --------------------------------------------------------------------------------

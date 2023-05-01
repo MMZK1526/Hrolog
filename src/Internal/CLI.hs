@@ -105,28 +105,23 @@ inputP = P.choice [ Just . InputTypeFilePath <$> inputFilePath
 
 -- | Parse a file path.
 inputFilePath :: Monad m => ParserT m FilePath
-inputFilePath = string ":l" >> P.many P.anySingle
+inputFilePath = string ":l" P.<|> string ":load" >> P.many P.anySingle
 {-# INLINE inputFilePath #-}
 
 -- | Parse a reload command.
 inputReload :: Monad m => ParserT m ()
-inputReload = void $ string ":r"
+inputReload = void $ string ":r" P.<|> string ":reload"
 {-# INLINE inputReload #-}
 
 -- | Parse a help command.
 inputHelp :: Monad m => ParserT m ()
-inputHelp = void $ string ":h"
+inputHelp = void $ string ":h" P.<|> string ":help"
 {-# INLINE inputHelp #-}
 
 -- | Parse a quit command.
 inputQuit :: Monad m => ParserT m ()
-inputQuit = void $ string ":q"
+inputQuit = void $ string ":q" P.<|> string ":quit"
 {-# INLINE inputQuit #-}
-
--- | Parse a crash command.
-inputCrash :: Monad m => ParserT m ()
-inputCrash = void $ string ":kill"
-{-# INLINE inputCrash #-}
 
 -- | Parse spaces.
 space :: Monad m => ParserT m ()
