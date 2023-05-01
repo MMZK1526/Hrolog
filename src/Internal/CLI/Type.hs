@@ -2,6 +2,7 @@
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 -- | This module contains the data types used by the CLI (Main.hs), including
@@ -11,6 +12,7 @@ module Internal.CLI.Type where
 import           Control.Exception
 import           Control.Monad.Trans.Writer.CPS
 import           Control.Lens
+import qualified Data.Text as T
 import           System.IO.Error
 
 import           Program
@@ -43,16 +45,16 @@ makeLenses ''CLIState
 
 instance PP () CLIState where
   pShowF :: () -> CLIState -> String
-  pShowF _ cliState = execWriter $ do
+  pShowF _ cliState = T.unpack $ execWriter $ do
     tell "CLI State:\n"
     case cliState ^. cliFilePath of
-      Just fp -> tell $ "  File path: " ++ fp ++ "\n"
+      Just fp -> tell $ T.concat ["  File path: ", T.pack fp, "\n"]
       Nothing -> pure ()
     case cliState ^. cliProgram of
-      Just p  -> tell $ "  Program:\n" ++ pShow p ++ "\n"
+      Just p  -> tell $ T.concat ["  Program:\n", T.pack (pShow p), "\n"]
       Nothing -> pure ()
     case cliState ^. cliPQuery of
-      Just pq -> tell $ "  Query:\n" ++ pShow pq ++ "\n"
+      Just pq -> tell $ T.concat ["  Query:\n", T.pack (pShow pq), "\n"]
       Nothing -> pure ()
 
 -- | The initial state of the CLI.
