@@ -16,8 +16,8 @@
 5. [ ] Add a timeout to each query. Allow user to set the timeout or quit with `:k`.
 6. [ ] Documentation
 7. [ ] Support negation
-  - [ ] Implement negation as failure
-  - [ ] Write tests on negation
+    - [ ] Implement negation as failure
+    - [ ] Write tests on negation
 
 ## Introduction
 Hrolog is a [logic programming language](https://en.wikipedia.org/wiki/Logic_programming) that highly resembles [Prolog](https://en.wikipedia.org/wiki/Prolog). It will support both SLDNF-deduction and abduction as well as some logic-based learning algorithms. In the future, it may also support a Clingo-like Answer Set Programming semantics.
