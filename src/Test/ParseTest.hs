@@ -56,8 +56,11 @@ canParseFunction
       assertValid "Empty string" Nothing (parseFunction "")
       assertValid "Lowercase letter" (Just $ FTerm (Function "a" 0) []) (parseFunction "a")
       assertValid "Lowercase word" (Just $ FTerm (Function "aBC" 0) []) (parseFunction "aBC")
+      assertValid "0-arity function" (Just $ FTerm (Function "f" 0) []) (parseFunction "f()")
+      assertValid "Function" (Just $ FTerm (Function "func" 3) [VariableTerm "X", VariableTerm "Y", VariableTerm "Z"]) (parseFunction "func(X, Y, Z)")
       assertValid "Uppercase" Nothing (parseFunction "ABC")
       assertValid "Underscore" Nothing (parseFunction "_")
+      assertValid "Bad function separator" Nothing (parseFunction "func(X; Y; Z)")
 
 genFunctionsAreValid :: Test
 genFunctionsAreValid
