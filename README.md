@@ -8,7 +8,7 @@
    - [x] Use topological sort to detect recursive usage
    - [x] Write tests on unification with function terms
    - [x] Add example programs with function terms
-2. [ ] Refactor `PP` to use `Text` rather than `String` for better performance
+2. [x] Refactor `PP` to use `Text` rather than `String` for better performance
 3. [ ] Optimise with tabling
    - [ ] Check for atom subsumption
    - [ ] Implement logic that determines proven and proving atoms

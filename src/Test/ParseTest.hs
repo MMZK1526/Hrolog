@@ -1,4 +1,5 @@
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 
 import           Control.Monad
@@ -7,6 +8,8 @@ import           Data.Bifunctor
 import           Data.Char
 import           Data.Functor
 import           Data.Functor.Identity
+import           Data.Text (Text)
+import qualified Data.Text as T
 import           GHC.Stack
 import           System.Random
 import           Test.HUnit
@@ -47,7 +50,7 @@ genVarsAreValid
   . forM_ [1..7] $ \l -> forM_ [0..114] $ \g -> do
       let v                 = fst $ genVariable l (mkStdGen g)
       let parseVariable str = evalState (parseT space variable str) (Identity emptyProgram)
-      assertValid ("Valid variable " ++ show v) (Just v) (parseVariable v)
+      assertValid ("Valid variable " <> show v) (Just v) (parseVariable v)
 
 canParseFunction :: Test
 canParseFunction
@@ -68,7 +71,7 @@ genFunctionsAreValid
   . forM_ [1..4] $ \d -> forM_ [1..4] $ \l -> forM_ [0..114] $ \g -> do
       let f                 = fst $ genFunction d l (mkStdGen g)
       let parseFunction str = evalState (parseT space functionTerm str) (Identity emptyProgram)
-      assertValid ("Valid function " ++ show f) (Just f) (parseFunction (pShow f))
+      assertValid ("Valid function " <> show f) (Just f) (parseFunction (pShow f))
 
 canParseTerm :: Test
 canParseTerm
@@ -88,7 +91,7 @@ genTermsAreValid
   . forM_ [1..4] $ \d -> forM_ [1..4] $ \l -> forM_ [0..114] $ \g -> do
       let t             = fst $ genTerm d l (mkStdGen g)
       let parseTerm str = evalState (parseT space term str) (Identity emptyProgram)
-      assertValid ("Valid term " ++ show t) (Just t) (parseTerm (pShow t))
+      assertValid ("Valid term " <> show t) (Just t) (parseTerm (pShow t))
 
 canParseAtom :: Test
 canParseAtom
@@ -116,7 +119,7 @@ genAtomsAreValid
   . forM_ [1..3] $ \a -> forM_ [1..3] $ \l -> forM_ [0..114] $ \g -> do
       let t             = fst $ genAtom a l (mkStdGen g)
       let parseAtom str = evalState (parseT space atom str) (Identity emptyProgram)
-      assertValid ("Valid atom " ++ show t) (Just t) (parseAtom (pShow t))
+      assertValid ("Valid atom " <> show t) (Just t) (parseAtom (pShow t))
 
 canParseClause :: Test
 canParseClause
@@ -145,15 +148,15 @@ genClausesAreValid
   . forM_ [1..3] $ \a -> forM_ [1..3] $ \l -> forM_ [0..114] $ \g -> do
       let c               = fst $ genClause a l (mkStdGen g)
       let parseClause str = evalState (parseT space clause str) (Identity emptyProgram)
-      assertValid ("Valid clause: " ++ pShow c) (Just c) (parseClause (pShow c))
+      assertValid ("Valid clause: " <> show c) (Just c) (parseClause (pShow c))
 
 genProgramsAreValid :: Test
 genProgramsAreValid
   = TestLabel "Generated programs are valid" . TestCase
   . forM_ [1..3] $ \a -> forM_ [1..3] $ \l -> forM_ [0..114] $ \g -> do
       let p = fst $ genProgram a l (mkStdGen g)
-      assertBool ("Legal program: " ++ show p) (isProgramLegal p)
-      assertValid ("Valid program " ++ show p)
+      assertBool ("Legal program: " <> show p) (isProgramLegal p)
+      assertValid ("Valid program " <> show p)
                   (Just p) (parseProgram (pShowF Succinct p))
 
 canParsePQuery :: Test
@@ -184,7 +187,7 @@ genPQueriesAreValid
   = TestLabel "Generated prolog queries are valid" . TestCase
   . forM_ [1..3] $ \k -> forM_ [1..3] $ \l -> forM_ [0..114] $ \g -> do
       let c = fst $ genPQuery k l (mkStdGen g)
-      assertValid ("Valid prolog query " ++ show c)
+      assertValid ("Valid prolog query " <> show c)
                   (Just c) (parsePQuery Nothing (pShow c))
 
 
@@ -195,14 +198,14 @@ genPQueriesAreValid
 assertValid :: HasCallStack => Eq a => Show a => String -> Maybe a -> Either e a -> Assertion
 assertValid str Nothing act = case act of
     Left _  -> pure ()
-    Right _ -> assertFailure $ "Shouldn't parse: " ++ str
+    Right _ -> assertFailure $ "Shouldn't parse: " <> str
 assertValid str (Just a) act = case act of
-    Left _   -> assertFailure $ "Failed to parse: " ++ str
+    Left _   -> assertFailure $ "Failed to parse: " <> str
     Right a' -> assertEqual str a a'
 
 -- | Generate a variable with the given length.
-genVariable :: Int -> StdGen -> (String, StdGen)
-genVariable = runState . worker 1 26
+genVariable :: Int -> StdGen -> (Text, StdGen)
+genVariable = (first T.pack .) . runState . worker 1 26
   where
     worker _ _ 0 = pure ""
     worker m n l = do
@@ -213,8 +216,8 @@ genVariable = runState . worker 1 26
          | otherwise -> (chr (ord 'a' + r - 37) :) <$> worker 0 62 (l - 1)
 
 -- | Generate an identifer with the given length.
-genIdentifier :: Int -> StdGen -> (String, StdGen)
-genIdentifier = runState . worker 1 26
+genIdentifier :: Int -> StdGen -> (Text, StdGen)
+genIdentifier = (first T.pack .) . runState . worker 1 26
   where
     worker _ _ 0 = pure ""
     worker m n l = do

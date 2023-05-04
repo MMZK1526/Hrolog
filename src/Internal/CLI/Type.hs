@@ -12,6 +12,7 @@ module Internal.CLI.Type where
 import           Control.Exception
 import           Control.Monad.Trans.Writer.CPS
 import           Control.Lens
+import           Data.Text (Text)
 import qualified Data.Text as T
 import           System.IO.Error
 
@@ -38,23 +39,23 @@ data InputType = InputTypeFilePath FilePath -- ^ Load a program from a file
 data CLIState = CLIState { _cliFilePath  :: Maybe FilePath
                          , _cliProgram   :: Maybe Program
                          , _cliPQuery    :: Maybe PQuery
-                         , _cliInput     :: Maybe String
+                         , _cliInput     :: Maybe Text
                          , _cliErr       :: Maybe (TaggedError CLIError)
                          , _cliIteration :: Int }
 makeLenses ''CLIState
 
 instance PP () CLIState where
-  pShowF :: () -> CLIState -> String
-  pShowF _ cliState = T.unpack $ execWriter $ do
+  pShowF :: () -> CLIState -> Text
+  pShowF _ cliState = execWriter $ do
     tell "CLI State:\n"
     case cliState ^. cliFilePath of
       Just fp -> tell $ T.concat ["  File path: ", T.pack fp, "\n"]
       Nothing -> pure ()
     case cliState ^. cliProgram of
-      Just p  -> tell $ T.concat ["  Program:\n", T.pack (pShow p), "\n"]
+      Just p  -> tell $ T.concat ["  Program:\n", pShow p, "\n"]
       Nothing -> pure ()
     case cliState ^. cliPQuery of
-      Just pq -> tell $ T.concat ["  Query:\n", T.pack (pShow pq), "\n"]
+      Just pq -> tell $ T.concat ["  Query:\n", pShow pq, "\n"]
       Nothing -> pure ()
 
 -- | The initial state of the CLI.

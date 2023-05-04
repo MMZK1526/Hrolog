@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 
@@ -15,26 +16,29 @@ import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import           Data.Set (Set)
 import qualified Data.Set as S
+import           Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 
 import           Internal.Program
 import           Utility.PP
 import           Utility.Unifiers
 
--- | Transform a "tagged variable" into its @String@ representation.
+-- | Transform a "tagged variable" into its @Text@ representation.
 --
 -- It is necessary since during solving, we need to perform alpha-conversion to
 -- avoid variable capture. Therefore we "tag" the variables with a unique number
 -- (namely the step count) to avoid name clashes. In other words, during
--- solving, we are actually dealing with "tagged @String@"s. Upon reaching the
+-- solving, we are actually dealing with "tagged @Text@"s. Upon reaching the
 -- solution, we need to "untag" them to get the original variables (creating
 -- fresh variables if necessary).
-untag :: (Maybe Int, String) -> String
+untag :: (Maybe Int, Text) -> Text
 untag (Nothing, s) = s
-untag (Just i, s)  = concat [show i, "#", s]
+untag (Just i, s)  = T.concat [pShow i, "#", s]
 
 -- | The type of query used during solving. It tagged each variable with an
 -- optional integer, so that each renaming is unique.
-type SolvePQuery = PQuery' (Maybe Int, String)
+type SolvePQuery = PQuery' (Maybe Int, Text)
 
 -- | The state used by the Prolog solver.
 --
@@ -73,14 +77,15 @@ solveIO = solveS onNewStep onFail onBacktractEnd
       steps <- use pStep
       lift $ putStrLn (concat ["Step ", show steps, ":"])
       lift $ case _pqAtoms q of
-        [] -> putStrLn "Unification succeeded.\n"
-        _  -> putStrLn (concat ["Current query: ", pShow (untagged q), "\n"])
+        [] -> T.putStrLn "Unification succeeded.\n"
+        _  -> T.putStrLn
+            $ T.concat ["Current query: ", pShow (untagged q), "\n"]
     onFail      = do
       steps <- use pStep
-      lift $ putStrLn (concat ["Step ", show steps, ":"])
-      lift $ putStrLn "Unification failed.\n"
-    onBacktractEnd q = lift
-      $ putStrLn (concat["Backtracked to the query ", pShow (untagged q), "\n"])
+      lift $ T.putStrLn (T.concat ["Step ", pShow steps, ":"])
+      lift $ T.putStrLn "Unification failed.\n"
+    onBacktractEnd q = lift . T.putStrLn 
+      $ T.concat["Backtracked to the query ", pShow (untagged q), "\n"]
 
 -- | The main function of the Prolog solver.
 --

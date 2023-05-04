@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 -- | This modules contains the main function of the program. The main function
 -- in @Main.hs@ simply reexports the @runCLI@ function here.
@@ -11,6 +12,9 @@ import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.State
+import           Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import           System.Directory
 import           System.IO
 import qualified Text.Megaparsec as P
@@ -53,11 +57,11 @@ feedbackloop :: (CLIState -> IO ())
 -- printing them out. In other words, if an "IOError" is thrown, the program
 -- will ignore the current progress, print out the error, and continue to the
 -- next loop.
--- On the other hand, it does not catch serious and fatal errors (such as 
+-- On the other hand, it does not catch serious and fatal errors (such as
 -- user-induced termination). In this case, the function transforms this error
 -- into a pure "TaggedError CLIError" wrapped in an "ExceptT", and the program
 -- will break from "forever" and terminate with a message corresponding to the
--- content of the "String". The pure error can then be handled by another
+-- content of the "Text". The pure error can then be handled by another
 -- handler.
 feedbackloop callback = forever . handleErr errHandlerS $ do
   get >>= liftIO . callback -- Call the callback
@@ -74,8 +78,8 @@ feedbackloop callback = forever . handleErr errHandlerS $ do
   case evalState (parseT space inputP input) mProg of
     -- If the input is invalid, print an error message.
     Left err                            -> liftIO $ do
-      putStrLn "Error parsing the input:"
-      putStrLn err
+      T.putStrLn "Error parsing the input:"
+      T.putStrLn err
     -- A @Nothing@ means that the input is a query, but the program is not
     -- loaded. In this case, we print an error message.
     Right Nothing                       ->
@@ -128,15 +132,15 @@ space :: Monad m => ParserT m ()
 space = L.space P.space1 P.empty P.empty
 
 -- | Parse a string with space after it.
-string :: Monad m => String -> ParserT m String
+string :: Monad m => Text -> ParserT m Text
 string = L.lexeme space . P.string
 
--- | Repeatedly read input from the user until a non-empty @String@ is read.
-getLine' :: IO String
+-- | Repeatedly read input from the user until a non-empty @Text@ is read.
+getLine' :: IO Text
 getLine' = do
   putStr "> " >> hFlush stdout -- Prompt the user for input
-  input <- getLine
-  case parse space (pure ()) input of 
+  input <- T.getLine
+  case parse space (pure ()) input of
     Left _  -> pure input
     Right _ -> getLine'
 
@@ -184,17 +188,17 @@ errHandler (TaggedError _ (Just err)) mCS = case err of
 handleLoad :: MonadIO m => FilePath -> StateT CLIState m ()
 handleLoad fp = do
   cliFilePath ?= fp -- Store the file path in the state.
-  newProg <- liftIO $ readFile fp -- Read the program from the file.
+  newProg <- liftIO $ T.readFile fp -- Read the program from the file.
   case parseProgram newProg of
     -- If the program is invalid, print an error message.
     Left pErr  -> liftIO $ do
-      putStrLn "Error parsing the program!"
-      putStrLn pErr
+      T.putStrLn "Error parsing the program!"
+      T.putStrLn pErr
     -- If the program is valid, store it in the state.
     Right prog -> do
       cliProgram ?= prog
-      liftIO $ putStrLn (concat ["Program ", show fp, " loaded:"])
-      liftIO $ putStrLn $ prettifyProgram prog
+      liftIO $ T.putStrLn (T.concat ["Program ", pShow fp, " loaded:"])
+      liftIO $ T.putStrLn $ prettifyProgram prog
 
 -- | Handle reloading the program from the file path stored in the state.
 handleReload :: MonadIO m => StateT CLIState m ()
@@ -218,7 +222,7 @@ handlePQuery q = do
     Just prog -> do
       let handleSolutions []           = liftIO $ putStrLn "No more solutions."
           handleSolutions (sol : sols) = do
-            liftIO . putStrLn $ concat 
+            liftIO . T.putStrLn $ T.concat
               [ "\nSolution:\n", prettifySolution sol, "\n"
               , "Enter ';' to look for the next solution." ]
             input <- liftIO getLine'

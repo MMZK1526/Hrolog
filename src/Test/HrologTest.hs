@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 import           Control.Exception
@@ -6,6 +7,9 @@ import           Control.Monad.Trans.Except
 import           Data.List
 import qualified Data.Map.Strict as M
 import           Data.Maybe
+import           Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 
 import           Internal.Program
 import           Parser
@@ -138,21 +142,21 @@ assertSolutionsFromFile filePath q expSols
   = assertFromFile filePath (\p -> assertSolutions p q expSols)
 
 -- | Handle any @Exception@ by simply recording them as @String@s.
-handleErr :: ExceptT String IO () -> ExceptT String IO ()
+handleErr :: ExceptT Text IO () -> ExceptT Text IO ()
 handleErr = mapExceptT (`catches` [Handler rethrowTestFailure, Handler logOtherErrors])
   where
     rethrowTestFailure (e :: HUnitFailure) = throw e
-    logOtherErrors (e :: SomeException)    = pure (Left ("Exception: " ++ show e))
+    logOtherErrors (e :: SomeException)    = pure (Left ("Exception: "<> T.pack (show e)))
 
 -- | Use the given @Assertion@ which takes a @Program@. The @Program@ comes from
 -- reading the given file.
 assertFromFile :: FilePath -> (Program -> Assertion) -> Assertion
 assertFromFile filePath testFun = do
   result <- runExceptT . handleErr $ do
-    p <- lift (parseProgram <$> readFile filePath) >>= ExceptT . pure
+    p <- lift (parseProgram <$> T.readFile filePath) >>= ExceptT . pure
     lift $ testFun p
   case result of
-    Left err -> assertFailure err
+    Left err -> assertFailure $ T.unpack err
     Right () -> pure ()
 
 -- | Assert that the given @Program@ and @PQuery@ produce the expected first

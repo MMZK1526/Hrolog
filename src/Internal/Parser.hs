@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 -- | Internal parsers for Hrolog programs and queries.
 module Internal.Parser (module Internal.Parser, module Utility.Parser) where
 
@@ -6,6 +8,8 @@ import           Control.Lens
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.State
+import           Data.Text (Text)
+import qualified Data.Text as T
 import qualified Text.Megaparsec as P
 import qualified Text.Megaparsec.Char as P
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -16,7 +20,7 @@ import           Utility.Parser
 import           Utility.PP
 
 -- | Run the parser combinator for Hrolog programs.
-parseProgram :: String -> Either String Program
+parseProgram :: Text -> Either Text Program
 parseProgram str = right runIdentity
                  $ evalState (parseT space program str) (Identity emptyProgram)
 {-# INLINE parseProgram #-}
@@ -26,7 +30,7 @@ parseProgram str = right runIdentity
 -- If a @Program@ is provided, the parser will check if the predicates and
 -- functions used in the query are defined in the @Program@. Otherwise, the
 -- parser will not check the semantics of the query.
-parsePQuery :: Maybe Program -> String -> Either String PQuery
+parsePQuery :: Maybe Program -> Text -> Either Text PQuery
 parsePQuery mProgram str = case mProgram of
   Nothing -> right runIdentity
            $ evalState (parseT space pQuery str) (Identity emptyProgram)
@@ -43,15 +47,15 @@ char :: Monad m => Char -> ParserT m Char
 char = L.lexeme space . P.char
 
 -- | Parse a string with space after it.
-string :: Monad m => String -> ParserT m String
+string :: Monad m => Text -> ParserT m Text
 string = L.lexeme space . P.string
 
 -- | Parse an identifier (a string of letters and digits, starting with a
 -- lowercase letter or a digit), with space after it.
-identifier :: Monad m => ParserT m String
-identifier = L.lexeme space
-           $ liftM2 (:) (P.lowerChar P.<|> P.digitChar)
-                        (P.many (P.alphaNumChar P.<?> "identifier"))
+identifier :: Monad m => ParserT m Text
+identifier = L.lexeme space 
+  $ liftM2 T.cons (P.lowerChar P.<|> P.digitChar)
+                  (T.pack <$> P.many (P.alphaNumChar P.<?> "identifier"))
 
 -- | Parse a variable (a string of letters and digits, starting with an
 -- uppercase letter), with space after it.
@@ -60,9 +64,9 @@ identifier = L.lexeme space
 -- the "Program" to be built. The "Program" is wrapped within a "Traversable" so
 -- that we can keep track of an arbitrary number of "Program"s (including none,
 -- in which we do not update any state in the "Program" at all).
-variable :: Traversable f => Monad m => ParserT (StateT (f Program) m) String
+variable :: Traversable f => Monad m => ParserT (StateT (f Program) m) Text
 variable = do
-  v <- L.lexeme space
+  v <- fmap T.pack . L.lexeme space
      $ liftM2 (:) P.upperChar (P.many (P.alphaNumChar P.<?> "variable"))
   lift $ modify' (fmap (variables %~ S.insert v))
   pure v
@@ -84,8 +88,8 @@ functionTerm' isQuery = do
     then do
       fz <- fmap (view functions) <$> lift get
       forM_ fz $ \fs -> unless (fd `S.member` fs) $ if null ts
-        then fail $ concat ["Undefined constant ", pShow fd, "!"]
-        else fail $ concat ["Undefined function ", name, "!"]
+        then fail . T.unpack $ T.concat ["Undefined constant ", pShow fd, "!"]
+        else fail . T.unpack $ T.concat ["Undefined function ", name, "!"]
     else lift $ modify' (fmap (functions %~ S.insert fd))
   pure $ FTerm fd ts
 
@@ -116,8 +120,8 @@ atom' isQuery = do
       pz <- fmap (view predicates) <$> lift get
       forM_ pz $ \ps ->
         unless (pd `S.member` ps) $ fail $ if null ts
-        then fail $ concat ["Undefined predicate ", pShow pd, "!"]
-        else fail $ concat ["Undefined literal ", name, "!"]
+        then fail . T.unpack $ T.concat ["Undefined predicate ", pShow pd, "!"]
+        else fail . T.unpack $ T.concat ["Undefined literal ", name, "!"]
     else
       lift $ modify (fmap (predicates %~ S.insert pd))
   pure $ Atom pd ts

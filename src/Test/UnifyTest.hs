@@ -1,5 +1,8 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
+import           Data.Text (Text)
 import           GHC.Stack
 import           Test.HUnit
 
@@ -131,6 +134,6 @@ canUnifyFunctionsWithUnifiableShapes = TestLabel "Can unify functions with unifi
 -- Helpers
 --------------------------------------------------------------------------------
 
-assertUnifyAtom :: HasCallStack => Atom -> Atom -> Maybe (Map String Term) -> Assertion
+assertUnifyAtom :: HasCallStack => Atom -> Atom -> Maybe (Map Text Term) -> Assertion
 assertUnifyAtom a1 a2 expSub = do
   assertEqual "Atom Unification" expSub (unifyAtom a1 a2)

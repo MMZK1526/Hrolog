@@ -3,6 +3,7 @@
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -24,42 +25,43 @@ import           Control.Lens
 import           Control.Monad
 import           Control.Monad.Trans.State
 import           Data.Char
-import           Data.List
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import           Data.Set (Set)
 import qualified Data.Set as S
+import           Data.Text (Text)
+import qualified Data.Text as T
 
 import           Utility.PP
 
 -- | A Hrolog predicate with its name and arity.
-data Predicate = Predicate { _predicateName :: String, _predicateArity :: Int }
+data Predicate = Predicate { _predicateName :: Text, _predicateArity :: Int }
   deriving (Eq, Ord, Show)
 
 -- | A Hrolog function with its name and arity. A constant is treated as a
 -- function with arity 0.
-data Function = Function { _functionName :: String, _functionArity :: Int }
+data Function = Function { _functionName :: Text, _functionArity :: Int }
   deriving (Eq, Ord, Show)
 
 -- | A Hrolog function term with its name and a list of arguments.
 data FunctionTerm' a = FTerm Function [Term' a]
   deriving (Eq, Ord, Show)
-type FunctionTerm = FunctionTerm' String
+type FunctionTerm = FunctionTerm' Text
 
 -- | A Hrolog term, either a function or a variable. The type variable @a@ is
 -- used to represent the variable type.
 --
 -- A constant is considered the same as a function with arity 0.
 --
--- In a real program, "a" should always be a @String@, but it can carry
+-- In a real program, "a" should always be a @Text@, but it can carry
 -- additional metadata during the solving process.
 data Term' a = VariableTerm a
              | FunctionTerm (FunctionTerm' a)
   deriving (Eq, Ord, Show)
-type Term = Term' String
+type Term = Term' Text
 
 -- | The pattern for a constant.
-pattern Constant :: String -> Term' a
+pattern Constant :: Text -> Term' a
 pattern Constant s = FunctionTerm (FTerm (Function s 0) [])
 
 -- | The pattern for a function term.
@@ -71,7 +73,7 @@ pattern F f ts = FunctionTerm (FTerm f ts)
 -- | A Hrolog atom, consisting of a predicate and a list of terms as arguments.
 data Atom' a = Atom Predicate [Term' a]
   deriving (Eq, Ord, Show)
-type Atom = Atom' String
+type Atom = Atom' Text
 
 -- | A Hrolog clause, consisting of an optional head and a list of bodies.
 --
@@ -79,7 +81,7 @@ type Atom = Atom' String
 data Clause' a = Clause { _clauseHead :: Maybe (Atom' a)
                         , _clauseBody :: [Atom' a] }
   deriving (Eq, Ord, Show)
-type Clause = Clause' String
+type Clause = Clause' Text
 
 -- | The pattern for the empty clause []. It is used to represent failure.
 pattern EmptyClause :: Clause
@@ -108,11 +110,11 @@ pattern Fact h <- Clause (Just h) []
 -- It also contains the set of predicates, constants, and variables used in the
 -- program.
 data Program' a = Program { _predicates :: Set Predicate
-                          , _variables  :: Set String
+                          , _variables  :: Set Text
                           , _functions  :: Set Function
                           , _clauses    :: [Clause' a] }
   deriving (Eq, Ord, Show)
-type Program = Program' String
+type Program = Program' Text
 $(makeLenses ''Program')
 
 -- | The data type for a Hrolog query, consisting the list of query atoms.
@@ -122,12 +124,12 @@ $(makeLenses ''Program')
 data PQuery' a = PQuery { _pqVariables :: Set a
                         , _pqAtoms     :: [Atom' a] }
   deriving (Eq, Ord, Show)
-type PQuery = PQuery' String
+type PQuery = PQuery' Text
 $(makeLenses ''PQuery')
 
 -- | The data type for a single Hrolog solution, consisting of a substitution
 -- map from variables to terms.
-newtype Solution = Solution (Map String Term)
+newtype Solution = Solution (Map Text Term)
   deriving (Eq, Ord, Show)
 
 
@@ -136,78 +138,81 @@ newtype Solution = Solution (Map String Term)
 --------------------------------------------------------------------------------
 
 instance PP () Predicate where
-  pShowF :: () -> Predicate -> String
-  pShowF _ Predicate {..} = concat [_predicateName, "/", show _predicateArity]
+  pShowF :: () -> Predicate -> Text
+  pShowF _ Predicate {..}
+    = T.concat [_predicateName, "/", pShow _predicateArity]
 
 instance PP () Function where
-  pShowF :: () -> Function -> String
-  pShowF _ Function {..} = concat [_functionName, "/", show _functionArity]
+  pShowF :: () -> Function -> Text
+  pShowF _ Function {..} = T.concat [_functionName, "/", pShow _functionArity]
 
 instance PP () FunctionTerm where
-  pShowF :: () -> FunctionTerm -> String
+  pShowF :: () -> FunctionTerm -> Text
   pShowF _ (FTerm f []) = _functionName f
   pShowF _ (FTerm f as)
-    = concat [_functionName f, "(", intercalate ", " (pShow <$> as), ")"]
+    = T.concat [_functionName f, "(", T.intercalate ", " (pShow <$> as), ")"]
 
 instance PP () Term where
-  pShowF :: () -> Term -> String
+  pShowF :: () -> Term -> Text
   pShowF _ (VariableTerm v) = v
   pShowF _ (F f as)         = pShow (FTerm f as)
 
 instance PP () Atom where
-  pShowF :: () -> Atom -> String
+  pShowF :: () -> Atom -> Text
   pShowF _ (Atom p as) = case _predicateArity p of
     0 -> _predicateName p
-    _ -> concat [_predicateName p, "(", intercalate ", " (pShow <$> as), ")"]
+    _ -> T.concat
+      [_predicateName p, "(", T.intercalate ", " (pShow <$> as), ")"]
 
 instance PP () Clause where
-  pShowF :: () -> Clause -> String
-  pShowF _ Clause {..} = concat [maybe "" pShow _clauseHead, bodyStr, "."]
+  pShowF :: () -> Clause -> Text
+  pShowF _ Clause {..} = T.concat [maybe "" pShow _clauseHead, bodyStr, "."]
     where
       bodyStr = case _clauseBody of
         [] -> ""
-        cs -> concat [ maybe "" (const " ") _clauseHead, "<- "
-                     , intercalate ", " (pShow <$> cs) ]
+        cs -> T.concat [ maybe "" (const " ") _clauseHead, "<- "
+                       , T.intercalate ", " (pShow <$> cs) ]
 
 instance PP () Program where
-  pShowF :: () -> Program -> String
+  pShowF :: () -> Program -> Text
   pShowF = const $ pShowF Verbose
 
 instance PP PPOp Program where
-  pShowF :: PPOp -> Program -> String
+  pShowF :: PPOp -> Program -> Text
   pShowF vbLvl Program {..} = case vbLvl of
     Succinct -> clStr
-    Verbose  -> intercalate "\n" [clStr, vsStr, psStr, fsStr]
+    Verbose  -> T.intercalate "\n" [clStr, vsStr, psStr, fsStr]
     where
-      clStr = unlines (pShow <$> _clauses)
+      clStr = T.unlines (pShow <$> _clauses)
       vsStr = case S.toList _variables of
         [] -> ""
-        vs -> concat ["Variables: ", intercalate ", " vs, ".\n"]
+        vs -> T.concat ["Variables: ", T.intercalate ", " vs, ".\n"]
       psStr = case S.toList _predicates of
         [] -> ""
-        ps -> concat ["Predicates: ", intercalate ", " (pShow <$> ps), ".\n"]
+        ps -> T.concat
+          ["Predicates: ", T.intercalate ", " (pShow <$> ps), ".\n"]
       fsStr = case S.toList _functions of
         [] -> ""
-        fs -> concat ["Functions: ", intercalate ", " (pShow <$> fs), ".\n"]
+        fs -> T.concat ["Functions: ", T.intercalate ", " (pShow <$> fs), ".\n"]
 
 instance PP () PQuery where
-  pShowF :: () -> PQuery -> String
-  pShowF _ (PQuery _ as) = intercalate ", " (pShow <$> as) ++ "."
+  pShowF :: () -> PQuery -> Text
+  pShowF _ (PQuery _ as) = T.intercalate ", " (pShow <$> as) <> "."
 
 instance PP () Solution where
-  pShowF :: () -> Solution -> String
+  pShowF :: () -> Solution -> Text
   pShowF () (Solution sMap)
     | M.null sMap = "Valid\n"
-    | otherwise   = concatMap showEntry (M.toAscList sMap)
+    | otherwise   = T.concat $ map showEntry (M.toAscList sMap)
     where
-      showEntry (v, t) = concat [v, " = ", pShow t, ";\n"]
+      showEntry (v, t) = T.concat [v, " = ", pShow t, ";\n"]
 
 -- | Pretty print the program.
-prettifyProgram :: Program -> String
+prettifyProgram :: Program -> Text
 prettifyProgram = pShowF Succinct
 
 -- | Pretty print the solution.
-prettifySolution :: Solution -> String
+prettifySolution :: Solution -> Text
 prettifySolution = pShow
 
 
@@ -256,7 +261,7 @@ mkPQuery as
       F _ ts'        -> worker ts'
 
 -- | Retrieve the set of variables from a "FunctionTerm".
-getVariables :: FunctionTerm -> Set String
+getVariables :: FunctionTerm -> Set Text
 getVariables (FTerm _ ts) = S.unions (worker <$> ts)
   where
     worker (VariableTerm v) = S.singleton v
@@ -282,11 +287,11 @@ isProgramLegal Program {..}
     -- Check legality of clauses, which means checking all its components.
  && all clauseLegal _clauses
   where
-    indentifierLegal name   = not (null name)
-                           && (isLower (head name) || isDigit (head name))
-                           && all isAlphaNum (tail name)
-    variableLegal var       = not (null var) && isUpper (head var)
-                           && all isAlphaNum (tail var)
+    indentifierLegal name   = not (T.null name)
+                           && (isLower (T.head name) || isDigit (T.head name))
+                           && T.all isAlphaNum (T.tail name)
+    variableLegal var       = not (T.null var) && isUpper (T.head var)
+                           && T.all isAlphaNum (T.tail var)
     -- A term is legal if it is a constant and is in the set of constants, or
     -- it is a variable and is in the set of variables
     termLegal  term         = case term of
