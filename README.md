@@ -11,7 +11,7 @@
 2. [x] Refactor `PP` to use `Text` rather than `String` for better performance
 3. [ ] Optimise with tabling
    - [x] Check for atom subsumption
-   - [ ] Test for atom subsumption
+   - [x] Test for atom subsumption
    - [ ] Implement logic that determines proven and proving atoms
 4. [ ] Use Haskeline for better REPL experience
 5. [ ] Add a timeout to each query. Allow user to set the timeout or quit with `:k`.

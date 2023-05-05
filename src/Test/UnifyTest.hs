@@ -25,7 +25,12 @@ main = runTestTTAndExit
                 , cannotUnifyDifferentFunctionNames
                 , cannotUnifyVariableWithFunctionTermUsingSelfAsArgument
                 , cannotUnifyRecursiveFunctionTerms
-                , canUnifyFunctionsWithUnifiableShapes ]
+                , canUnifyFunctionsWithUnifiableShapes
+                , anyAtomSubsumesItself
+                , functionsCannotSubsumeVariables
+                , variablesSubsumeEverything
+                , variablesCannotSubsumeAnyLongerIfBoundToConstant
+                , nestedSubsumption ]
 
 -- | Can unify the same 0-ary predicate.
 canUnifySameLiteral :: Test
@@ -129,6 +134,41 @@ canUnifyFunctionsWithUnifiableShapes = TestLabel "Can unify functions with unifi
                   (Atom (Predicate "a" 1) [F (Function "f" 1) [F (Function "g" 2) [Constant "1", VariableTerm "C"]]])
                   (Just $ M.fromList [("A", F (Function "g" 2) [Constant "1", VariableTerm "C"]), ("C",VariableTerm "C")])
 
+-- | Any atom subsumes itself.
+anyAtomSubsumesItself :: Test
+anyAtomSubsumesItself = TestLabel "Any atom subsumes itself" $ TestCase $ do
+  assertSubsumesAtom (Atom (Predicate "a" 1) [VariableTerm "A"]) (Atom (Predicate "a" 1) [VariableTerm "A"])
+  assertSubsumesAtom (Atom (Predicate "a" 1) [Constant "1"]) (Atom (Predicate "a" 1) [Constant "1"])
+  assertSubsumesAtom (Atom (Predicate "a" 1) [F (Function "f" 1) [VariableTerm "A"]]) (Atom (Predicate "a" 1) [F (Function "f" 1) [VariableTerm "A"]])
+
+-- | Function terms cannot subsume variables.
+functionsCannotSubsumeVariables :: Test
+functionsCannotSubsumeVariables = TestLabel "Functions cannot subsume variables" $ TestCase $
+  assertNotSubsumeAtom (Atom (Predicate "a" 1) [F (Function "f" 1) [VariableTerm "A"]]) (Atom (Predicate "a" 1) [VariableTerm "B"])
+
+-- | Variables subsume everything.
+variablesSubsumeEverything :: Test
+variablesSubsumeEverything = TestLabel "Variables subsume everything" $ TestCase $ do
+  assertSubsumesAtom (Atom (Predicate "a" 1) [VariableTerm "A"]) (Atom (Predicate "a" 1) [VariableTerm "B"])
+  assertSubsumesAtom (Atom (Predicate "a" 1) [VariableTerm "A"]) (Atom (Predicate "a" 1) [Constant "1"])
+  assertSubsumesAtom (Atom (Predicate "a" 1) [VariableTerm "A"]) (Atom (Predicate "a" 1) [F (Function "f" 1) [VariableTerm "B"]])
+  assertSubsumesAtom (Atom (Predicate "a" 1) [VariableTerm "A"]) (Atom (Predicate "a" 1) [F (Function "f" 2) [VariableTerm "B", Constant "1"]])
+
+-- | Variables cannot subsume any longer if they are bound to a constant.
+variablesCannotSubsumeAnyLongerIfBoundToConstant :: Test
+variablesCannotSubsumeAnyLongerIfBoundToConstant = TestLabel "Variables cannot subsume other things if bound to constant" $ TestCase $ do
+  assertSubsumesAtom (Atom (Predicate "a" 2) [VariableTerm "A", VariableTerm "A"]) (Atom (Predicate "a" 2) [Constant "1", VariableTerm "A"])
+  assertNotSubsumeAtom (Atom (Predicate "a" 2) [VariableTerm "A", VariableTerm "A"]) (Atom (Predicate "a" 2) [Constant "1", F (Function "f" 1) [VariableTerm "B"]])
+  assertNotSubsumeAtom (Atom (Predicate "a" 3) [VariableTerm "A", VariableTerm "B", VariableTerm "A"]) (Atom (Predicate "a" 3) [Constant "1", Constant "2", VariableTerm "B"])
+
+-- | Test the validity of complicated nested subsumptions.
+nestedSubsumption :: Test
+nestedSubsumption = TestLabel "Nested subsumption" $ TestCase $ do
+  assertSubsumesAtom (Atom (Predicate "a" 2) [VariableTerm "A", VariableTerm "A"]) (Atom (Predicate "a" 2) [VariableTerm "B", VariableTerm "B"])
+  assertSubsumesAtom (Atom (Predicate "a" 2) [VariableTerm "A", VariableTerm "A"]) (Atom (Predicate "a" 2) [Constant "1", Constant "1"])
+  assertSubsumesAtom (Atom (Predicate "a" 2) [VariableTerm "A", VariableTerm "A"]) (Atom (Predicate "a" 2) [F (Function "f" 1) [VariableTerm "B"], F (Function "f" 1) [F (Function "g" 1) [VariableTerm "C"]]])
+  assertSubsumesAtom (Atom (Predicate "a" 2) [VariableTerm "A", VariableTerm "A"]) (Atom (Predicate "a" 2) [F (Function "f" 1) [VariableTerm "B", VariableTerm "C"], F (Function "f" 1) [F (Function "g" 1) [VariableTerm "D"], F (Function "g" 1) [VariableTerm "E"]]])
+
 
 --------------------------------------------------------------------------------
 -- Helpers
@@ -137,3 +177,9 @@ canUnifyFunctionsWithUnifiableShapes = TestLabel "Can unify functions with unifi
 assertUnifyAtom :: HasCallStack => Atom -> Atom -> Maybe (Map Text Term) -> Assertion
 assertUnifyAtom a1 a2 expSub = do
   assertEqual "Atom Unification" expSub (unifyAtom a1 a2)
+
+assertSubsumesAtom :: HasCallStack => Atom -> Atom -> Assertion
+assertSubsumesAtom a1 a2 = assertBool "Subsumes" (subsumes a1 a2)
+
+assertNotSubsumeAtom :: HasCallStack => Atom -> Atom -> Assertion
+assertNotSubsumeAtom a1 a2 = assertBool "Not subsume" (not $ subsumes a1 a2)
