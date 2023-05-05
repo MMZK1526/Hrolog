@@ -13,6 +13,7 @@
    - [x] Check for atom subsumption
    - [x] Test for atom subsumption
    - [ ] Implement logic that determines proven and proving atoms
+   - [ ] Test on tabulation
 4. [ ] Use Haskeline for better REPL experience
 5. [ ] Add a timeout to each query. Allow user to set the timeout or quit with `:k`.
 6. [ ] Documentation
