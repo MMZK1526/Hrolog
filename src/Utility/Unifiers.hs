@@ -196,6 +196,7 @@ subsumeAtomS (Atom p ts) (Atom p' ts')
 subsumes :: HasCallStack => Ord a => Atom' a -> Atom' a -> Bool
 subsumes a a' = isJust . runIdentity . runMaybeT
               $ execStateT (subsumeAtomS a a') mkUnifyState
+{-# INLINE subsumes #-}
 
 -- | Substitute a term with the given substitution map.
 --
