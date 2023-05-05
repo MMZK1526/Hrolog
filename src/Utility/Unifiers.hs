@@ -127,6 +127,7 @@ unifyAtomS :: HasCallStack => Ord a => Monad m
 unifyAtomS (Atom p ts) (Atom p' ts')
   | p /= p'   = mzero
   | otherwise = mapM_ (uncurry unifyTermS) (zip ts ts')
+{-# INLINE unifyAtomS #-}
 
 -- | Unify two atoms. Returns a substitution that, when applied, would make the
 -- two atoms equal. Returns 'Nothing' if the atoms cannot be unified.
@@ -134,7 +135,7 @@ unifyAtomS (Atom p ts) (Atom p' ts')
 -- The substitution is represented as a @Map@ from variables to terms.
 unifyAtom :: HasCallStack => Ord a
           => Atom' a -> Atom' a -> Maybe (Map a (Term' a))
-unifyAtom a1 a2 = case mUS of
+unifyAtom a a' = case mUS of
   Nothing -> Nothing -- Unification failed
   Just us -> fst <$> do
     -- Convert the union-find indices to variables
@@ -159,7 +160,42 @@ unifyAtom a1 a2 = case mUS of
           _1 . at v ?= F f ts
           _2 .= uf' -- Update the union-find
   where
-    mUS = runIdentity . runMaybeT $ execStateT (unifyAtomS a1 a2) mkUnifyState
+    mUS = runIdentity . runMaybeT $ execStateT (unifyAtomS a a') mkUnifyState
+
+-- | Similar to @unifyTermS@, but only allows subsumption.
+subsumeTermS :: HasCallStack => Ord a => Monad m
+             => Term' a -> Term' a -> StateT (UnifyState a) (MaybeT m) ()
+subsumeTermS t t' = do
+  subsumeTermS' t t'
+  useMap <- use usUseMap >>= mapM (mapM addVar . S.toList)
+  uf     <- use usUF
+  let graph                = Graph . fmap IS.toList
+                           $ fst (IM.foldlWithKey' worker (IM.empty, uf) useMap)
+      worker (g, uf') ix s = do
+        let (rep, uf'')  = ufFind ix uf'
+        let (pts, uf''') = ufFinds s uf''
+        (IM.insertWith IS.union rep (IS.fromList pts) g, uf''')
+  guard (not $ hasCycle graph)
+
+-- | Similar to @subsumeTerm@, but do not eliminate recursive usages of
+-- variables.
+subsumeTermS' :: HasCallStack => Ord a => Monad m
+              => Term' a -> Term' a -> StateT (UnifyState a) (MaybeT m) ()
+subsumeTermS' (F _ (_ : _)) (VariableTerm _) = mzero
+subsumeTermS' t t' = unifyTermS' t t'
+
+-- | Similar to @unifyAtomS@, but only allows subsumption.
+subsumeAtomS :: HasCallStack => Ord a => Monad m
+             => Atom' a -> Atom' a -> StateT (UnifyState a) (MaybeT m) ()
+subsumeAtomS (Atom p ts) (Atom p' ts')
+  | p /= p'   = mzero
+  | otherwise = mapM_ (uncurry subsumeTermS) (zip ts ts')
+{-# INLINE subsumeAtomS #-}
+
+-- | Return "True" if the first atom subsumes the second atom.
+subsumes :: HasCallStack => Ord a => Atom' a -> Atom' a -> Bool
+subsumes a a' = isJust . runIdentity . runMaybeT
+              $ execStateT (subsumeAtomS a a') mkUnifyState
 
 -- | Substitute a term with the given substitution map.
 --
