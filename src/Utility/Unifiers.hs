@@ -181,7 +181,8 @@ subsumeTermS t t' = do
 -- variables.
 subsumeTermS' :: HasCallStack => Ord a => Monad m
               => Term' a -> Term' a -> StateT (UnifyState a) (MaybeT m) ()
-subsumeTermS' (F _ (_ : _)) (VariableTerm _) = mzero
+-- Functions (and constants) cannot subsumed a variable.
+subsumeTermS' (FunctionTerm _) (VariableTerm _) = mzero
 subsumeTermS' t t' = unifyTermS' t t'
 
 -- | Similar to @unifyAtomS@, but only allows subsumption.
