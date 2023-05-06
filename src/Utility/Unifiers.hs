@@ -81,9 +81,7 @@ unifyTermS' (VariableTerm v) t                 = do
   void $ addVar v -- Make sure the variable is in the var map
   case t of
     -- If the term is a function, we can just set the value of the variable
-    -- to the function, as long as there are no recursive usages of the variable
-    -- itself. We store the set of variables that are used in the function in
-    -- the @UnifyState@.
+    -- to the function.
     F f ts -> do
       varMap <- use usVarMap
       uf     <- use usUF
@@ -162,41 +160,46 @@ unifyAtom a a' = case mUS of
   where
     mUS = runIdentity . runMaybeT $ execStateT (unifyAtomS a a') mkUnifyState
 
--- | Similar to @unifyTermS@, but only allows subsumption.
+-- | Construct a subsumption substitution from the first term to the second.
+--
+-- A subsumption is a substitution that only contains variables from the first
+-- term, and maps them to terms in the second term.
+--
+-- In the solver, we use subsumptions between proven result and the current
+-- term to see if the latter is already proven. In other words, we do not need
+-- the substitution itself. Therefore, we can make the assumption that the two
+-- terms do not contain any variables in common (we treat them differently, even
+-- if they have the same name).
 subsumeTermS :: HasCallStack => Ord a => Monad m
-             => Term' a -> Term' a -> StateT (UnifyState a) (MaybeT m) ()
-subsumeTermS t t' = do
-  subsumeTermS' t t'
-  useMap <- use usUseMap >>= mapM (mapM addVar . S.toList)
-  uf     <- use usUF
-  let graph                = Graph . fmap IS.toList
-                           $ fst (IM.foldlWithKey' worker (IM.empty, uf) useMap)
-      worker (g, uf') ix s = do
-        let (rep, uf'')  = ufFind ix uf'
-        let (pts, uf''') = ufFinds s uf''
-        (IM.insertWith IS.union rep (IS.fromList pts) g, uf''')
-  guard (not $ hasCycle graph)
+              => Term' a -> Term' a -> StateT (Map a (Term' a)) (MaybeT m) ()
+subsumeTermS (F f ts) (F f' ts')
+  | f /= f'   = mzero
+  | otherwise = mapM_ (uncurry subsumeTermS) (zip ts ts')
+subsumeTermS (VariableTerm v) t' = do
+  subMap <- get
+  case subMap M.!? v of
+    -- If the variable is already mapped to a term, we check if the term is
+    -- equal to the second term.
+    Just t  -> guard (t == t')
+    -- If the variable is not mapped, we map it to the second term.
+    Nothing -> put $ M.insert v t' subMap
+  -- Functions (and constants) cannot subsumed a variable.
+subsumeTermS _ (VariableTerm _) = mzero
 
--- | Similar to @subsumeTerm@, but do not eliminate recursive usages of
--- variables.
-subsumeTermS' :: HasCallStack => Ord a => Monad m
-              => Term' a -> Term' a -> StateT (UnifyState a) (MaybeT m) ()
--- Functions (and constants) cannot subsumed a variable.
-subsumeTermS' (FunctionTerm _) (VariableTerm _) = mzero
-subsumeTermS' t t' = unifyTermS' t t'
-
--- | Similar to @unifyAtomS@, but only allows subsumption.
+-- | Similar to @unifyAtomS@, but only allows subsumption. See comments on
+-- @subsumeTermS@ for more details.
 subsumeAtomS :: HasCallStack => Ord a => Monad m
-             => Atom' a -> Atom' a -> StateT (UnifyState a) (MaybeT m) ()
+             => Atom' a -> Atom' a -> StateT (Map a (Term' a)) (MaybeT m) ()
 subsumeAtomS (Atom p ts) (Atom p' ts')
   | p /= p'   = mzero
   | otherwise = mapM_ (uncurry subsumeTermS) (zip ts ts')
 {-# INLINE subsumeAtomS #-}
 
--- | Return "True" if the first atom subsumes the second atom.
+-- | Return "True" if the first atom subsumes the second atom. See comments on
+-- @subsumeTermS@ for more details.
 subsumes :: HasCallStack => Ord a => Atom' a -> Atom' a -> Bool
 subsumes a a' = isJust . runIdentity . runMaybeT
-              $ execStateT (subsumeAtomS a a') mkUnifyState
+              $ execStateT (subsumeAtomS a a') M.empty
 {-# INLINE subsumes #-}
 
 -- | Substitute a term with the given substitution map.

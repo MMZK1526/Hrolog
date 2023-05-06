@@ -40,6 +40,10 @@ untag (Just i, s)  = T.concat [pShow i, "#", s]
 -- optional integer, so that each renaming is unique.
 type SolvePQuery = PQuery' (Maybe Int, Text)
 
+-- | The type of atom used during solving. It tagged each variable with an
+-- optional integer, so that each renaming is unique.
+type SolveAtom = Atom' (Maybe Int, Text)
+
 -- | The state used by the Prolog solver.
 --
 -- It tabulates some information to increase performance.
@@ -47,11 +51,11 @@ type SolvePQuery = PQuery' (Maybe Int, Text)
 -- @pProven@ is the set of proven atoms. When these atoms are encountered again
 -- (up to alpha-conversion) in the derivation, they can be automatically proven.
 data PState = PState
-  { _pStep    :: Int                 -- ^ Number of steps
-  , _pProven  :: Set Atom            -- ^ What's been proven so far
-  , _pTry     :: Map Atom (Set Atom) -- ^ What we are trying to prove
-  , _pLeadsTo :: Map Atom (Set Atom) -- ^ What we can deduce
-  , _pIsBT    :: Bool                -- ^ If under backtracking
+  { _pStep    :: Int                           -- ^ Number of steps
+  , _pProven  :: Set SolveAtom                 -- ^ What's been proven so far
+  , _pTry     :: Map SolveAtom (Set SolveAtom) -- ^ What we are trying to prove
+  , _pLeadsTo :: Map SolveAtom (Set SolveAtom) -- ^ What we can deduce
+  , _pIsBT    :: Bool                          -- ^ If under backtracking
   }
 $(makeLenses ''PState)
 
@@ -150,25 +154,33 @@ solveS onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
       pure [[sub]]
     -- Take the first atom in the query, and try to unify it with each clause.
     worker sub q@(t : ts) = do
-      result <- fmap concat . forM cs' $ \(mH :?<- b) -> case mH of
-        Nothing -> pure [] -- Ignore constraints (for now)
-        Just h  -> do      -- Try to unify with the head "h"
-          (step, isBT) <- liftM2 (,) (use pStep) (use pIsBT)
-          when isBT $ onBacktrackEnd (PQuery vars' q) >> pIsBT .= False
-          -- A rename function that tags the variable with the current step
-          -- count, so that it is guaranteed to be unique.
-          let rename = renameAtom (first (const $ Just step))
-          case unifyAtom t (rename h) of
-            Nothing   -> pure [] -- Unification failed
-            Just sub' -> do      -- Unification succeeded
-              onNewStep (PQuery vars' q) >> pStep += 1
-              -- Add the body of the clause to the query, substituting the
-              -- variables using the substitution we just found.
-              let nextQuery = substituteAtom sub' <$> (map rename b ++ ts)
-              -- Recursively solve the new query.
-              rest <- worker sub' nextQuery
-              pure $ (sub :) <$> rest
-      -- If "result" is empty, it means we didn't find any solution in the
-      -- current branch. Backtracking happens automatically via recursion.
-      when (null result) $ onFail >> pStep += 1 >> pIsBT .= True
-      pure result
+      -- Firstly, check if the atom is already proven.
+      proven <- use pProven
+      if any (`subsumes` t) proven
+        then worker sub ts
+        else do
+          result <- fmap concat . forM cs' $ \(mH :?<- b) -> case mH of
+            Nothing -> pure [] -- Ignore constraints (for now)
+            Just h  -> do      -- Try to unify with the head "h"
+              (step, isBT) <- liftM2 (,) (use pStep) (use pIsBT)
+              when isBT $ onBacktrackEnd (PQuery vars' q) >> pIsBT .= False
+              -- A rename function that tags the variable with the current step
+              -- count, so that it is guaranteed to be unique.
+              let rename = renameAtom (first (const $ Just step))
+              case unifyAtom t (rename h) of
+                Nothing   -> pure [] -- Unification failed
+                Just sub' -> do      -- Unification succeeded
+                  onNewStep (PQuery vars' q) >> pStep += 1
+                  -- Record the fact that "t" can be proven if "b" is.
+                  let b' = substituteAtom sub' <$> map rename b
+                  -- enter t b'
+                  -- Add the body of the clause to the query, substituting the
+                  -- variables using the substitution we just found.
+                  let nextQuery = b' ++ map (substituteAtom sub') ts
+                  -- Recursively solve the new query.
+                  rest <- worker sub' nextQuery
+                  pure $ (sub :) <$> rest
+          -- If "result" is empty, it means we didn't find any solution in the
+          -- current branch. Backtracking happens automatically via recursion.
+          when (null result) $ onFail >> pStep += 1 >> pIsBT .= True
+          pure result
