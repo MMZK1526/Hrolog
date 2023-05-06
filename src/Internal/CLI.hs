@@ -105,26 +105,26 @@ inputP = P.choice [ Just . InputTypeFilePath <$> inputFilePath
                   , Just InputTypeReload <$ inputReload
                   , Just InputTypeQuit <$ inputQuit
                   , Just InputTypeHelp <$ inputHelp
-                  , fmap InputTypePQuery <$> pQuery ]
+                  , fmap InputTypePQuery <$> pQuery' True ]
 
 -- | Parse a file path.
 inputFilePath :: Monad m => ParserT m FilePath
-inputFilePath = string ":l" P.<|> string ":load" >> P.many P.anySingle
+inputFilePath = P.try (string ":l") P.<|> string ":load" >> P.many P.anySingle
 {-# INLINE inputFilePath #-}
 
 -- | Parse a reload command.
 inputReload :: Monad m => ParserT m ()
-inputReload = void $ string ":r" P.<|> string ":reload"
+inputReload = void $ P.try (string ":r") P.<|> string ":reload"
 {-# INLINE inputReload #-}
 
 -- | Parse a help command.
 inputHelp :: Monad m => ParserT m ()
-inputHelp = void $ string ":h" P.<|> string ":help"
+inputHelp = void $ P.try (string ":h") P.<|> string ":help"
 {-# INLINE inputHelp #-}
 
 -- | Parse a quit command.
 inputQuit :: Monad m => ParserT m ()
-inputQuit = void $ string ":q" P.<|> string ":quit"
+inputQuit = void $ P.try (string ":q") P.<|> string ":quit"
 {-# INLINE inputQuit #-}
 
 -- | Parse spaces.
@@ -133,7 +133,7 @@ space = L.space P.space1 P.empty P.empty
 
 -- | Parse a string with space after it.
 string :: Monad m => Text -> ParserT m Text
-string = L.lexeme space . P.string
+string str = L.lexeme space $ P.string str <* P.notFollowedBy P.alphaNumChar
 
 -- | Repeatedly read input from the user until a non-empty @Text@ is read.
 getLine' :: IO Text

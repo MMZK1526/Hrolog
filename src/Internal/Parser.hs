@@ -108,7 +108,6 @@ atom :: Traversable f => Monad m => ParserT (StateT (f Program) m) Atom
 atom = atom' False
 {-# INLINE atom #-}
 
-
 atom' :: Traversable f => Monad m => Bool -> ParserT (StateT (f Program) m) Atom
 atom' isQuery = do
   name <- identifier
@@ -119,9 +118,9 @@ atom' isQuery = do
     then do
       pz <- fmap (view predicates) <$> lift get
       forM_ pz $ \ps ->
-        unless (pd `S.member` ps) $ fail $ if null ts
-        then fail . T.unpack $ T.concat ["Undefined predicate ", pShow pd, "!"]
-        else fail . T.unpack $ T.concat ["Undefined literal ", name, "!"]
+        unless (pd `S.member` ps) . fail $ if null ts
+          then T.unpack $ T.concat ["Undefined predicate ", pShow pd, "!"]
+          else T.unpack $ T.concat ["Undefined literal ", name, "!"]
     else
       lift $ modify (fmap (predicates %~ S.insert pd))
   pure $ Atom pd ts
