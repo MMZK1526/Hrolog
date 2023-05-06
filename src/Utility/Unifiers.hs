@@ -160,6 +160,11 @@ unifyAtom a a' = case mUS of
   where
     mUS = runIdentity . runMaybeT $ execStateT (unifyAtomS a a') mkUnifyState
 
+
+--------------------------------------------------------------------------------
+-- THIS SECTION IS CURRENTLY UNUSED
+--------------------------------------------------------------------------------
+
 -- | Construct a subsumption substitution from the first term to the second.
 --
 -- A subsumption is a substitution that only contains variables from the first
@@ -201,6 +206,11 @@ subsumes :: HasCallStack => Ord a => Atom' a -> Atom' a -> Bool
 subsumes a a' = isJust . runIdentity . runMaybeT
               $ execStateT (subsumeAtomS a a') M.empty
 {-# INLINE subsumes #-}
+
+--------------------------------------------------------------------------------
+-- END OF UNUSED SECTION
+--------------------------------------------------------------------------------
+
 
 -- | Substitute a term with the given substitution map.
 --

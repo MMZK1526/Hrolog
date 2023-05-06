@@ -9,11 +9,7 @@
    - [x] Write tests on unification with function terms
    - [x] Add example programs with function terms
 2. [x] Refactor `PP` to use `Text` rather than `String` for better performance
-3. [ ] Optimise with tabling
-   - [x] Check for atom subsumption
-   - [x] Test for atom subsumption
-   - [ ] Implement logic that determines proven and proving atoms
-   - [ ] Test on tabulation
+3. [ ] Optimise with map instead of list of clauses
 4. [ ] Use Haskeline for better REPL experience
 5. [ ] Add a timeout to each query. Allow user to set the timeout or quit with `:k`.
 6. [ ] Documentation
