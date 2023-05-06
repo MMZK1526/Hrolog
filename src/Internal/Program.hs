@@ -29,6 +29,7 @@ import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import           Data.Set (Set)
 import qualified Data.Set as S
+import           Data.String
 import           Data.Text (Text)
 import qualified Data.Text as T
 
@@ -59,6 +60,10 @@ data Term' a = VariableTerm a
              | FunctionTerm (FunctionTerm' a)
   deriving (Eq, Ord, Show)
 type Term = Term' Text
+
+instance IsString a => IsString (Term' a) where
+  fromString :: String -> Term' a
+  fromString s = VariableTerm (fromString s)
 
 -- | The pattern for a constant.
 pattern Constant :: Text -> Term' a
@@ -227,6 +232,20 @@ emptyClause = EmptyClause
 -- | The empty @Program@ (entails nothing).
 emptyProgram :: Program
 emptyProgram = Program S.empty S.empty S.empty []
+
+-- | A smart constructor to make a function term from a function name and a list
+-- of terms. It is only used internally and by the test suite.
+mkFTerm :: Text -> [Term] -> FunctionTerm
+mkFTerm name ts = FTerm (Function name (length ts)) ts
+
+-- | Similar to @mkFTerm@, but returns a @Term@ instead of a @FunctionTerm@.
+mkFTerm' :: Text -> [Term] -> Term
+mkFTerm' name ts = F (Function name (length ts)) ts
+
+-- | A smart constructor to make an atom from a predicate name and a list of
+-- terms. It is only used internally and by the test suite.
+mkAtom :: Text -> [Term] -> Atom
+mkAtom name ts = Atom (Predicate name (length ts)) ts
 
 -- | Turn a list of @Clause@s into a @Program@ by calculating the set of
 -- predicates, constants, and variables.

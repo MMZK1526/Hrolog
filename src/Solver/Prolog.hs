@@ -157,12 +157,9 @@ solveS onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
             Nothing   -> pure [] -- Unification failed
             Just sub' -> do      -- Unification succeeded
               onNewStep (PQuery vars' q) >> pStep += 1
-              -- Record the fact that "t" can be proven if "b" is.
-              let b' = substituteAtom sub' <$> map rename b
-              -- enter t b'
               -- Add the body of the clause to the query, substituting the
               -- variables using the substitution we just found.
-              let nextQuery = b' ++ map (substituteAtom sub') ts
+              let nextQuery = map (substituteAtom sub') (map rename b ++ ts)
               -- Recursively solve the new query.
               rest <- worker sub' nextQuery
               pure $ (sub :) <$> rest

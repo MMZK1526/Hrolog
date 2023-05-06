@@ -34,130 +34,130 @@ main = runTestTTAndExit
 -- | Can unify the same 0-ary predicate.
 canUnifySameLiteral :: Test
 canUnifySameLiteral = TestLabel "Can unify same 0-ary predicate" $ TestCase $
-  assertUnifyAtom (Atom (Predicate "a" 0) []) (Atom (Predicate "a" 0) []) (Just M.empty)
+  assertUnifyAtom (mkAtom "a" []) (mkAtom "a" []) (Just M.empty)
 
 -- | Cannot unify 0-ary predicates that are not the same.
 cannotUnifyDifferentLiterals :: Test
 cannotUnifyDifferentLiterals = TestLabel "Cannot unify different 0-ary predicates" $ TestCase $
-  assertUnifyAtom (Atom (Predicate "a" 0) []) (Atom (Predicate "b" 0) []) Nothing
+  assertUnifyAtom (mkAtom "a" []) (mkAtom "b" []) Nothing
 
 -- | Cannot unify predicates with different arities.
 cannotUnifyDifferentArity :: Test
 cannotUnifyDifferentArity = TestLabel "Cannot unify predicates with different arities" $ TestCase $
-  assertUnifyAtom (Atom (Predicate "a" 0) []) (Atom (Predicate "a" 1) [VariableTerm "A"]) Nothing
+  assertUnifyAtom (mkAtom "a" []) (mkAtom "a" ["A"]) Nothing
 
 -- | Can unify predicates with the same constants.
 canUnifyPredicatesWithSameConstants :: Test
 canUnifyPredicatesWithSameConstants = TestLabel "Can unify predicates with the same constants" $ TestCase $
-  assertUnifyAtom (Atom (Predicate "a" 2) [Constant "1", Constant "2"])
-                  (Atom (Predicate "a" 2) [Constant "1", Constant "2"])
+  assertUnifyAtom (mkAtom "a" [Constant "1", Constant "2"])
+                  (mkAtom "a" [Constant "1", Constant "2"])
                   (Just M.empty)
 
 -- | Cannot unify predicates with different constants.
 cannotUnifyDifferentConstants :: Test
 cannotUnifyDifferentConstants = TestLabel "Cannot unify predicates with different constants" $ TestCase $
-  assertUnifyAtom (Atom (Predicate "a" 2) [Constant "1", Constant "2"])
-                  (Atom (Predicate "a" 2) [Constant "2", Constant "1"])
+  assertUnifyAtom (mkAtom "a" [Constant "1", Constant "2"])
+                  (mkAtom "a" [Constant "2", Constant "1"])
                   Nothing
 
 -- | Can unify variable with constant.
 canUnifyVariableWithConstant :: Test
 canUnifyVariableWithConstant = TestLabel "Can unify variable with constant" $ TestCase $
-  assertUnifyAtom (Atom (Predicate "a" 2) [Constant "1", VariableTerm "A"])
-                  (Atom (Predicate "a" 2) [Constant "1", Constant "2"])
+  assertUnifyAtom (mkAtom "a" [Constant "1", "A"])
+                  (mkAtom "a" [Constant "1", Constant "2"])
                   (Just $ M.fromList [("A", Constant "2")])
 
 -- | Can unify variable with another variable.
 canUnifyVariableWithVariable :: Test
 canUnifyVariableWithVariable = TestLabel "Can unify variable with variable" $ TestCase $
-  assertUnifyAtom (Atom (Predicate "a" 1) [VariableTerm "A"])
-                  (Atom (Predicate "a" 1) [VariableTerm "B"])
-                  (Just $ M.fromList [("A", VariableTerm "A"), ("B", VariableTerm "A")])
+  assertUnifyAtom (mkAtom "a" ["A"])
+                  (mkAtom "a" ["B"])
+                  (Just $ M.fromList [("A", "A"), ("B", "A")])
 
 -- | Cannot unify a variable with a constant if the variable has already been
 --  bound to a different constant.
 cannotUnifyVariableWithNewConstant :: Test
 cannotUnifyVariableWithNewConstant = TestLabel "Cannot unify variable with new constant" $ TestCase $
-  assertUnifyAtom (Atom (Predicate "a" 2) [VariableTerm "A", VariableTerm "A"])
-                  (Atom (Predicate "a" 2) [Constant "1", Constant "2"])
+  assertUnifyAtom (mkAtom "a" ["A", "A"])
+                  (mkAtom "a" [Constant "1", Constant "2"])
                   Nothing
 
 -- | If a variable is bound to a constant, all other variables that bind to the
 -- same variable should also be bound to the same constant.
 canUnifyVariableWithVariableBoundToConstant :: Test
 canUnifyVariableWithVariableBoundToConstant = TestLabel "Can unify variable with variable bound to constant" $ TestCase $
-  assertUnifyAtom (Atom (Predicate "a" 2) [VariableTerm "A", VariableTerm "B"])
-                  (Atom (Predicate "a" 2) [Constant "1", VariableTerm "A"])
+  assertUnifyAtom (mkAtom "a" ["A", "B"])
+                  (mkAtom "a" [Constant "1", "A"])
                   (Just $ M.fromList [("A", Constant "1"), ("B", Constant "1")])
 
 -- | If two variables are bound to different constants, they cannot be unified.
 cannotUnifyVariableWithVariableBoundToDifferentConstants :: Test
 cannotUnifyVariableWithVariableBoundToDifferentConstants = TestLabel "Cannot unify variable with variable bound to different constants" $ TestCase $
-  assertUnifyAtom (Atom (Predicate "a" 3) [VariableTerm "A", VariableTerm "B", VariableTerm "A"])
-                  (Atom (Predicate "a" 3) [Constant "1", Constant "2", VariableTerm "B"])
+  assertUnifyAtom (mkAtom "a" ["A", "B", "A"])
+                  (mkAtom "a" [Constant "1", Constant "2", "B"])
                   Nothing
 
 -- | Can unify a variable with a function term.
 canUnifyVariableWithFunctionTerm :: Test
 canUnifyVariableWithFunctionTerm = TestLabel "Can unify variable with function term" $ TestCase $
-  assertUnifyAtom (Atom (Predicate "a" 2) [VariableTerm "A", VariableTerm "B"])
-                  (Atom (Predicate "a" 2) [F (Function "f" 1) [Constant "1"], VariableTerm "A"])
-                  (Just $ M.fromList [("A", F (Function "f" 1) [Constant "1"]), ("B", F (Function "f" 1) [Constant "1"])])
+  assertUnifyAtom (mkAtom "a" ["A", "B"])
+                  (mkAtom "a" [mkFTerm' "f" [Constant "1"], "A"])
+                  (Just $ M.fromList [("A", mkFTerm' "f" [Constant "1"]), ("B", mkFTerm' "f" [Constant "1"])])
 
 -- | Cannot unify functions with different names.
 cannotUnifyDifferentFunctionNames :: Test
 cannotUnifyDifferentFunctionNames = TestLabel "Cannot unify functions with different names" $ TestCase $
-  assertUnifyAtom (Atom (Predicate "a" 2) [F (Function "f" 1) [Constant "1"], VariableTerm "A"])
-                  (Atom (Predicate "a" 2) [F (Function "g" 1) [Constant "1"], VariableTerm "A"])
+  assertUnifyAtom (mkAtom "a" [mkFTerm' "f" [Constant "1"], "A"])
+                  (mkAtom "a" [mkFTerm' "g" [Constant "1"], "A"])
                   Nothing
 
 -- | Cannot unify a variable with a function term that uses itself as an
 -- argument.
 cannotUnifyVariableWithFunctionTermUsingSelfAsArgument :: Test
 cannotUnifyVariableWithFunctionTermUsingSelfAsArgument = TestLabel "Cannot unify variable with function term using self as argument" $ TestCase $
-  assertUnifyAtom (Atom (Predicate "a" 1) [VariableTerm "A"])
-                  (Atom (Predicate "a" 1) [F (Function "f" 1) [VariableTerm "A"]])
+  assertUnifyAtom (mkAtom "a" ["A"])
+                  (mkAtom "a" [mkFTerm' "f" ["A"]])
                   Nothing
 
 -- | Cannot unify function terms that refers each other recursively.
 cannotUnifyRecursiveFunctionTerms :: Test
 cannotUnifyRecursiveFunctionTerms = TestLabel "Cannot unify recursive function terms" $ TestCase $
-  assertUnifyAtom (Atom (Predicate "a" 2) [VariableTerm "A", VariableTerm "B"])
-                  (Atom (Predicate "a" 2) [F (Function "f" 1) [VariableTerm "B"], F (Function "f" 1) [VariableTerm "A"]])
+  assertUnifyAtom (mkAtom "a" ["A", "B"])
+                  (mkAtom "a" [mkFTerm' "f" ["B"], mkFTerm' "f" ["A"]])
                   Nothing
 
 -- | Can unify functions with functions if they have unifiable shapes.
 canUnifyFunctionsWithUnifiableShapes :: Test
 canUnifyFunctionsWithUnifiableShapes = TestLabel "Can unify functions with unifiable shapes" $ TestCase $
-  assertUnifyAtom (Atom (Predicate "a" 1) [F (Function "f" 1) [VariableTerm "A"]])
-                  (Atom (Predicate "a" 1) [F (Function "f" 1) [F (Function "g" 2) [Constant "1", VariableTerm "C"]]])
-                  (Just $ M.fromList [("A", F (Function "g" 2) [Constant "1", VariableTerm "C"]), ("C",VariableTerm "C")])
+  assertUnifyAtom (mkAtom "a" [mkFTerm' "f" ["A"]])
+                  (mkAtom "a" [mkFTerm' "f" [F (Function "g" 2) [Constant "1", "C"]]])
+                  (Just $ M.fromList [("A", F (Function "g" 2) [Constant "1", "C"]), ("C","C")])
 
 -- | Any atom subsumes itself.
 anyAtomSubsumesItself :: Test
 anyAtomSubsumesItself = TestLabel "Any atom subsumes itself" $ TestCase $ do
-  assertSubsumesAtom (Atom (Predicate "a" 1) [VariableTerm "A"]) (Atom (Predicate "a" 1) [VariableTerm "A"])
-  assertSubsumesAtom (Atom (Predicate "a" 1) [Constant "1"]) (Atom (Predicate "a" 1) [Constant "1"])
-  assertSubsumesAtom (Atom (Predicate "a" 1) [F (Function "f" 1) [VariableTerm "A"]]) (Atom (Predicate "a" 1) [F (Function "f" 1) [VariableTerm "A"]])
+  assertSubsumesAtom (mkAtom "a" ["A"]) (mkAtom "a" ["A"])
+  assertSubsumesAtom (mkAtom "a" [Constant "1"]) (mkAtom "a" [Constant "1"])
+  assertSubsumesAtom (mkAtom "a" [mkFTerm' "f" ["A"]]) (mkAtom "a" [mkFTerm' "f" ["A"]])
 
 -- | Function terms cannot subsume variables.
 functionsCannotSubsumeVariables :: Test
 functionsCannotSubsumeVariables = TestLabel "Functions cannot subsume variables" $ TestCase $
-  assertNotSubsumeAtom (Atom (Predicate "a" 1) [F (Function "f" 1) [VariableTerm "A"]]) (Atom (Predicate "a" 1) [VariableTerm "B"])
+  assertNotSubsumeAtom (mkAtom "a" [mkFTerm' "f" ["A"]]) (mkAtom "a" ["B"])
 
 -- | Variables subsume everything.
 variablesSubsumeEverything :: Test
 variablesSubsumeEverything = TestLabel "Variables subsume everything" $ TestCase $ do
-  assertSubsumesAtom (Atom (Predicate "a" 1) [VariableTerm "A"]) (Atom (Predicate "a" 1) [VariableTerm "B"])
-  assertSubsumesAtom (Atom (Predicate "a" 1) [VariableTerm "A"]) (Atom (Predicate "a" 1) [Constant "1"])
-  assertSubsumesAtom (Atom (Predicate "a" 1) [VariableTerm "A"]) (Atom (Predicate "a" 1) [F (Function "f" 1) [VariableTerm "B"]])
-  assertSubsumesAtom (Atom (Predicate "a" 1) [VariableTerm "A"]) (Atom (Predicate "a" 1) [F (Function "f" 2) [VariableTerm "B", Constant "1"]])
+  assertSubsumesAtom (mkAtom "a" ["A"]) (mkAtom "a" ["B"])
+  assertSubsumesAtom (mkAtom "a" ["A"]) (mkAtom "a" [Constant "1"])
+  assertSubsumesAtom (mkAtom "a" ["A"]) (mkAtom "a" [mkFTerm' "f" ["B"]])
+  assertSubsumesAtom (mkAtom "a" ["A"]) (mkAtom "a" [F (Function "f" 2) ["B", Constant "1"]])
 
 -- | Variables cannot subsume any longer if they are bound to a constant.
 variablesCannotSubsumeAnyLongerIfBoundToConstant :: Test
 variablesCannotSubsumeAnyLongerIfBoundToConstant = TestLabel "Variables cannot subsume other things if bound to constant" $ TestCase $ do
-  assertNotSubsumeAtom (Atom (Predicate "a" 2) [VariableTerm "A", VariableTerm "A"]) (Atom (Predicate "a" 2) [Constant "1", F (Function "f" 1) [VariableTerm "B"]])
-  assertNotSubsumeAtom (Atom (Predicate "a" 3) [VariableTerm "A", VariableTerm "B", VariableTerm "A"]) (Atom (Predicate "a" 3) [Constant "1", Constant "2", VariableTerm "B"])
+  assertNotSubsumeAtom (mkAtom "a" ["A", "A"]) (mkAtom "a" [Constant "1", mkFTerm' "f" ["B"]])
+  assertNotSubsumeAtom (mkAtom "a" ["A", "B", "A"]) (mkAtom "a" [Constant "1", Constant "2", "B"])
 
 
 --------------------------------------------------------------------------------

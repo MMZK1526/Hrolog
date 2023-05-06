@@ -57,10 +57,10 @@ canParseFunction
   = TestLabel "Can parse function" . TestCase $ do
       let parseFunction str = evalState (parseT space functionTerm str) (Identity emptyProgram)
       assertValid "Empty string" Nothing (parseFunction "")
-      assertValid "Lowercase letter" (Just $ FTerm (Function "a" 0) []) (parseFunction "a")
-      assertValid "Lowercase word" (Just $ FTerm (Function "aBC" 0) []) (parseFunction "aBC")
-      assertValid "0-arity function" (Just $ FTerm (Function "f" 0) []) (parseFunction "f()")
-      assertValid "Function" (Just $ FTerm (Function "func" 3) [VariableTerm "X", VariableTerm "Y", VariableTerm "Z"]) (parseFunction "func(X, Y, Z)")
+      assertValid "Lowercase letter" (Just $ mkFTerm "a" []) (parseFunction "a")
+      assertValid "Lowercase word" (Just $ mkFTerm "aBC" []) (parseFunction "aBC")
+      assertValid "0-arity function" (Just $ mkFTerm "f" []) (parseFunction "f()")
+      assertValid "Function" (Just $ mkFTerm "func" ["X", "Y", "Z"]) (parseFunction "func(X, Y, Z)")
       assertValid "Uppercase" Nothing (parseFunction "ABC")
       assertValid "Underscore" Nothing (parseFunction "_")
       assertValid "Bad function separator" Nothing (parseFunction "func(X; Y; Z)")
@@ -82,7 +82,7 @@ canParseTerm
                   (Just $ Constant "a") (parseTerm "a")
       assertValid "Lowercase word"
                   (Just $ Constant "abc") (parseTerm "abc")
-      assertValid "Uppercase" (Just $ VariableTerm "ABC") (parseTerm "ABC")
+      assertValid "Uppercase" (Just "ABC") (parseTerm "ABC")
       assertValid "Underscore" Nothing (parseTerm "_")
 
 genTermsAreValid :: Test
@@ -99,15 +99,14 @@ canParseAtom
       let parseAtom str = evalState (parseT space atom str) (Identity emptyProgram)
       assertValid "Empty string" Nothing (parseAtom "")
       assertValid "Constant predicate"
-                  (Just $ Atom (Predicate "allGood" 0) []) (parseAtom "allGood")
+                  (Just $ mkAtom "allGood" []) (parseAtom "allGood")
       assertValid "0-ary predicate"
-                  (Just $ Atom (Predicate "foo" 0) []) (parseAtom "foo ( )")
+                  (Just $ mkAtom "foo" []) (parseAtom "foo ( )")
       assertValid "Unary predicate"
-                  (Just $ Atom (Predicate "flies" 1) [VariableTerm "X"])
+                  (Just $ mkAtom "flies" ["X"])
                   (parseAtom "flies(X)")
       assertValid "Binary predicate"
-                  ( Just $ Atom (Predicate "mother" 2)
-                                [ Constant "qeii", Constant "kciii" ] )
+                  ( Just $ mkAtom "mother" [ Constant "qeii", Constant "kciii" ] )
                   (parseAtom "mother(qeii, kciii)")
       assertValid "Missing parenthesis" Nothing (parseAtom "foo(")
       assertValid "Bad separator" Nothing (parseAtom "foo(x; y)")
@@ -128,17 +127,16 @@ canParseClause
       assertValid "Empty string" Nothing (parseClause "")
       assertValid "Empty clause" (Just $ Clause Nothing []) (parseClause ".")
       assertValid "Fact"
-                  (Just $ Clause (Just $ Atom (Predicate "allGood" 0) []) [])
+                  (Just $ Clause (Just $ mkAtom "allGood" []) [])
                   (parseClause "allGood.")
       assertValid "Constraint"
-                  (Just $ Clause Nothing [Atom (Predicate "foo" 0) []])
+                  (Just $ Clause Nothing [mkAtom "foo" []])
                   (parseClause "  <-foo ( ).")
       assertValid "Definite Clause"
-                  ( Just $ Clause ( Just $ Atom (Predicate "parent" 2)
-                                                [ VariableTerm "X"
-                                                , VariableTerm "Y" ] )
-                           [ Atom (Predicate "father" 2)
-                                  [ VariableTerm "X", VariableTerm "Y" ] ] )
+                  ( Just $ Clause ( Just $ mkAtom "parent"
+                                                [ "X"
+                                                , "Y" ] )
+                           [ mkAtom "father" [ "X", "Y" ] ] )
                   (parseClause "parent(X, Y) <- father(X, Y).")
       assertValid "Missing period" Nothing (parseClause "bad(A, B)")
 
@@ -165,18 +163,14 @@ canParsePQuery
       assertValid "Empty string" Nothing (parsePQuery Nothing "")
       assertValid "Empty query" (Just $ mkPQuery []) (parsePQuery Nothing ".")
       assertValid "Propositional atom"
-                  ( Just $ mkPQuery [Atom (Predicate "me" 0) []] )
+                  ( Just $ mkPQuery [mkAtom "me" []] )
                   (parsePQuery Nothing "me.")
       assertValid "Singleton query"
-                  ( Just $ mkPQuery [ Atom (Predicate "gt" 1)
-                                           [Constant "a"] ] )
+                  ( Just $ mkPQuery [ mkAtom "gt" [Constant "a"] ] )
                   (parsePQuery Nothing "gt(a).")
       assertValid "Long query"
-                  ( Just $ mkPQuery [ Atom (Predicate "gt" 1)
-                                           [Constant "a"]
-                                    , Atom (Predicate "foo" 2)
-                                           [ VariableTerm "B"
-                                           , Constant "c" ] ] )
+                  ( Just $ mkPQuery [ mkAtom "gt" [Constant "a"]
+                                    , mkAtom "foo" [ "B", Constant "c" ] ] )
                   (parsePQuery Nothing "gt(a), foo(B, c).")
       assertValid "Missing period" Nothing (parsePQuery Nothing "gt(a)")
       assertValid "Missing parenthesis" Nothing (parsePQuery Nothing "gt(a")
