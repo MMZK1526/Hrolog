@@ -79,9 +79,9 @@ canParseTerm
       let parseTerm str = evalState (parseT space term str) (Identity emptyProgram)
       assertValid "Empty string" Nothing (parseTerm "")
       assertValid "Lowercase letter"
-                  (Just $ Constant "a") (parseTerm "a")
+                  (Just "a") (parseTerm "a")
       assertValid "Lowercase word"
-                  (Just $ Constant "abc") (parseTerm "abc")
+                  (Just "abc") (parseTerm "abc")
       assertValid "Uppercase" (Just "ABC") (parseTerm "ABC")
       assertValid "Underscore" Nothing (parseTerm "_")
 
@@ -98,7 +98,7 @@ canParseAtom
   = TestLabel "Can parse atom" . TestCase $ do
       let parseAtom str = evalState (parseT space atom str) (Identity emptyProgram)
       assertValid "Empty string" Nothing (parseAtom "")
-      assertValid "Constant predicate"
+      assertValid "predicate"
                   (Just $ mkAtom "allGood" []) (parseAtom "allGood")
       assertValid "0-ary predicate"
                   (Just $ mkAtom "foo" []) (parseAtom "foo ( )")
@@ -106,7 +106,7 @@ canParseAtom
                   (Just $ mkAtom "flies" ["X"])
                   (parseAtom "flies(X)")
       assertValid "Binary predicate"
-                  ( Just $ mkAtom "mother" [ Constant "qeii", Constant "kciii" ] )
+                  ( Just $ mkAtom "mother" [ "qeii", "kciii" ] )
                   (parseAtom "mother(qeii, kciii)")
       assertValid "Missing parenthesis" Nothing (parseAtom "foo(")
       assertValid "Bad separator" Nothing (parseAtom "foo(x; y)")
@@ -166,11 +166,11 @@ canParsePQuery
                   ( Just $ mkPQuery [mkAtom "me" []] )
                   (parsePQuery Nothing "me.")
       assertValid "Singleton query"
-                  ( Just $ mkPQuery [ mkAtom "gt" [Constant "a"] ] )
+                  ( Just $ mkPQuery [ mkAtom "gt" ["a"] ] )
                   (parsePQuery Nothing "gt(a).")
       assertValid "Long query"
-                  ( Just $ mkPQuery [ mkAtom "gt" [Constant "a"]
-                                    , mkAtom "foo" [ "B", Constant "c" ] ] )
+                  ( Just $ mkPQuery [ mkAtom "gt" ["a"]
+                                    , mkAtom "foo" [ "B", "c" ] ] )
                   (parsePQuery Nothing "gt(a), foo(B, c).")
       assertValid "Missing period" Nothing (parsePQuery Nothing "gt(a)")
       assertValid "Missing parenthesis" Nothing (parsePQuery Nothing "gt(a")

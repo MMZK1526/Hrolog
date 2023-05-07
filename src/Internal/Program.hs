@@ -61,9 +61,19 @@ data Term' a = VariableTerm a
   deriving (Eq, Ord, Show)
 type Term = Term' Text
 
+-- Note that the terms constructed by the smart constructor below do not
+-- necessarily satisfy the requirement for identifiers as if they are parsed
+-- from a program. For example, the following would be considered as a constant:
+--
+-- >>> fromString "a(b)"
+-- "a(b)"
+--
+-- However, it is impossible to write such a variable from a plain-text program
+-- since it would be treated as a predicate or function.
 instance IsString a => IsString (Term' a) where
   fromString :: String -> Term' a
-  fromString s = VariableTerm (fromString s)
+  fromString s@(c : _) | isUpper c = VariableTerm (fromString s)
+  fromString s                     = Constant (fromString s)
 
 -- | The pattern for a constant.
 pattern Constant :: Text -> Term' a
