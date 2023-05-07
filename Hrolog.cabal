@@ -175,6 +175,7 @@ test-suite unionFindTest
 library
     import:           warnings
     exposed-modules:
+        Hrolog.Builder,
         Parser,
         Program,
         Solver.Hrolog,
