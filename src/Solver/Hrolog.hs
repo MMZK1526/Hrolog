@@ -5,7 +5,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 
-module Solver.Prolog (prettifySolution, solve, solveIO, solveS) where
+module Solver.Hrolog (prettifySolution, solve, solveIO, solveS) where
 
 import           Control.Lens
 import           Control.Monad

@@ -14,7 +14,7 @@ import           GHC.Stack
 
 import           Internal.Program
 import           Parser
-import           Solver.Prolog
+import           Solver.Hrolog
 import           Test.HUnit
 import           Test.HUnit.Lang
 

@@ -24,7 +24,7 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import           Internal.CLI.Type
 import           Parser
 import           Program
-import           Solver.Prolog
+import           Solver.Hrolog
 import           Utility.Exception
 import           Utility.Parser
 import           Utility.PP
