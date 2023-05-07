@@ -10,11 +10,12 @@
    - [x] Add example programs with function terms
 2. [x] Refactor `PP` to use `Text` rather than `String` for better performance
 3. [x] Optimise with map instead of list of clauses
-4. [ ] More test on the CLI
-5. [ ] Use Haskeline for better REPL experience
-6. [ ] Add a timeout to each query. Allow user to set the timeout or quit with `:k`.
-7. [ ] Documentation
-8. [ ] Support negation
+5. [ ] More test on the CLI
+6. [ ] Make a DSL builder of Hrolog programs
+7. [ ] Use Haskeline for better REPL experience
+8. [ ] Add a timeout to each query. Allow user to set the timeout or quit with `:k`.
+9. [ ] Documentation
+10. [ ] Support negation
     - [ ] Implement negation as failure
     - [ ] Write tests on negation
 
