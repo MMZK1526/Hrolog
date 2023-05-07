@@ -107,15 +107,15 @@ pattern EmptyClause = Clause Nothing []
 
 -- | The pattern for a clause with a head and a list of bodies.
 pattern (:<-) :: Atom' a -> [Atom' a] -> Clause' a
-pattern h :<- b <- Clause (Just h) b
+pattern h :<- b = Clause (Just h) b
 
 -- | The pattern for a clause with an optional head and a list of bodies.
 pattern (:?<-) :: Maybe (Atom' a) -> [Atom' a] -> Clause' a
-pattern mH :?<- b <- Clause mH b
+pattern mH :?<- b = Clause mH b
 
 -- | The pattern for a constraint with no head.
 pattern Constraint :: [Atom' a] -> Clause' a
-pattern Constraint b <- Clause Nothing b
+pattern Constraint b = Clause Nothing b
 
 -- | The pattern for a fact with no body.
 pattern Fact :: Atom' a -> Clause' a
