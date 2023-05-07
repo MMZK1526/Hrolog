@@ -1,20 +1,30 @@
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE BlockArguments #-}
 
+-- | A type-safe DSL for building Hrolog programs.
+--
+-- This module contains many internal implementation details. Only the functions
+-- in the export list are intended to be used by end users. While these
+-- functions are documented, it may not be the most intuitive to start by
+-- reading them. Instead, it may be more helpful to start with examples in
+-- "Hrolog.Builder.Examples".
 module Hrolog.Builder where
 
 import           Control.Monad.Trans.Writer.CPS
+import           Data.Functor
 import           Data.String
 import           Data.Text (Text)
 
 import           Internal.Program
 import           Utility.PP
-import Data.Functor
+
+
+--------------------------------------------------------------------------------
+-- Data Types
+--------------------------------------------------------------------------------
 
 data Single = Single
 
@@ -103,38 +113,3 @@ program_ b = Builder $ tell [mkProgram $ runBuilder b] $> mkPlurality
 program :: Builder Clause () () -> Program
 program = run . program_
 {-# INLINE program #-}
-
-peanoNumbers :: Program
-peanoNumbers = program do
-  fact_ $ atom_ "add" do
-    lit_ "0"
-    lit_ "Y"
-    lit_ "Y"
-  atom_ "add" (term_ "s" (lit_ "X") <> lit_ "Y" <> term_ "s" (lit_ "Z"))
-    <-| atom_ "add" do
-      lit_ "X"
-      lit_ "Y"
-      lit_ "Z"
-  atom_ "sub" (lit_ "X" <> lit_ "Y" <> lit_ "Z")
-    <-| atom_ "add" do
-      lit_ "Y"
-      lit_ "Z"
-      lit_ "X"
-  fact_ $ atom_ "fib" do
-    lit_ "0"
-    lit_ "0"
-  fact_ $ atom_ "fib" do
-    term_ "s" (lit_ "0")
-    term_ "s" (lit_ "0")
-  atom_ "fib" (term_ "s" (term_ "s" (lit_ "Y")))
-    <-| do
-      atom_ "fib" do
-        lit_ "X"
-        lit_ "A"
-      atom_ "fib" do
-        term_ "s" (lit_ "X")
-        lit_ "B"
-      atom_ "add" do
-        lit_ "A"
-        lit_ "B"
-        lit_ "Y"
