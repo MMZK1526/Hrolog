@@ -12,7 +12,10 @@ import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.State
 import           Data.Bifunctor
+import           Data.Foldable
+import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
+import           Data.Maybe
 import qualified Data.Set as S
 import           Data.Text (Text)
 import qualified Data.Text as T
@@ -38,6 +41,10 @@ untag (Just i, s)  = T.concat [pShow i, "#", s]
 -- optional integer, so that each renaming is unique.
 type SolvePQuery = PQuery' (Maybe Int, Text)
 
+-- | The type of clauses used during solving. It tagged each variable with an
+-- optional integer, so that each renaming is unique.
+type SolveClause = Clause' (Maybe Int, Text)
+
 -- | The state used by the Prolog solver.
 --
 -- It tabulates some information to increase performance.
@@ -45,13 +52,21 @@ type SolvePQuery = PQuery' (Maybe Int, Text)
 -- @pProven@ is the set of proven atoms. When these atoms are encountered again
 -- (up to alpha-conversion) in the derivation, they can be automatically proven.
 data PState = PState
-  { _pStep    :: Int                           -- ^ Number of steps
-  , _pIsBT    :: Bool                          -- ^ If under backtracking
+  { _pStep  :: Int  -- ^ Number of steps
+  , _pIsBT  :: Bool -- ^ If under backtracking
+  -- ^ Rules by the head predicate
+  , _pRules :: Map (Maybe Predicate) [SolveClause]
   }
 $(makeLenses ''PState)
 
-newPState :: PState
-newPState = PState 1 False
+newPState :: [SolveClause] -> PState
+newPState cs = PState 1 False (foldr' insertRule M.empty cs)
+  where
+    insertRule c@(h :?<- _) m = case m M.!? p of
+      Nothing  -> M.insert p [c] m
+      Just cs' -> M.insert p (c : cs') m
+      where
+        p = view atomPredicate <$> h
 
 -- | Given the @Program@ and the Prolog query, pure a list of variable
 -- substitutions and all intermediate substitutions, each representing a
@@ -110,7 +125,7 @@ solveS :: Monad m
 -- describe the solutions.
 solveS onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
   = fmap (map (optimiseSub . findVarSub))
-         (evalStateT (worker M.empty query') newPState)
+         (evalStateT (worker M.empty query') $ newPState cs')
   where
     cs'                 = renameClause (Nothing ,) <$> cs -- tagged clauses
     PQuery vars' query' = renamePQuery (Nothing ,) pquery -- tagged query
@@ -145,7 +160,9 @@ solveS onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
       pure [[sub]]
     -- Take the first atom in the query, and try to unify it with each clause.
     worker sub q@(t : ts) = do
-      result <- fmap concat . forM cs' $ \(mH :?<- b) -> case mH of
+      allRules <- use pRules
+      let rules = fromMaybe [] $ allRules M.!? Just (t ^. atomPredicate)
+      result   <- fmap concat . forM rules $ \(mH :?<- b) -> case mH of
         Nothing -> pure [] -- Ignore constraints (for now)
         Just h  -> do      -- Try to unify with the head "h"
           (step, isBT) <- liftM2 (,) (use pStep) (use pIsBT)

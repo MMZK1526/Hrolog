@@ -9,11 +9,12 @@
    - [x] Write tests on unification with function terms
    - [x] Add example programs with function terms
 2. [x] Refactor `PP` to use `Text` rather than `String` for better performance
-3. [ ] Optimise with map instead of list of clauses
-4. [ ] Use Haskeline for better REPL experience
-5. [ ] Add a timeout to each query. Allow user to set the timeout or quit with `:k`.
-6. [ ] Documentation
-7. [ ] Support negation
+3. [x] Optimise with map instead of list of clauses
+4. [ ] More test on the CLI
+5. [ ] Use Haskeline for better REPL experience
+6. [ ] Add a timeout to each query. Allow user to set the timeout or quit with `:k`.
+7. [ ] Documentation
+8. [ ] Support negation
     - [ ] Implement negation as failure
     - [ ] Write tests on negation
 

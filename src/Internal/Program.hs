@@ -80,6 +80,9 @@ data Atom' a = Atom Predicate [Term' a]
   deriving (Eq, Ord, Show)
 type Atom = Atom' Text
 
+atomPredicate :: Lens' (Atom' a) Predicate
+atomPredicate = lens (\(Atom p _) -> p) (\(Atom _ ts) p -> Atom p ts)
+
 -- | A Hrolog clause, consisting of an optional head and a list of bodies.
 --
 -- It represents @[H] <- B1, B2, ..., Bn@.
