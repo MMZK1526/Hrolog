@@ -64,13 +64,13 @@ peanoNumbers = program do
   fact_ $ atom_ "fib" do
     term_ "s" (lit_ "0")
     term_ "s" (lit_ "0")
-  -- fib(s(s(Y))) <- fib(X, A), fib(s(X), B), add(A, B, Y).
+  -- fib(s(s(X)), Y) <- fib(X, A), fib(s(X), B), add(A, B, Y).
   -- This rule has multiple bodies, so we have a do-block immediately after the
   -- (<-|) combinator.
   -- You may wonder what would happen if we pass a do block with multiple (or
   -- even zero) atoms to the head. In that case it would not compile since
   -- a rule must have exactly one head atom.
-  atom_ "fib" (term_ "s" (term_ "s" (lit_ "Y")))
+  atom_ "fib" (term_ "s" (term_ "s" "X") <> "Y")
     <-| do
       atom_ "fib" do
         lit_ "X"
