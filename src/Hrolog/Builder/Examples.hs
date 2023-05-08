@@ -1,4 +1,5 @@
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -11,7 +12,7 @@ import           Program
 -- | Define "src/Test/programs/peanoNumbers.hrolog" using the DSL.
 --
 -- >>> prettifyProgram peanoNumbers
--- "add(0, Y, Y).\nadd(s(X), Y, s(Z)) <- add(X, Y, Z).\nsub(X, Y, Z) <- add(Y, Z, X).\nfib(0, 0).\nfib(s(0), s(0)).\nfib(s(s(Y))) <- fib(X, A), fib(s(X), B), add(A, B, Y).\n"
+-- "add(0, Y, Y).\nadd(s(X), Y, s(Z)) <- add(X, Y, Z).\nsub(X, Y, Z) <- add(Y, Z, X).\nfib(0, 0).\nfib(s(0), s(0)).\nfib(s(s(X)), Y) <- fib(X, A), fib(s(X), B), add(A, B, Y).\n"
 peanoNumbers :: Program
 -- We use the "program" combinator to define a program.
 -- Note that all other combinators inside the "program" combinator has a "_"
@@ -30,6 +31,7 @@ peanoNumbers = program do
     -- The "lit_" combinator is used to construct variables and constants.
     -- It takes a "Text" as its argument, which is the name of the variable or
     -- constant (depending on whether the first character is capitalised).
+    -- It requires the "OverloadedStrings" extension to work.
     lit_ "0"
     -- Y (Variable).
     -- Here is an example where the first character is capitalised, so it is a
@@ -41,7 +43,12 @@ peanoNumbers = program do
   -- In this rule, we construct the arguments of the head atom "add" using
   -- semigroup append (<>), which is an alternative to using do-blocks.
   -- In this way, we can omit the "lit_" combinator for constants and variables.
-  atom_ "add" (term_ "s" "X" <> "Y" <> term_ "s" "Z")
+  -- The "func_" combinator is used to construct function terms (an identifier
+  -- and a list of arguments). It takes a "Text" as its first argument, which
+  -- is the name of the function, and a list of "Builder" values as its second
+  -- argument, which are the arguments of the function. It is very similar to
+  -- the "atom_" combinator.
+  atom_ "add" (func_ "s" "X" <> "Y" <> func_ "s" "Z")
     <-| atom_ "add" do
       -- X (Variable).
       -- If we remove the "lit_" combinator, we would need to specify the type
@@ -51,34 +58,26 @@ peanoNumbers = program do
       lit_ "Y"
       lit_ "Z"
   -- sub(X, Y, Z) <- add(Y, Z, X).
+  -- Here is the third way to construct arguments: using the list syntax.
+  -- It requires the "OverloadedLists" extension to work.
   atom_ "sub" (lit_ "X" <> lit_ "Y" <> lit_ "Z")
-    <-| atom_ "add" do
-      lit_ "Y"
-      lit_ "Z"
-      lit_ "X"
+    <-| atom_ "add" ["Y", "Z", "X"]
   -- fib(0, 0).
   fact_ $ atom_ "fib" do
     lit_ "0"
     lit_ "0"
   -- fib(s(0), s(0)).
   fact_ $ atom_ "fib" do
-    term_ "s" (lit_ "0")
-    term_ "s" (lit_ "0")
+    func_ "s" (lit_ "0")
+    func_ "s" (lit_ "0")
   -- fib(s(s(X)), Y) <- fib(X, A), fib(s(X), B), add(A, B, Y).
   -- This rule has multiple bodies, so we have a do-block immediately after the
   -- (<-|) combinator.
   -- You may wonder what would happen if we pass a do block with multiple (or
   -- even zero) atoms to the head. In that case it would not compile since
   -- a rule must have exactly one head atom.
-  atom_ "fib" (term_ "s" (term_ "s" "X") <> "Y")
+  atom_ "fib" (func_ "s" (func_ "s" "X") <> "Y")
     <-| do
-      atom_ "fib" do
-        lit_ "X"
-        lit_ "A"
-      atom_ "fib" do
-        term_ "s" (lit_ "X")
-        lit_ "B"
-      atom_ "add" do
-        lit_ "A"
-        lit_ "B"
-        lit_ "Y"
+      atom_ "fib" ["X", "A"]
+      atom_ "fib" [func_ "s" "X", "B"]
+      atom_ "add" ["A", "B", "Y"]

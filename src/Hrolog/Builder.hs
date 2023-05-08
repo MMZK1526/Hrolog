@@ -15,10 +15,10 @@
 module Hrolog.Builder where
 
 import           Control.Monad.Trans.Writer.CPS
-import           Data.Functor
 import           Data.String
 import           Data.Text (Text)
 import           Data.Void
+import           GHC.Exts
 
 import           Internal.Program
 import           Utility.PP
@@ -34,16 +34,10 @@ type family SingleValid a where
   SingleValid Single = ()
   SingleValid ()     = Void
 
-class HasPlurality a where
-  mkPlurality :: a
+class HasPlurality a
 
-instance HasPlurality Single where
-  mkPlurality :: Single
-  mkPlurality = Single
-
-instance HasPlurality () where
-  mkPlurality :: ()
-  mkPlurality = ()
+instance HasPlurality Single
+instance HasPlurality ()
 
 newtype Builder w t a = Builder { unBuilder :: Writer [w] a }
   deriving newtype Functor
@@ -63,7 +57,15 @@ instance (IsString s, HasPlurality t) => IsString (Builder s t ()) where
   fromString :: String -> Builder s t ()
   fromString str = Builder $ do
     tell . pure $ fromString str
-    pure mkPlurality
+
+instance IsList (Builder w () ()) where
+  type Item (Builder w () ()) = Builder w () ()
+
+  fromList :: [Builder w () ()] -> Builder w () ()
+  fromList = Builder . mapM_ unBuilder
+
+  toList :: Builder w t () -> [Builder w t ()]
+  toList = pure
 
 instance Show s => Show (Builder s Single ()) where
   show :: Show s => Builder s Single () -> String
@@ -93,16 +95,16 @@ lit_ :: HasPlurality t => w -> Builder w t ()
 lit_ = Builder . tell . pure
 {-# INLINE lit_ #-}
 
-term_ :: HasPlurality t => Text -> Builder Term () () -> Builder Term t ()
-term_ name body = Builder $ tell [mkFTerm' name (runBuilder body)] $> mkPlurality
-{-# INLINE term_ #-}
+func_ :: HasPlurality t => Text -> Builder Term () () -> Builder Term t ()
+func_ name body = Builder $ tell [mkFTerm' name (runBuilder body)]
+{-# INLINE func_ #-}
 
 atom_ :: HasPlurality t => Text -> Builder Term () () -> Builder Atom t ()
-atom_ name body = Builder $ tell [mkAtom name (runBuilder body)] $> mkPlurality
+atom_ name body = Builder $ tell [mkAtom name (runBuilder body)]
 {-# INLINE atom_ #-}
 
 rule_ :: HasPlurality t => Builder Atom Single () -> Builder Atom () () -> Builder Clause t ()
-rule_ h b = Builder $ tell [run h :<- runBuilder b] $> mkPlurality
+rule_ h b = Builder $ tell [run h :<- runBuilder b]
 {-# INLINE rule_ #-}
 
 (<-|) :: HasPlurality t => Builder Atom Single () -> Builder Atom () () -> Builder Clause t ()
@@ -110,15 +112,15 @@ rule_ h b = Builder $ tell [run h :<- runBuilder b] $> mkPlurality
 {-# INLINE (<-|) #-}
 
 fact_ :: HasPlurality t => Builder Atom Single () -> Builder Clause t ()
-fact_ h = Builder $ tell [run h :<- []] $> mkPlurality
+fact_ h = Builder $ tell [run h :<- []]
 {-# INLINE fact_ #-}
 
 constraint_ :: HasPlurality t => Builder Atom () () -> Builder Clause t ()
-constraint_ b = Builder $ tell [Constraint (runBuilder b)] $> mkPlurality
+constraint_ b = Builder $ tell [Constraint (runBuilder b)]
 {-# INLINE constraint_ #-}
 
 program_ :: HasPlurality t => Builder Clause () () -> Builder Program t ()
-program_ b = Builder $ tell [mkProgram $ runBuilder b] $> mkPlurality
+program_ b = Builder $ tell [mkProgram $ runBuilder b]
 {-# INLINE program_ #-}
 
 program :: Builder Clause () () -> Program
