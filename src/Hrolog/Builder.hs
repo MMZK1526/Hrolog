@@ -27,8 +27,6 @@ module Hrolog.Builder (
   rule_,
   rule,
   (<-|),
-  fact_,
-  fact,
   constraint_,
   constraint,
   program_,
@@ -40,7 +38,6 @@ import           Data.DList (DList)
 import qualified Data.DList as D
 import           Data.String
 import           Data.Text (Text)
-import           Data.Void
 import           GHC.Exts
 
 import           Internal.Program
@@ -51,11 +48,7 @@ import           Utility.PP
 -- Data Types
 --------------------------------------------------------------------------------
 
-data Single = Single
-
-type family SingleValid a where
-  SingleValid Single = ()
-  SingleValid ()     = Void
+data Single
 
 class HasPlurality a
 

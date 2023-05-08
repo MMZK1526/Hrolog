@@ -1,7 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Internal parsers for Hrolog programs and queries.
-module Internal.Parser (module Internal.Parser, module Utility.Parser) where
+module Internal.Parser (
+  module Internal.Parser,
+  module Utility.Parser
+) where
 
 import           Control.Arrow
 import           Control.Lens
