@@ -106,15 +106,25 @@ func_ :: HasPlurality t => Text -> Builder Term () () -> Builder Term t ()
 func_ name body = Builder . tell $ D.singleton (mkFTerm' name (runBuilder body))
 {-# INLINE func_ #-}
 
+func :: Text -> Builder Term () () -> Term
+func = (run .) . func_
+{-# INLINE func #-}
+
 atom_ :: HasPlurality t => Text -> Builder Term () () -> Builder Atom t ()
 atom_ name body = Builder . tell $ D.singleton (mkAtom name (runBuilder body))
 {-# INLINE atom_ #-}
 
-rule_ :: HasPlurality t => Builder Atom Single () -> Builder Atom () () -> Builder Clause t ()
+rule_ :: HasPlurality t
+      => Builder Atom Single () -> Builder Atom () () -> Builder Clause t ()
 rule_ h b = Builder . tell $ D.singleton (run h :<- runBuilder b)
 {-# INLINE rule_ #-}
 
-(<-|) :: HasPlurality t => Builder Atom Single () -> Builder Atom () () -> Builder Clause t ()
+rule :: Builder Atom Single () -> Builder Atom () () -> Clause
+rule = (run .) . rule_
+{-# INLINE rule #-}
+
+(<-|) :: HasPlurality t
+      => Builder Atom Single () -> Builder Atom () () -> Builder Clause t ()
 (<-|) = rule_
 {-# INLINE (<-|) #-}
 
@@ -122,9 +132,17 @@ fact_ :: HasPlurality t => Builder Atom Single () -> Builder Clause t ()
 fact_ h = Builder . tell $ D.singleton (run h :<- [])
 {-# INLINE fact_ #-}
 
+fact :: Builder Atom Single () -> Clause
+fact = run . fact_
+{-# INLINE fact #-}
+
 constraint_ :: HasPlurality t => Builder Atom () () -> Builder Clause t ()
 constraint_ b = Builder . tell $ D.singleton (Constraint $ runBuilder b)
 {-# INLINE constraint_ #-}
+
+constraint :: Builder Atom () () -> Clause
+constraint = run . constraint_
+{-# INLINE constraint #-}
 
 program_ :: HasPlurality t => Builder Clause () () -> Builder Program t ()
 program_ b = Builder . tell $ D.singleton (mkProgram $ runBuilder b)
