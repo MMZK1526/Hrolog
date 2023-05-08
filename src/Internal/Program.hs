@@ -93,6 +93,13 @@ type Atom = Atom' Text
 atomPredicate :: Lens' (Atom' a) Predicate
 atomPredicate = lens (\(Atom p _) -> p) (\(Atom _ ts) p -> Atom p ts)
 
+-- | Similarly, the atoms constructed by the smart constructor below do not
+-- necessarily satisfy the requirement for identifiers as if they are parsed
+-- from a program.
+instance IsString Atom where
+  fromString :: String -> Atom
+  fromString s = Atom (Predicate (fromString s) 0) []
+
 -- | A Hrolog clause, consisting of an optional head and a list of bodies.
 --
 -- It represents @[H] <- B1, B2, ..., Bn@.

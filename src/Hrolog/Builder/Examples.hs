@@ -81,3 +81,29 @@ peanoNumbers = program do
       atom_ "fib" ["X", "A"]
       atom_ "fib" [func_ "s" "X", "B"]
       atom_ "add" ["A", "B", "Y"]
+
+-- | Define "src/Test/programs/facts.hrolog" using the DSL.
+facts :: Program
+facts = program do
+  -- Note that an predicate with an arity of 0 can be simply written as a
+  -- literal.
+  fact_ "a"
+  fact_ $ atom_ "b" ["X"]
+  fact_ $ atom_ "c" ["A", "B"]
+
+-- | Define "src/Test/programs/firstBranchTerminates.hrolog" using the DSL.
+firstBranchTerminates :: Program
+firstBranchTerminates = program do
+  fact_ "a"
+  "a" <-| "a"
+
+-- | Define "src/Test/programs/secondBranchTerminates.hrolog" using the DSL.
+simpleNumbers :: Program
+simpleNumbers = program do
+  fact_ $ atom_ "succ" ["1", "0"]
+  fact_ $ atom_ "succ" ["2", "1"]
+  fact_ $ atom_ "succ" ["3", "2"]
+  atom_ "gt" ["X", "Y"] <-| atom_ "succ" ["X", "Y"]
+  atom_ "gt" ["X", "Y"] <-| do
+    atom_ "succ" ["X", "Z"]
+    atom_ "gt" ["Z", "Y"]
