@@ -1,8 +1,9 @@
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | A type-safe DSL for building Hrolog programs.
 --
@@ -17,6 +18,7 @@ import           Control.Monad.Trans.Writer.CPS
 import           Data.Functor
 import           Data.String
 import           Data.Text (Text)
+import           Data.Void
 
 import           Internal.Program
 import           Utility.PP
@@ -27,6 +29,10 @@ import           Utility.PP
 --------------------------------------------------------------------------------
 
 data Single = Single
+
+type family SingleValid a where
+  SingleValid Single = ()
+  SingleValid ()     = Void
 
 class HasPlurality a where
   mkPlurality :: a
@@ -40,7 +46,14 @@ instance HasPlurality () where
   mkPlurality = ()
 
 newtype Builder w t a = Builder { unBuilder :: Writer [w] a }
-  deriving newtype (Functor, Applicative)
+  deriving newtype Functor
+
+instance Applicative (Builder w ()) where
+  pure :: a -> Builder w () a
+  pure = Builder . pure
+
+  (<*>) :: Builder w () (a -> b) -> Builder w () a -> Builder w () b
+  (<*>) (Builder f) (Builder a) = Builder $ f <*> a
 
 instance Monad (Builder w ()) where
   (>>=) :: Builder w () a -> (a -> Builder w () b) -> Builder w () b
@@ -77,9 +90,7 @@ run = head . runBuilder
 {-# INLINE run #-}
 
 lit_ :: HasPlurality t => w -> Builder w t ()
-lit_ b = Builder $ do
-  tell [b]
-  pure mkPlurality
+lit_ = Builder . tell . pure
 {-# INLINE lit_ #-}
 
 term_ :: HasPlurality t => Text -> Builder Term () () -> Builder Term t ()
