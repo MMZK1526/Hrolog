@@ -12,7 +12,28 @@
 -- functions are documented, it may not be the most intuitive to start by
 -- reading them. Instead, it may be more helpful to start with examples in
 -- "Hrolog.Builder.Examples".
-module Hrolog.Builder where
+module Hrolog.Builder (
+  Builder,
+  renderBuilder,
+  runBuilder,
+  run,
+  lit_,
+  func_,
+  func,
+  atom_,
+  atom,
+  fact_,
+  fact,
+  rule_,
+  rule,
+  (<-|),
+  fact_,
+  fact,
+  constraint_,
+  constraint,
+  program_,
+  program,
+) where
 
 import           Control.Monad.Trans.Writer.CPS
 import           Data.DList (DList)
@@ -113,6 +134,10 @@ func = (run .) . func_
 atom_ :: HasPlurality t => Text -> Builder Term () () -> Builder Atom t ()
 atom_ name body = Builder . tell $ D.singleton (mkAtom name (runBuilder body))
 {-# INLINE atom_ #-}
+
+atom :: Text -> Builder Term () () -> Atom
+atom = (run .) . atom_
+{-# INLINE atom #-}
 
 rule_ :: HasPlurality t
       => Builder Atom Single () -> Builder Atom () () -> Builder Clause t ()
