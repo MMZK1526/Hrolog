@@ -15,6 +15,8 @@
 module Hrolog.Builder where
 
 import           Control.Monad.Trans.Writer.CPS
+import           Data.DList (DList)
+import qualified Data.DList as D
 import           Data.String
 import           Data.Text (Text)
 import           Data.Void
@@ -39,7 +41,7 @@ class HasPlurality a
 instance HasPlurality Single
 instance HasPlurality ()
 
-newtype Builder w t a = Builder { unBuilder :: Writer [w] a }
+newtype Builder w t a = Builder { unBuilder :: Writer (DList w) a }
   deriving newtype Functor
 
 instance Applicative (Builder w ()) where
@@ -83,8 +85,13 @@ instance Monoid (Builder w () ()) where
   mempty :: Builder w () ()
   mempty = pure ()
 
+
+--------------------------------------------------------------------------------
+-- Conbinators
+--------------------------------------------------------------------------------
+
 runBuilder :: Builder w t a -> [w]
-runBuilder = execWriter . unBuilder
+runBuilder = D.toList . execWriter . unBuilder
 {-# INLINE runBuilder #-}
 
 run :: Builder w Single () -> w
@@ -96,15 +103,15 @@ lit_ = Builder . tell . pure
 {-# INLINE lit_ #-}
 
 func_ :: HasPlurality t => Text -> Builder Term () () -> Builder Term t ()
-func_ name body = Builder $ tell [mkFTerm' name (runBuilder body)]
+func_ name body = Builder . tell $ D.singleton (mkFTerm' name (runBuilder body))
 {-# INLINE func_ #-}
 
 atom_ :: HasPlurality t => Text -> Builder Term () () -> Builder Atom t ()
-atom_ name body = Builder $ tell [mkAtom name (runBuilder body)]
+atom_ name body = Builder . tell $ D.singleton (mkAtom name (runBuilder body))
 {-# INLINE atom_ #-}
 
 rule_ :: HasPlurality t => Builder Atom Single () -> Builder Atom () () -> Builder Clause t ()
-rule_ h b = Builder $ tell [run h :<- runBuilder b]
+rule_ h b = Builder . tell $ D.singleton (run h :<- runBuilder b)
 {-# INLINE rule_ #-}
 
 (<-|) :: HasPlurality t => Builder Atom Single () -> Builder Atom () () -> Builder Clause t ()
@@ -112,15 +119,15 @@ rule_ h b = Builder $ tell [run h :<- runBuilder b]
 {-# INLINE (<-|) #-}
 
 fact_ :: HasPlurality t => Builder Atom Single () -> Builder Clause t ()
-fact_ h = Builder $ tell [run h :<- []]
+fact_ h = Builder . tell $ D.singleton (run h :<- [])
 {-# INLINE fact_ #-}
 
 constraint_ :: HasPlurality t => Builder Atom () () -> Builder Clause t ()
-constraint_ b = Builder $ tell [Constraint (runBuilder b)]
+constraint_ b = Builder . tell $ D.singleton (Constraint $ runBuilder b)
 {-# INLINE constraint_ #-}
 
 program_ :: HasPlurality t => Builder Clause () () -> Builder Program t ()
-program_ b = Builder $ tell [mkProgram $ runBuilder b]
+program_ b = Builder . tell $ D.singleton (mkProgram $ runBuilder b)
 {-# INLINE program_ #-}
 
 program :: Builder Clause () () -> Program
