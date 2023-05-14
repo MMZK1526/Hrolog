@@ -1,5 +1,10 @@
 # Revision history for Hrolog
 
+## 0.1.0.3 -- 2023-05-14
+
+* Introduce a DSL builder for writing Hrolog programs in Haskell.
+* Translate all provided examples into the DSL in `Hrolog.Builder.Examples`.
+
 ## 0.1.0.2 -- 2023-04-30
 
 * Support functional terms.
