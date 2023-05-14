@@ -3,6 +3,7 @@ name:               Hrolog
 version:            0.1.0.1
 synopsis:           An implementation of Prolog-style deduction and abduction
 description:        See README
+bug-reports:        https://github.com/MMZK1526/Hrolog/issues
 license:            MIT
 license-file:       LICENSE
 author:             mmzk1526
