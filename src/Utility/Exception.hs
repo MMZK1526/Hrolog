@@ -147,6 +147,11 @@ handleErr f = dealWithErr $
 -- @isSerious a@ returns @False@.
 data TaggedError a = forall e. Exception e => TaggedError e (Maybe a)
 
+instance Show a => Show (TaggedError a) where
+  show :: Show a => TaggedError a -> String
+  show (TaggedError e Nothing)  = show e
+  show (TaggedError e (Just a)) = show e ++ " (" ++ show a ++ ")"
+
 instance (FromSomeError e) => IsoError (TaggedError e) where
   fromError :: SomeException -> TaggedError e
   fromError err = case fromException err of

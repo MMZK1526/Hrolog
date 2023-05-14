@@ -48,6 +48,9 @@ instance PP () CLIState where
   pShowF :: () -> CLIState -> Text
   pShowF _ cliState = execWriter $ do
     tell "CLI State:\n"
+    case cliState ^. cliErr of
+      Just e  -> tell $ T.concat ["  Error: ", T.pack $ show e, "\n"]
+      Nothing -> pure ()
     case cliState ^. cliFilePath of
       Just fp -> tell $ T.concat ["  File path: ", T.pack fp, "\n"]
       Nothing -> pure ()
