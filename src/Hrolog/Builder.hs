@@ -31,6 +31,8 @@ module Hrolog.Builder (
   constraint,
   program_,
   program,
+  pQuery_,
+  pQuery,
 ) where
 
 import           Control.Monad.Trans.Writer.CPS
@@ -169,3 +171,11 @@ program_ b = Builder . tell $ D.singleton (mkProgram $ runBuilder b)
 program :: Builder Clause () () -> Program
 program = run . program_
 {-# INLINE program #-}
+
+pQuery_ :: HasPlurality t => Builder Atom () () -> Builder PQuery t ()
+pQuery_ b = Builder . tell $ D.singleton (mkPQuery $ runBuilder b)
+{-# INLINE pQuery_ #-}
+
+pQuery :: Builder Atom () () -> PQuery
+pQuery = run . pQuery_
+{-# INLINE pQuery #-}

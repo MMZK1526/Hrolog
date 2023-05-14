@@ -27,6 +27,8 @@ test-suite cliTest
     type:             exitcode-stdio-1.0
     main-is:          Test/CLITest.hs
     other-modules:
+        Hrolog.Builder,
+        Hrolog.Builder.Examples,
         Internal.CLI,
         Internal.CLI.Type,
         Internal.Program,
@@ -45,6 +47,7 @@ test-suite cliTest
         HUnit,
         containers >=0.6,
         directory >=1.3,
+        dlist >=0.8,
         exceptions >=0.10,
         lens >=5.2,
         megaparsec >=8,
