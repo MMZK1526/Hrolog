@@ -63,35 +63,36 @@ feedbackloop :: (CLIState -> IO ())
 -- will break from "forever" and terminate with a message corresponding to the
 -- content of the "Text". The pure error can then be handled by another
 -- handler.
-feedbackloop callback = forever . handleErr errHandlerS $ do
+feedbackloop callback = forever $ do
   get >>= liftIO . callback -- Call the callback
   cliIteration += 1 -- Increment the iteration counter
-  mProg <- use cliProgram -- Get the program from the state
-  input <- do -- Get the user input
-    mInput <- use cliInput
-    case mInput of
-      -- If the input is already stored in the state, we use it.
-      Just input -> input <$ (cliInput .= Nothing)
-      -- Otherwise, we prompt the user for input.
-      Nothing    -> liftIO getLine'
-  -- Parse the input.
-  case evalState (parseT space inputP input) mProg of
-    -- If the input is invalid, print an error message.
-    Left err                            -> liftIO $ do
-      T.putStrLn "Error parsing the input:"
-      T.putStrLn err
-    -- A @Nothing@ means that the input is a query, but the program is not
-    -- loaded. In this case, we print an error message.
-    Right Nothing                       ->
-      liftIO $ putStrLn "Cannot take query without a program loaded."
-    -- Dispatch the input to the corresponding handler.
-    Right (Just inputType)              -> case inputType of
-      InputTypeFilePath fp -> handleLoad fp
-      InputTypeReload      -> handleReload
-      InputTypePQuery q    -> handlePQuery q
-      InputTypeHelp        -> handleHelp
-      InputTypeQuit        -> handleQuit
-  cliErr .= Nothing -- Reset the error state
+  handleErr errHandlerS $ do
+    mProg <- use cliProgram -- Get the program from the state
+    input <- do -- Get the user input
+      mInput <- use cliInput
+      case mInput of
+        -- If the input is already stored in the state, we use it.
+        Just input -> input <$ (cliInput .= Nothing)
+        -- Otherwise, we prompt the user for input.
+        Nothing    -> liftIO getLine'
+    -- Parse the input.
+    case evalState (parseT space inputP input) mProg of
+      -- If the input is invalid, print an error message.
+      Left err                            -> liftIO $ do
+        T.putStrLn "Error parsing the input:"
+        T.putStrLn err
+      -- A @Nothing@ means that the input is a query, but the program is not
+      -- loaded. In this case, we print an error message.
+      Right Nothing                       ->
+        liftIO $ putStrLn "Cannot take query without a program loaded."
+      -- Dispatch the input to the corresponding handler.
+      Right (Just inputType)              -> case inputType of
+        InputTypeFilePath fp -> handleLoad fp
+        InputTypeReload      -> handleReload
+        InputTypePQuery q    -> handlePQuery q
+        InputTypeHelp        -> handleHelp
+        InputTypeQuit        -> handleQuit
+    cliErr .= Nothing -- Reset the error state
 
 
 --------------------------------------------------------------------------------
