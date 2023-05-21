@@ -5,7 +5,6 @@
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections #-}
 
 -- | Internal exception handling utilities.
 module Utility.Exception where
@@ -18,7 +17,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.State
-import           Data.Bifunctor
+import           System.Console.Haskeline
 
 -- | A type class that can be converted from and to a @SomeException@. We could
 -- then use this representation of the same type to handle it.
@@ -52,6 +51,7 @@ class HasSeverity e where
   -- By default, it returns @True@ for all inputs.
   isSerious :: e -> Bool
   isSerious = const True
+  {-# INLINE isSerious #-}
 
 -- | A type class representing a monad that can handle errors.
 --
@@ -76,6 +76,7 @@ instance IsoError e => MonadErrHandling e IO where
     case result of
       Left e  -> throwErr e
       Right a -> pure a
+  {-# INLINE dealWithErr #-}
   
   throwErr :: e -> IO a
   throwErr = throwM . toError
@@ -94,6 +95,7 @@ instance (IsoError e, MonadErrHandling e m)
         case result of
           Left e  -> f e >>= except
           Right a -> pure a
+    {-# INLINE dealWithErr #-}
 
     throwErr :: e -> ExceptT e m a
     throwErr = throwE
@@ -109,21 +111,32 @@ instance (IsoError e, MonadErrHandling e m)
 -- The behaviour for @throwErr@ matches that of @m@. In other words, it wraps
 -- the error as a pure expression if and only if @m@ does so.
 instance MonadErrHandling e m => MonadErrHandling e (StateT s m) where
-  dealWithErr :: (e -> StateT s m (Either e a))
-              -> StateT s m a -> StateT s m a
-  dealWithErr f stateIO = (`catch` handler) . StateT
-                        $ \s -> dealWithErr (worker s) (runStateT stateIO s)
+  dealWithErr :: (e -> StateT s m (Either e a)) -> StateT s m a -> StateT s m a
+  dealWithErr f stateIO = stateIO `catch` handler
     where
       handler err = do
         result <- f (fromError err)
         case result of
           Left e  -> throwErr e
           Right a -> pure a
-      worker s e = do
-        (result, s') <- runStateT (f e) s
-        pure $ second (, s') result
+  {-# INLINE dealWithErr #-}
 
   throwErr :: e -> StateT s m a
+  throwErr = lift . throwErr
+  {-# INLINE throwErr #-}
+
+instance MonadErrHandling e m => MonadErrHandling e (InputT m) where
+  dealWithErr :: (e -> InputT m (Either e a)) -> InputT m a -> InputT m a
+  dealWithErr f action = action `catch` handler
+    where
+      handler err = do
+        result <- f (fromError err)
+        case result of
+          Left e  -> throwErr e
+          Right a -> pure a
+  {-# INLINE dealWithErr #-}
+
+  throwErr :: e -> InputT m a
   throwErr = lift . throwErr
   {-# INLINE throwErr #-}
 

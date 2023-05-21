@@ -12,6 +12,7 @@ import           GHC.Arr
 import           GHC.IO.Handle
 import           Test.HUnit
 import           System.IO
+import           System.Console.Haskeline
 import           System.Process
 
 import qualified Hrolog.Builder as B
@@ -126,7 +127,7 @@ assertCLI inputsAndsnapshots = void $ do
   -- end to quit the program.
   withStdin (unlines inputs ++ "\n:q") . runExceptT $ do
     liftIO $ putStrLn "Welcome to Hrolog!"
-    runStateT (dealWithErr @(TaggedError CLIError) finalCheck $ feedbackloop testCallback) initCLIState
+    runStateT (dealWithErr @(TaggedError CLIError) finalCheck . runInputT defaultSettings $ feedbackloop testCallback) initCLIState
 
 -- | Replace the @stdin@ of an @IO@ action with a @String@ for an IO action,
 -- getting back the old @stdin@ at the end.

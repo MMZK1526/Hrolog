@@ -10,11 +10,13 @@ import           Control.Lens
 import           Control.Monad
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.State
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
+import           System.Console.Haskeline
 import           System.Directory
 import           System.IO
 import qualified Text.Megaparsec as P
@@ -39,7 +41,8 @@ runCLI :: IO ()
 runCLI = do
   result <- runExceptT . void $ do
     liftIO $ putStrLn "Welcome to Hrolog!"
-    evalStateT (feedbackloop (const $ pure ())) initCLIState
+    evalStateT (runInputT defaultSettings $ feedbackloop (const $ pure ()))
+               initCLIState
   case result of
     Left err -> errHandler err Nothing
     Right _  -> pure ()
@@ -50,7 +53,7 @@ runCLI = do
 -- It takes a callback that is called at start of each loop. This callback is
 -- useful for testing purposes as it has access to the state of the program.
 feedbackloop :: (CLIState -> IO ())
-             -> StateT CLIState (ExceptT (TaggedError CLIError) IO) ()
+             -> InputT (StateT CLIState (ExceptT (TaggedError CLIError) IO)) ()
 -- The "forever" indicates that the loop will never terminate unless there is
 -- an uncaught exception.
 -- "handleErrS" is a utility function that catches all benign errors by
@@ -64,15 +67,15 @@ feedbackloop :: (CLIState -> IO ())
 -- content of the "Text". The pure error can then be handled by another
 -- handler.
 feedbackloop callback = forever $ do
-  get >>= liftIO . callback -- Call the callback
-  cliIteration += 1 -- Increment the iteration counter
+  lift get >>= liftIO . callback -- Call the callback
+  lift $ cliIteration += 1 -- Increment the iteration counter
   handleErr errHandlerS $ do
-    mProg <- use cliProgram -- Get the program from the state
+    mProg <- lift $ use cliProgram -- Get the program from the state
     input <- do -- Get the user input
-      mInput <- use cliInput
+      mInput <- lift $ use cliInput
       case mInput of
         -- If the input is already stored in the state, we use it.
-        Just input -> input <$ (cliInput .= Nothing)
+        Just input -> input <$ lift (cliInput .= Nothing)
         -- Otherwise, we prompt the user for input.
         Nothing    -> liftIO getLine'
     -- Parse the input.
@@ -86,13 +89,13 @@ feedbackloop callback = forever $ do
       Right Nothing                       ->
         liftIO $ putStrLn "Cannot take query without a program loaded."
       -- Dispatch the input to the corresponding handler.
-      Right (Just inputType)              -> case inputType of
+      Right (Just inputType)              -> lift $ case inputType of
         InputTypeFilePath fp -> handleLoad fp
         InputTypeReload      -> handleReload
         InputTypePQuery q    -> handlePQuery q
         InputTypeHelp        -> handleHelp
         InputTypeQuit        -> handleQuit
-    cliErr .= Nothing -- Reset the error state
+    lift $ cliErr .= Nothing -- Reset the error state
 
 
 --------------------------------------------------------------------------------
@@ -155,8 +158,8 @@ getLine' = do
 -- It stores the error in the state, and then calls the error handler for the
 -- main function (which is identical to what we want to handle here).
 errHandlerS :: TaggedError CLIError
-            -> StateT CLIState (ExceptT (TaggedError CLIError) IO) ()
-errHandlerS err = cliErr ?= err >> get >>= errHandler err . Just
+            -> InputT (StateT CLIState (ExceptT (TaggedError CLIError) IO)) ()
+errHandlerS err = lift $ cliErr ?= err >> get >>= errHandler err . Just
 
 -- | The error handler for the main function for both fatal and non-fatal
 -- errors.
