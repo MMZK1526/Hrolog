@@ -18,7 +18,6 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           System.Console.Haskeline
 import           System.Directory
-import           System.IO
 import qualified Text.Megaparsec as P
 import qualified Text.Megaparsec.Char as P
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -70,31 +69,33 @@ feedbackloop callback = forever $ do
   lift get >>= liftIO . callback -- Call the callback
   lift $ cliIteration += 1 -- Increment the iteration counter
   handleErr errHandlerS $ do
-    mProg <- lift $ use cliProgram -- Get the program from the state
-    input <- do -- Get the user input
-      mInput <- lift $ use cliInput
+    mProg  <- lift $ use cliProgram -- Get the program from the state
+    mInput <- do -- Get the user input
+      mInput  <- lift $ use cliInput
       case mInput of
         -- If the input is already stored in the state, we use it.
-        Just input -> input <$ lift (cliInput .= Nothing)
+        Just input -> Just input <$ lift (cliInput .= Nothing)
         -- Otherwise, we prompt the user for input.
-        Nothing    -> liftIO getLine'
+        Nothing    -> getLine'
     -- Parse the input.
-    case evalState (parseT space inputP input) mProg of
-      -- If the input is invalid, print an error message.
-      Left err                            -> liftIO $ do
-        T.putStrLn "Error parsing the input:"
-        T.putStrLn err
-      -- A @Nothing@ means that the input is a query, but the program is not
-      -- loaded. In this case, we print an error message.
-      Right Nothing                       ->
-        liftIO $ putStrLn "Cannot take query without a program loaded."
-      -- Dispatch the input to the corresponding handler.
-      Right (Just inputType)              -> lift $ case inputType of
-        InputTypeFilePath fp -> handleLoad fp
-        InputTypeReload      -> handleReload
-        InputTypePQuery q    -> handlePQuery q
-        InputTypeHelp        -> handleHelp
-        InputTypeQuit        -> handleQuit
+    case mInput of
+      Nothing    -> handleQuit
+      Just input -> case evalState (parseT space inputP input) mProg of
+        -- If the input is invalid, print an error message.
+        Left err                            -> liftIO $ do
+          T.putStrLn "Error parsing the input:"
+          T.putStrLn err
+        -- A @Nothing@ means that the input is a query, but the program is not
+        -- loaded. In this case, we print an error message.
+        Right Nothing                       ->
+          liftIO $ putStrLn "Cannot take query without a program loaded."
+        -- Dispatch the input to the corresponding handler.
+        Right (Just inputType)              -> case inputType of
+          InputTypeFilePath fp -> handleLoad fp
+          InputTypeReload      -> handleReload
+          InputTypePQuery q    -> handlePQuery q
+          InputTypeHelp        -> handleHelp
+          InputTypeQuit        -> handleQuit
     lift $ cliErr .= Nothing -- Reset the error state
 
 
@@ -140,13 +141,14 @@ string :: Monad m => Text -> ParserT m Text
 string str = L.lexeme space $ P.string str <* P.notFollowedBy P.alphaNumChar
 
 -- | Repeatedly read input from the user until a non-empty @Text@ is read.
-getLine' :: IO Text
+getLine' :: MonadIO m => MonadMask m => InputT m (Maybe Text)
 getLine' = do
-  putStr "> " >> hFlush stdout -- Prompt the user for input
-  input <- T.getLine
-  case parse space (pure ()) input of
-    Left _  -> pure input
-    Right _ -> getLine'
+  mInput <- fmap T.pack <$> getInputLine "> "
+  case mInput of
+    Nothing    -> pure Nothing
+    Just input -> case parse space (pure ()) input of
+      Left _  -> pure $ Just input
+      Right _ -> getLine'
 
 
 --------------------------------------------------------------------------------
@@ -189,9 +191,9 @@ errHandler (TaggedError _ (Just err)) mCS = case err of
     putStrLn "Meanwhile, you could continue with your other queries."
 
 -- | Handle loading a program from a path.
-handleLoad :: MonadIO m => FilePath -> StateT CLIState m ()
+handleLoad :: MonadIO m => FilePath -> InputT (StateT CLIState m) ()
 handleLoad fp = do
-  cliFilePath ?= fp -- Store the file path in the state.
+  lift $ cliFilePath ?= fp -- Store the file path in the state.
   newProg <- liftIO $ T.readFile fp -- Read the program from the file.
   case parseProgram newProg of
     -- If the program is invalid, print an error message.
@@ -200,14 +202,14 @@ handleLoad fp = do
       T.putStrLn pErr
     -- If the program is valid, store it in the state.
     Right prog -> do
-      cliProgram ?= prog
+      lift $ cliProgram ?= prog
       liftIO $ T.putStrLn (T.concat ["Program ", pShow fp, " loaded:"])
       liftIO $ T.putStrLn $ prettifyProgram prog
 
 -- | Handle reloading the program from the file path stored in the state.
-handleReload :: MonadIO m => StateT CLIState m ()
+handleReload :: MonadIO m => InputT (StateT CLIState m) ()
 handleReload = do
-  mfp <- use cliFilePath -- Get the file path from the state.
+  mfp <- lift $ use cliFilePath -- Get the file path from the state.
   case mfp of
     -- If the file path is not stored, let the user know.
     Nothing -> liftIO $ putStrLn "No program loaded.\n"
@@ -215,10 +217,11 @@ handleReload = do
     Just fp -> handleLoad fp
 
 -- | Handle parsing and solving with a query.
-handlePQuery :: MonadIO m => PQuery -> StateT CLIState m ()
+handlePQuery :: MonadIO m => MonadMask m
+             => PQuery -> InputT (StateT CLIState m) ()
 handlePQuery q = do
-  cliPQuery ?= q -- Store the query in the state.
-  mProg <- use cliProgram -- Get the program from the state.
+  lift $ cliPQuery ?= q -- Store the query in the state.
+  mProg <- lift $ use cliProgram -- Get the program from the state.
   case mProg of
     -- If the program is not stored, let the user know.
     Nothing -> liftIO $ putStrLn "No program loaded."
@@ -229,23 +232,26 @@ handlePQuery q = do
             liftIO . T.putStrLn $ T.concat
               [ "\nSolution:\n", prettifySolution sol, "\n"
               , "Enter ';' to look for the next solution." ]
-            input <- liftIO getLine'
-            -- If the user enters a semicolon, print the next solution.
-            -- Otherwise, store the input in the state to be executed at the
-            -- next iteration of the feedback loop.
-            case parse space (string ";") input of
-              Right _ -> handleSolutions sols
-              Left _  -> cliInput ?= input
+            mInput <- getLine'
+            case mInput of
+              Nothing    -> handleQuit
+              -- If the user enters a semicolon, print the next solution.
+              -- Otherwise, store the input in the state to be executed at the
+              -- next iteration of the feedback loop.
+              Just input -> case parse space (string ";") input of
+                Right _ -> handleSolutions sols
+                Left _  -> lift $ cliInput ?= input
+            
       case solve prog q of
         []   -> liftIO $ putStrLn "No solution."
         sols -> handleSolutions sols
 
 -- | Handle printing out the help message.
-handleHelp :: MonadIO m => StateT CLIState m ()
+handleHelp :: MonadIO m => InputT (StateT CLIState m) ()
 handleHelp = liftIO $ putStrLn "TODO: Help message."
 {-# INLINE handleHelp #-}
 
 -- | Handle quitting the program.
-handleQuit :: MonadIO m => MonadThrow m => StateT CLIState m ()
+handleQuit :: MonadIO m => MonadThrow m => InputT (StateT CLIState m) ()
 handleQuit = throwM UserInterrupt
 {-# INLINE handleQuit #-}
