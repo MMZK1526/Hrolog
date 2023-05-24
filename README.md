@@ -13,8 +13,11 @@
 5. [x] More test on the CLI
 6. [x] Make a DSL builder of Hrolog programs
 7. [ ] Use Haskeline for better REPL experience
+   - [x] Migrate Monad stack to include `InputT`
+   - [x] Support auto-completing commands
+   - [ ] Only auto-complete for file names if the command is `:l`
 8. [ ] Add a timeout to each query. Allow user to set the timeout or quit with `:k`.
-9. [ ] Documentation
+9.  [ ] Documentation
 10. [ ] Support negation
     - [ ] Implement negation as failure
     - [ ] Write tests on negation
