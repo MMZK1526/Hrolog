@@ -1,5 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 
 -- | This modules contains the main function of the program. The main function
 -- in @Main.hs@ simply reexports the @runCLI@ function here.
@@ -13,6 +15,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.State
+import           Data.Char
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -40,11 +43,28 @@ runCLI :: IO ()
 runCLI = do
   result <- runExceptT . void $ do
     liftIO $ putStrLn "Welcome to Hrolog!"
-    evalStateT (runInputT defaultSettings $ feedbackloop (const $ pure ()))
+    evalStateT (runInputT settings $ feedbackloop (const $ pure ()))
                initCLIState
   case result of
     Left err -> errHandler err Nothing
     Right _  -> pure ()
+  where
+    cmds                = [":load", ":reload", ":help", ":quit", "<-"]
+    settings            = (defaultSettings @IO) { complete = completer }
+    trimStart           = dropWhile isSpace
+    prefixSplit "" ys   = Just ys
+    prefixSplit _ ""    = Nothing
+    prefixSplit (x : xs) (y : ys)
+      | x == y    = prefixSplit xs ys
+      | otherwise = Nothing
+    completer           = completeCmd `fallbackCompletion` completeFilename
+    completeCmd (l, []) = do
+      let completers = (`concatMap` cmds)
+                     $ \w -> case prefixSplit (trimStart $ reverse l) w of
+            Nothing -> []
+            Just ys -> [Completion (ys ++ " ") w False]
+      pure (l, completers)
+    completeCmd x       = noCompletion x
 
 -- | The CLI feedback loop. It takes an input, parses it, and executes the
 -- corresponding instruction, forever.
