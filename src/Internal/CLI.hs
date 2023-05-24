@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -111,7 +110,7 @@ feedbackloop callback = forever $ do
           liftIO $ putStrLn "Cannot take query without a program loaded."
         -- Dispatch the input to the corresponding handler.
         Right (Just inputType)              -> case inputType of
-          InputTypeFilePath fp -> handleLoad fp
+          InputTypeFilePath fp -> handleLoad $ T.unpack . T.strip $ T.pack fp
           InputTypeReload      -> handleReload
           InputTypePQuery q    -> handlePQuery q
           InputTypeHelp        -> handleHelp
