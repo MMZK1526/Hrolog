@@ -15,7 +15,7 @@
 7. [ ] Use Haskeline for better REPL experience
    - [x] Migrate Monad stack to include `InputT`
    - [x] Support auto-completing commands
-   - [ ] Only auto-complete for file names if the command is `:l`
+   - [x] Only auto-complete for file names if the command is `:l`
 8. [ ] Add a timeout to each query. Allow user to set the timeout or quit with `:k`.
 9.  [ ] Documentation
 10. [ ] Support negation

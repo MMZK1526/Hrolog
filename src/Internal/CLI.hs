@@ -48,22 +48,27 @@ runCLI = do
     Left err -> errHandler err Nothing
     Right _  -> pure ()
   where
-    cmds                = [":load", ":reload", ":help", ":quit", "<-"]
-    settings            = (defaultSettings @IO) { complete = completer }
-    trimStart           = dropWhile isSpace
-    prefixSplit "" ys   = Just ys
-    prefixSplit _ ""    = Nothing
+    cmds                 = [":load", ":reload", ":help", ":quit", "<-"]
+    settings             = (defaultSettings @IO) { complete = completer }
+    trimStart            = dropWhile isSpace
+    prefixSplit "" ys    = Just ys
+    prefixSplit _ ""     = Nothing
     prefixSplit (x : xs) (y : ys)
       | x == y    = prefixSplit xs ys
       | otherwise = Nothing
-    completer           = completeCmd `fallbackCompletion` completeFilename
-    completeCmd (l, []) = do
+    completer            = completeCmd `fallbackCompletion` completeFile
+    completeCmd (l, [])  = do
       let completers = (`concatMap` cmds)
                      $ \w -> case prefixSplit (trimStart $ reverse l) w of
             Nothing -> []
             Just ys -> [Completion (ys ++ " ") w False]
       pure (l, completers)
-    completeCmd x       = noCompletion x
+    completeCmd x        = noCompletion x
+    completeFile (l, []) = case words $ reverse l of
+      [":l"]    -> completeFilename (l, [])
+      [":load"] -> completeFilename (l, [])
+      _         -> noCompletion (l, [])
+    completeFile x       = noCompletion x
 
 -- | The CLI feedback loop. It takes an input, parses it, and executes the
 -- corresponding instruction, forever.
