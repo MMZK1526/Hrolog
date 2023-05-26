@@ -1,4 +1,4 @@
-# Peano Numbers with the definition for arithmetical operations
+# Peano Numbers with the definition for simple arithmetical operations
 
 add(0, Y, Y).
 add(s(X), Y, s(Z)) <- add(X, Y, Z).
