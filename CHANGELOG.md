@@ -1,9 +1,18 @@
 # Revision history for Hrolog
 
+
+## 0.1.0.4 -- 2023-05-26
+
+* Use Haskeline for better REPL experience.
+  * Support arrow keys to access history.
+  * Support limited tab completion: can complete for command names and filenames.
+
+
 ## 0.1.0.3 -- 2023-05-14
 
 * Introduce a DSL builder for writing Hrolog programs in Haskell.
 * Translate all provided examples into the DSL in `Hrolog.Builder.Examples`.
+
 
 ## 0.1.0.2 -- 2023-04-30
 
