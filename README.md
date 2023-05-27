@@ -17,7 +17,7 @@
    - [x] Support auto-completing commands
    - [x] Only auto-complete for file names if the command is `:l`
 8. [ ] Add a timeout to each query. Allow user to set the timeout or quit with `:k`
-9.  [ ] Documentation
+9.  [x] Documentation
 10. [ ] Support negation
     - [ ] Implement negation as failure
     - [ ] Write tests on negation
@@ -98,7 +98,7 @@ A Hrolog program consists of **clauses**, which consists of at most one **head**
 
 In the examples above, all terms are literals. We can also introduce predicates, which describes the relationship between terms. For example, `father(anakin, luke)` is a predicate term. Here, `father` is the **predicate symbol**, and `anakin` and `luke` are the **arguments**. It could have a semantic meaning of "Anakin is the father of Luke".
 
-We use names starting with lowercase letters for predicate symbols and arguments, this is to differentiate between **variables** which starts with uppercase letters. Informally speaking, if a variable appears in the head, it represents any possible value; if it appears in the body, it represents the "existence" of a value that satisfies the body.
+We use names starting with lowercase letters or digits for predicate symbols and arguments, this is to differentiate between **variables** which starts with uppercase letters. Informally speaking, if a variable appears in the head, it represents any possible value; if it appears in the body, it represents the "existence" of a value that satisfies the body.
 For example, `father(X, luke).` means "Anyone is the father of Luke", while `son(luke, X) <- father(X, luke).` means "If Luke has a father, then Luke is the son of that father".
 
 With this, we could build somewhat meaningful rules such as:
@@ -117,7 +117,13 @@ Semantically, it first gives three examples of parenthood. Then it introduces ru
 
 Note that literals are considered as special predicates that has zero arguments. Therefore, the literal `a` can also be written as `a()`.
 
-TODO: Functions.
+The arguments to predicates can also be function terms. For example, the following program defines addition between Peano numbers:
+```
+add(0, Y, Y).
+add(s(X), Y, s(Z)) <- add(X, Y, Z).
+```
+
+Here `s(X)` means the successor of `X`. Therefore, `s(s(0))` represents the number 2. The semantics of the program is that `add(X, Y, Z)` is true if `Z` is the sum of `X` and `Y`. For example, we can query for the result of 2 + 3 by `<- add(s(s(0)), s(s(s(0))), X).` and it will return `X = s(s(s(s(s(0)))))`.
 
 ### Query
 A **query** is a special type of clause that has no head. It has the same syntax as a constraint, namely `<- <term> [, <term>]* .` except that `<-` can be omitted. For example, `<- a.` is a query. The semantics is that it is asking whether `a` is true.
@@ -139,4 +145,10 @@ Here, if we query `<- ancestor(shmi, luke)`, it will return "Valid". If we query
 We can also have a query with multiple bodies. For example, `<- ancestor(X, Y), ancestor(Y, luke).` is looking for an ancestor of `luke` as well as an ancestor of ancestor of `luke`. It will return `X = shmi` and `Y = anakin`.
 
 ### REPL
-TODO
+Command | Shorthand | Description
+--- | --- | ---
+`:load <filename>` | `:l  <filename>` | Load the program from the file.
+`:reload` | `:r` | Reload the program from the file.
+`<- <query>` | `<query>` | Query the program with the query.
+`:help` | `:h` | Show the help message.
+`:quit` | `:q` | Quit the REPL.
