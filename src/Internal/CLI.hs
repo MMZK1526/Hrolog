@@ -15,6 +15,7 @@ import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.State
 import           Data.Char
+import           Data.Maybe
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -28,6 +29,7 @@ import           Internal.CLI.Type
 import           Parser
 import           Program
 import           Solver.Hrolog
+import           Text.Read (readMaybe)
 import           Utility.Exception
 import           Utility.Parser
 import           Utility.PP
@@ -64,10 +66,10 @@ runCLI = do
             Just ys -> [Completion (ys ++ " ") w False]
       pure (l, completers)
     completeCmd x        = noCompletion x
-    completeFile (l, []) = case words $ reverse l of
-      [":l"]    -> completeFilename (l, [])
-      [":load"] -> completeFilename (l, [])
-      _         -> noCompletion (l, [])
+    completeFile (l, []) = case listToMaybe . words $ reverse l of
+      Just ":l"    -> completeFilename (l, [])
+      Just ":load" -> completeFilename (l, [])
+      _            -> noCompletion (l, [])
     completeFile x       = noCompletion x
 
 -- | The CLI feedback loop. It takes an input, parses it, and executes the
@@ -115,7 +117,9 @@ feedbackloop callback = forever $ do
           liftIO $ putStrLn "Cannot take query without a program loaded."
         -- Dispatch the input to the corresponding handler.
         Right (Just inputType)              -> case inputType of
-          InputTypeFilePath fp -> handleLoad $ T.unpack . T.strip $ T.pack fp
+          InputTypeFilePath fp -> do
+            let fp' = fromMaybe fp (readMaybe (T.unpack $ T.strip $ T.pack fp))
+            handleLoad fp'
           InputTypeReload      -> handleReload
           InputTypePQuery q    -> handlePQuery q
           InputTypeHelp        -> handleHelp
