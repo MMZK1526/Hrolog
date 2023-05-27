@@ -145,10 +145,10 @@ Here, if we query `<- ancestor(shmi, luke)`, it will return "Valid". If we query
 We can also have a query with multiple bodies. For example, `<- ancestor(X, Y), ancestor(Y, luke).` is looking for an ancestor of `luke` as well as an ancestor of ancestor of `luke`. It will return `X = shmi` and `Y = anakin`.
 
 ### REPL
-Command | Shorthand | Description
---- | --- | ---
+Command            | Shorthand        | Description
+------------------ | ---------------- | ---------------------------------
 `:load <filename>` | `:l  <filename>` | Load the program from the file.
-`:reload` | `:r` | Reload the program from the file.
-`<- <query>` | `<query>` | Query the program with the query.
-`:help` | `:h` | Show the help message.
-`:quit` | `:q` | Quit the REPL.
+`:reload`          | `:r`             | Reload the program from the file.
+`<- <query>`       | `<query>`        | Query the program with the query.
+`:help`            | `:h`             | Show the help message.
+`:quit`            | `:q`             | Quit the REPL.

@@ -275,7 +275,14 @@ handlePQuery q = do
 
 -- | Handle printing out the help message.
 handleHelp :: MonadIO m => InputT (StateT CLIState m) ()
-handleHelp = liftIO $ putStrLn "TODO: Help message."
+handleHelp = liftIO $ putStrLn "Command          | Shorthand      | Description\n\
+\---------------- | -------------- | ---------------------------------\n\
+\:load <filename> | :l  <filename> | Load the program from the file.\n\
+\:reload          | :r             | Reload the program from the file.\n\
+\<- <query>       | <query>        | Query the program with the query.\n\
+\:help            | :h             | Show the help message.\n\
+\:quit            | :q             | Quit the REPL.\n\
+\For more information, please refer to the README at https://github.com/MMZK1526/Hrolog."
 {-# INLINE handleHelp #-}
 
 -- | Handle quitting the program.
