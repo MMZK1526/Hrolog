@@ -1,0 +1,10 @@
+# The ancestor example in README.md
+
+father(anakin, luke).
+father(anakin, leia).
+mother(shmi, anakin).
+
+ancestor(X, Y) <- father(X, Y).
+ancestor(X, Y) <- mother(X, Y).
+ancestor(X, Y) <- father(X, Z), ancestor(Z, Y).
+ancestor(X, Y) <- mother(X, Z), ancestor(Z, Y).

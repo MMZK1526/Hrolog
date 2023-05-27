@@ -75,7 +75,68 @@ No solution.
 
 See the [Syntax](#syntax) section for more details on the syntax of Hrolog, both in the program and in the query.
 
-## Syntax
-Use `cabal run Hrolog` to start the REPL.
+Finally, you can quit the REPL with `:q`.
 
+## Syntax
+This section covers the syntax of Hrolog's program, query, and REPL.
+
+### Program
+
+The syntax of Hrolog is similar to that of Prolog, but with several variations and limitations.
+1. In Hrolog, we use `<-` instead of `:-` to delimit the head and body of a clause.
+2. Hrolog does not support variables starting with `_`.
+3. Hrolog does not support negation yet.
+4. Hrolog can contain constraints, namely a clause with no head. For example, `<- a.` is a valid clause in Hrolog. However constraints are currently ignored by the interpreter.
+5. Hrolog does not allow the usage of undeclared symbols. For example, if a constant never appears anywhere, it cannot be used in the query. However, if you want to use a constant in the query but not in the program, you can "hack" it by declaring it in the program with `<- .` (a constraint) and then use it in the query.
+6. Hrolog's inline comments start with `#` (compare to `%` in Prolog) and end with the end of the line. Hrolog does not have block comments.
+7. Hrolog does not have built-in operators, lists, and tuples. However, they can be defined in a prefix manner. See [here](/src/Test/programs/peanoNumbers.hrolog) for an example of addition and subtraction.
+
+A Hrolog program consists of **clauses**, which consists of at most one **head** and zero or more **bodies**. Each of the heads and bodies is a **term**. There are three types.
+1. **Fact**: a fact is a clause with one head and no body. Its syntax is `<term> .` For example, `a.` is a fact. The semantics is that `a` is true.
+2. **Rule**: a rule is a clause with one head and one or more bodies. Its syntax is `<term> <- <term> [, <term>]* .` For example, `a <- b, c.` is a rule. The semantics is that `a` is true if `b` and `c` are true.
+3. **Constraint**: a constraint is a clause with no head and one or more bodies. Its syntax is `<- <term> [, <term>]* .` For example, `<- a, b.` is a constraint. Currently constraints are ignored by the interpreter.
+
+In the examples above, all terms are literals. We can also introduce predicates, which describes the relationship between terms. For example, `father(anakin, luke)` is a predicate term. Here, `father` is the **predicate symbol**, and `anakin` and `luke` are the **arguments**. It could have a semantic meaning of "Anakin is the father of Luke".
+
+We use names starting with lowercase letters for predicate symbols and arguments, this is to differentiate between **variables** which starts with uppercase letters. Informally speaking, if a variable appears in the head, it represents any possible value; if it appears in the body, it represents the "existence" of a value that satisfies the body.
+For example, `father(X, luke).` means "Anyone is the father of Luke", while `son(luke, X) <- father(X, luke).` means "If Luke has a father, then Luke is the son of that father".
+
+With this, we could build somewhat meaningful rules such as:
+```
+father(anakin, luke).
+father(anakin, leia).
+mother(shmi, anakin).
+
+ancestor(X, Y) <- father(X, Y).
+ancestor(X, Y) <- mother(X, Y).
+ancestor(X, Y) <- father(X, Z), ancestor(Z, Y).
+ancestor(X, Y) <- mother(X, Z), ancestor(Z, Y).
+```
+
+Semantically, it first gives three examples of parenthood. Then it introduces rules for the predicate `ancestor`.
+
+Note that literals are considered as special predicates that has zero arguments. Therefore, the literal `a` can also be written as `a()`.
+
+TODO: Functions.
+
+### Query
+A **query** is a special type of clause that has no head. It has the same syntax as a constraint, namely `<- <term> [, <term>]* .` except that `<-` can be omitted. For example, `<- a.` is a query. The semantics is that it is asking whether `a` is true.
+
+Let's look at the ancestor example again
+```
+father(anakin, luke).
+father(anakin, leia).
+mother(shmi, anakin).
+
+ancestor(X, Y) <- father(X, Y).
+ancestor(X, Y) <- mother(X, Y).
+ancestor(X, Y) <- father(X, Z), ancestor(Z, Y).
+ancestor(X, Y) <- mother(X, Z), ancestor(Z, Y).
+```
+
+Here, if we query `<- ancestor(shmi, luke)`, it will return "Valid". If we query `<- ancestor(anakin, X)`. It will return `X = luke` and (on the second search) `X = leia`.
+
+We can also have a query with multiple bodies. For example, `<- ancestor(X, Y), ancestor(Y, luke).` is looking for an ancestor of `luke` as well as an ancestor of ancestor of `luke`. It will return `X = shmi` and `Y = anakin`.
+
+### REPL
 TODO
