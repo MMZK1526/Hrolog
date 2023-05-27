@@ -117,9 +117,8 @@ feedbackloop callback = forever $ do
           liftIO $ putStrLn "Cannot take query without a program loaded."
         -- Dispatch the input to the corresponding handler.
         Right (Just inputType)              -> case inputType of
-          InputTypeFilePath fp -> do
-            let fp' = fromMaybe fp (readMaybe (T.unpack $ T.strip $ T.pack fp))
-            handleLoad fp'
+          InputTypeFilePath fp -> handleLoad . ap fromMaybe readMaybe
+                                . T.unpack . T.strip $ T.pack fp
           InputTypeReload      -> handleReload
           InputTypePQuery q    -> handlePQuery q
           InputTypeHelp        -> handleHelp
