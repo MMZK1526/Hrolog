@@ -255,6 +255,7 @@ genAtom :: Int -> Int -> StdGen -> (Atom, StdGen)
 genAtom arity len = runState worker
   where
     worker = do
+      isNeg        <- even <$> randomRS @Int 0 1
       len'         <- randomRS 1 (max 1 len)
       (pName, gen) <- genIdentifier len' <$> get
       put gen
@@ -264,7 +265,7 @@ genAtom arity len = runState worker
         (t, gen') <- genTerm depth len'' <$> get
         put gen'
         pure t
-      pure $ Atom (Predicate pName arity) ts
+      pure $ Atom isNeg (Predicate pName arity) ts
 
 -- | Generate a @Clause@ with the given body length, and the arity and length
 -- of each atoms are at most "arity" and "len".

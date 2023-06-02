@@ -11,6 +11,7 @@ import           Control.Lens
 import           Control.Monad
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.State
+import           Data.Maybe
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Text.Megaparsec as P
@@ -113,8 +114,9 @@ atom = atom' False
 
 atom' :: Traversable f => Monad m => Bool -> ParserT (StateT (f Program) m) Atom
 atom' isQuery = do
-  name <- identifier
-  ts   <- P.option [] $
+  isNeg <- isJust <$> P.optional (char '!')
+  name  <- identifier
+  ts    <- P.option [] $
     P.between (char '(') (char ')') (P.sepBy (term' isQuery) (char ','))
   let pd = Predicate name (length ts)
   if isQuery
@@ -126,7 +128,7 @@ atom' isQuery = do
           else T.unpack $ T.concat ["Undefined literal ", name, "!"]
     else
       lift $ modify (fmap (predicates %~ S.insert pd))
-  pure $ Atom pd ts
+  pure $ Atom isNeg pd ts
 
 -- | Parse a @Clause@, which is an optional @Atom@ head followed by a list of
 -- @Atom@ bodies.

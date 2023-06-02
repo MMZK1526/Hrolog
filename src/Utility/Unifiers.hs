@@ -122,9 +122,9 @@ unifyTermS' t (VariableTerm v)                 = unifyTermS' (VariableTerm v) t
 -- the atoms cannot be unified.
 unifyAtomS :: HasCallStack => Ord a => Monad m
            => Atom' a -> Atom' a -> StateT (UnifyState a) (MaybeT m) ()
-unifyAtomS (Atom p ts) (Atom p' ts')
-  | p /= p'   = mzero
-  | otherwise = mapM_ (uncurry unifyTermS) (zip ts ts')
+unifyAtomS (Atom n p ts) (Atom n' p' ts')
+  | n /= n' || p /= p' = mzero
+  | otherwise          = mapM_ (uncurry unifyTermS) (zip ts ts')
 {-# INLINE unifyAtomS #-}
 
 -- | Unify two atoms. Returns a substitution that, when applied, would make the
@@ -195,9 +195,9 @@ subsumeTermS _ (VariableTerm _) = mzero
 -- @subsumeTermS@ for more details.
 subsumeAtomS :: HasCallStack => Ord a => Monad m
              => Atom' a -> Atom' a -> StateT (Map a (Term' a)) (MaybeT m) ()
-subsumeAtomS (Atom p ts) (Atom p' ts')
-  | p /= p'   = mzero
-  | otherwise = mapM_ (uncurry subsumeTermS) (zip ts ts')
+subsumeAtomS (Atom n p ts) (Atom n' p' ts')
+  | n /= n' || p /= p' = mzero
+  | otherwise          = mapM_ (uncurry subsumeTermS) (zip ts ts')
 {-# INLINE subsumeAtomS #-}
 
 -- | Return "True" if the first atom subsumes the second atom. See comments on
@@ -226,7 +226,7 @@ substituteTerm sub = fixPoint worker
 
 -- | Substitute an atom with the given substitution map.
 substituteAtom :: Ord a => Map a (Term' a) -> Atom' a -> Atom' a
-substituteAtom m (Atom p ts) = Atom p (map (substituteTerm m) ts)
+substituteAtom m (Atom n p ts) = Atom n p (map (substituteTerm m) ts)
 {-# INLINE substituteAtom #-}
 
 -- Apply the renaming function to all variables in the term.
@@ -237,7 +237,7 @@ renameTerm f (F t ts)         = F t (map (renameTerm f) ts)
 
 -- Apply the renaming function to all variables in the atom.
 renameAtom :: (a -> b) -> Atom' a -> Atom' b
-renameAtom f (Atom p ts) = Atom p (map (renameTerm f) ts)
+renameAtom f (Atom n p ts) = Atom n p (map (renameTerm f) ts)
 {-# INLINE renameAtom #-}
 
 -- | Apply the renaming function to all variables in the clause.

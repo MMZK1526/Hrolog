@@ -86,19 +86,22 @@ pattern F f ts = FunctionTerm (FTerm f ts)
 {-# COMPLETE VariableTerm, F #-}
 
 -- | A Hrolog atom, consisting of a predicate and a list of terms as arguments.
-data Atom' a = Atom Predicate [Term' a]
+--
+-- The @Bool@ field indicates whether the atom is negated.
+data Atom' a = Atom Bool Predicate [Term' a]
   deriving (Eq, Ord, Show)
 type Atom = Atom' Text
 
 atomPredicate :: Lens' (Atom' a) Predicate
-atomPredicate = lens (\(Atom p _) -> p) (\(Atom _ ts) p -> Atom p ts)
+atomPredicate = lens (\(Atom _ p _) -> p) (\(Atom n _ ts) p -> Atom n p ts)
 
 -- | Similarly, the atoms constructed by the smart constructor below do not
 -- necessarily satisfy the requirement for identifiers as if they are parsed
 -- from a program.
 instance IsString Atom where
   fromString :: String -> Atom
-  fromString s = Atom (Predicate (fromString s) 0) []
+  fromString ('!' : s) = Atom True (Predicate (fromString s) 0) []
+  fromString s         = Atom False (Predicate (fromString s) 0) []
 
 -- | A Hrolog clause, consisting of an optional head and a list of bodies.
 --
@@ -184,7 +187,7 @@ instance PP () Term where
 
 instance PP () Atom where
   pShowF :: () -> Atom -> Text
-  pShowF _ (Atom p as) = case _predicateArity p of
+  pShowF _ (Atom n p as) = (if n then "!" else "") <> case _predicateArity p of
     0 -> _predicateName p
     _ -> T.concat
       [_predicateName p, "(", T.intercalate ", " (pShow <$> as), ")"]
@@ -265,7 +268,7 @@ mkFTerm' name ts = F (Function name (length ts)) ts
 -- | A smart constructor to make an atom from a predicate name and a list of
 -- terms. It is only used internally and by the test suite.
 mkAtom :: Text -> [Term] -> Atom
-mkAtom name ts = Atom (Predicate name (length ts)) ts
+mkAtom name ts = Atom False (Predicate name (length ts)) ts
 
 -- | Turn a list of @Clause@s into a @Program@ by calculating the set of
 -- predicates, constants, and variables.
@@ -279,7 +282,7 @@ mkProgram cs
     workClause (Clause mHead body) = do
       forM_ mHead workAtom
       forM_ body workAtom
-    workAtom (Atom p ts)           = do
+    workAtom (Atom _ p ts)         = do
       predicates %= S.insert p
       forM_ ts workTerm
     workTerm (VariableTerm v)      = variables %= S.insert v
@@ -293,7 +296,7 @@ mkProgram cs
 -- create a @PQuery@ by using @parsePQuery@ in module Parser.
 mkPQuery :: [Atom] -> PQuery
 mkPQuery as
-  = execState (forM_ ((\(Atom _ ts) -> ts) <$> as) worker) (PQuery S.empty as)
+  = execState (forM_ ((\(Atom _ _ ts) -> ts) <$> as) worker) (PQuery S.empty as)
   where
     worker ts = forM_ ts $ \case
       VariableTerm v -> pqVariables %= S.insert v
@@ -340,7 +343,7 @@ isProgramLegal Program {..}
     -- An atom is legal if its predicate is in the set of predicates, has the
     -- correct arity, all its arguments are legal, and all its variables are
     -- legal.
-    atomLegal (Atom p as)   =  _predicateArity p == length as
+    atomLegal (Atom _ p as) =  _predicateArity p == length as
                             && p `elem` _predicates
                             && all termLegal as
     -- A clause is legal if its head and all its body atoms are legal.
