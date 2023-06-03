@@ -21,6 +21,7 @@
 10. [x] Support negation
     - [x] Implement negation as failure
     - [x] Write tests on negation
+11. [ ] Support printing out each step of the derivation
 
 ## Introduction
 Hrolog is a [logic programming language](https://en.wikipedia.org/wiki/Logic_programming) that highly resembles [Prolog](https://en.wikipedia.org/wiki/Prolog). It will support both SLDNF-deduction and abduction as well as some logic-based learning algorithms. In the future, it may also support a Clingo-like Answer Set Programming semantics.
