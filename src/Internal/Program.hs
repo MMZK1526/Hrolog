@@ -268,7 +268,9 @@ mkFTerm' name ts = F (Function name (length ts)) ts
 -- | A smart constructor to make an atom from a predicate name and a list of
 -- terms. It is only used internally and by the test suite.
 mkAtom :: Text -> [Term] -> Atom
-mkAtom name ts = Atom False (Predicate name (length ts)) ts
+mkAtom name ts = case T.stripPrefix "!" name of
+  Just n' -> Atom True (Predicate n' (length ts)) ts
+  Nothing -> Atom False (Predicate name (length ts)) ts
 
 -- | Turn a list of @Clause@s into a @Program@ by calculating the set of
 -- predicates, constants, and variables.
