@@ -27,7 +27,7 @@ Hrolog is a [logic programming language](https://en.wikipedia.org/wiki/Logic_pro
 
 Note that Hrolog is NOT Prolog: they have different syntaxes, and Hrolog will only implement a subset of Prolog specification while adding some unique features.
 
-A simple example of using the CLI is [here](#quick-example). Check out [here](/src/Test/programs/) for more Hrolog code examples.
+A simple example of using the CLI is [here](#quick-example). Check out [here](/src/Test/programs/) for more Hrolog examples.
 
 If you discover any bugs or have any suggestions, please feel free to open an issue or contact me.
 
@@ -85,7 +85,7 @@ This section covers the syntax of Hrolog's program, query, and REPL.
 The syntax of Hrolog is similar to that of Prolog, but with several variations and limitations.
 1. In Hrolog, we use `<-` instead of `:-` to delimit the head and body of a clause.
 2. Hrolog does not support variables starting with `_`.
-3. Hrolog does not support negation yet.
+3. The negation syntax in Hrolog is `!` instead of `\+`.
 4. Hrolog can contain constraints, namely a clause with no head. For example, `<- a.` is a valid clause in Hrolog. However constraints are currently ignored by the interpreter.
 5. Hrolog does not allow the usage of undeclared symbols. For example, if a constant never appears anywhere, it cannot be used in the query. However, if you want to use a constant in the query but not in the program, you can "hack" it by declaring it in the program with `<- .` (a constraint) and then use it in the query.
 6. Hrolog's inline comments start with `#` (compare to `%` in Prolog) and end with the end of the line. Hrolog does not have block comments.
