@@ -88,7 +88,7 @@ The syntax of Hrolog is similar to that of Prolog, but with several variations a
 2. Hrolog does not support variables starting with `_`.
 3. The negation syntax in Hrolog is `!` instead of `\+`.
 4. Hrolog can contain constraints, namely a clause with no head. For example, `<- a.` is a valid clause in Hrolog. However constraints are currently ignored by the interpreter.
-5. Hrolog does not allow the usage of undeclared symbols. For example, if a constant never appears anywhere, it cannot be used in the query. However, if you want to use a constant in the query but not in the program, you can "hack" it by declaring it in the program with `<- .` (a constraint) and then use it in the query.
+5. Hrolog does not allow the usage of undeclared predicates and functions. Constants can be used without declaration.
 6. Hrolog's inline comments start with `#` (compare to `%` in Prolog) and end with the end of the line. Hrolog does not have block comments.
 7. Hrolog does not have built-in operators, lists, and tuples. However, they can be defined in a prefix manner. See [here](/src/Test/programs/peanoNumbers.hrolog) for an example of addition and subtraction.
 
