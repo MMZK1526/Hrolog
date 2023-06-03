@@ -1,6 +1,11 @@
 # Revision history for Hrolog
 
 
+## 0.1.0.5 -- 2023-06-03
+
+* Support negation as failure.
+
+
 ## 0.1.0.4 -- 2023-05-26
 
 * Use Haskeline for better REPL experience.

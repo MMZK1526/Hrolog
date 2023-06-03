@@ -18,9 +18,9 @@
    - [x] Only auto-complete for file names if the command is `:l`
 8. [ ] Add a timeout to each query. Allow user to set the timeout or quit with `:k`
 9.  [x] Documentation
-10. [ ] Support negation
-    - [ ] Implement negation as failure
-    - [ ] Write tests on negation
+10. [x] Support negation
+    - [x] Implement negation as failure
+    - [x] Write tests on negation
 
 ## Introduction
 Hrolog is a [logic programming language](https://en.wikipedia.org/wiki/Logic_programming) that highly resembles [Prolog](https://en.wikipedia.org/wiki/Prolog). It will support both SLDNF-deduction and abduction as well as some logic-based learning algorithms. In the future, it may also support a Clingo-like Answer Set Programming semantics.
