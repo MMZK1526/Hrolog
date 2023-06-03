@@ -87,6 +87,7 @@ arithmeticTest :: Test
 arithmeticTest = TestLabel "Arithmetic test" . TestList $
   [ TestLabel "Add tests" $ TestList addTests
   , TestLabel "Sub tests" $ TestList subTests
+  , TestLabel "Neg tests" $ TestList neTests
   ]
   where
     addTest x y z
@@ -114,6 +115,20 @@ arithmeticTest = TestLabel "Arithmetic test" . TestList $
       let z = x - y
       pure . TestLabel (concat [show x, " - ", show y, " = ", show z])
            . TestCase $ subTest (nats !! x) (nats !! y) (if z >= 0 then Just (nats !! z) else Nothing)
+
+    neTest x y True
+      = assertSolutionFromFile "./src/Test/programs/peanoNumbers.hrolog"
+                               (mkPQuery [mkAtom "ne" [x, y]])
+                               (Just $ Solution M.empty)
+    neTest x y False
+      = assertSolutionFromFile "./src/Test/programs/peanoNumbers.hrolog"
+                               (mkPQuery [mkAtom "ne" [x, y]])
+                               Nothing
+    neTests = do
+      x <- [0..5]
+      y <- [0..5]
+      pure . TestLabel (concat [show x, " /= ", show y, " = ", show (x /= y)])
+           . TestCase $ neTest (nats !! x) (nats !! y) (x /= y)
 
     zero   = Constant "0"
     sukk x = F (Function "s" 1) [x]
