@@ -1,0 +1,15 @@
+# Basic functional list operations
+
+head(X, cons(X, XS)).
+tail(XS, cons(X, XS)).
+
+null(nil).
+
+concat(nil, YS, YS).
+concat(cons(X, XS), YS, cons(X, ZS)) <- concat(XS, YS, ZS).
+
+reverse(nil, nil).
+reverse(cons(X, XS), YS) <- reverse(XS, ZS), concat(ZS, cons(X, nil), YS).
+
+length(nil, 0).
+length(cons(X, XS), s(N)) <- length(XS, N).
