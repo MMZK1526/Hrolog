@@ -12,7 +12,7 @@ import           Program
 -- | Define "src/Test/programs/peanoNumbers.hrolog" using the DSL.
 --
 -- >>> prettifyProgram peanoNumbers
--- "add(0, Y, Y).\nadd(s(X), Y, s(Z)) <- add(X, Y, Z).\nsub(X, Y, Z) <- add(Y, Z, X).\nfib(0, 0).\nfib(s(0), s(0)).\nfib(s(s(X)), Y) <- fib(X, A), fib(s(X), B), add(A, B, Y).\n"
+-- "add(0, Y, Y).\nadd(s(X), Y, s(Z)) <- add(X, Y, Z).\nsub(X, Y, Z) <- add(Y, Z, X).\neq(X, X).\nne(X, Y) <- !eq(X, Y).\nfib(0, 0).\nfib(s(0), s(0)).\nfib(s(s(X)), Y) <- fib(X, A), fib(s(X), B), add(A, B, Y).\n"
 peanoNumbers :: Program
 -- We use the "program" combinator to define a program.
 -- Note that all other combinators inside the "program" combinator has a "_"
@@ -62,6 +62,12 @@ peanoNumbers = program do
   -- It requires the "OverloadedLists" extension to work.
   atom_ "sub" (lit_ "X" <> lit_ "Y" <> lit_ "Z")
     <-| atom_ "add" ["Y", "Z", "X"]
+  -- eq(X, X).
+  fact_ $ atom_ "eq" ["X", "X"]
+  -- ne(X, Y) <- !eq(X, Y).
+  -- The negation is constructed by prefixing "!" in the name literal of the
+  -- predicate.
+  atom_ "ne" ["X", "Y"] <-| atom_ "!eq" ["X", "Y"]
   -- fib(0, 0).
   fact_ $ atom_ "fib" do
     lit_ "0"
