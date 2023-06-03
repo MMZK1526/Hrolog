@@ -6,7 +6,6 @@ import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
 import           Data.List
 import qualified Data.Map.Strict as M
-import           Data.Maybe
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -159,7 +158,7 @@ assertFromFile filePath testFun = do
 -- @Solution@.
 assertSolution :: HasCallStack => Program -> PQuery -> Maybe Solution -> Assertion
 assertSolution p q expSol
-  = assertEqual "solution" expSol (listToMaybe (solve p q))
+  = assertEqual "solution" expSol (solveOne p q)
 
 -- | Assert that the given @Program@ and @PQuery@ produce the expected
 -- @Solution@s.
