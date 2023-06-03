@@ -86,14 +86,13 @@ functionTerm' :: Traversable f => Monad m
 functionTerm' isQuery = do
   name <- identifier
   ts   <- P.option []
-                   (P.between (char '(') (char ')') (P.sepBy term (char ',')))
+                   (P.between (char '(') (char ')') (P.sepBy (term' isQuery) (char ',')))
   let fd = Function name (length ts)
   if isQuery
     then do
       fz <- fmap (view functions) <$> lift get
-      forM_ fz $ \fs -> unless (fd `S.member` fs) $ if null ts
-        then fail . T.unpack $ T.concat ["Undefined constant ", pShow fd, "!"]
-        else fail . T.unpack $ T.concat ["Undefined function ", name, "!"]
+      forM_ fz $ \fs -> unless (fd `S.member` fs || null ts) . fail . T.unpack
+                      $ T.concat ["Undefined function ", name, "!"]
     else lift $ modify' (fmap (functions %~ S.insert fd))
   pure $ FTerm fd ts
 
@@ -124,8 +123,8 @@ atom' isQuery = do
       pz <- fmap (view predicates) <$> lift get
       forM_ pz $ \ps ->
         unless (pd `S.member` ps) . fail $ if null ts
-          then T.unpack $ T.concat ["Undefined predicate ", pShow pd, "!"]
-          else T.unpack $ T.concat ["Undefined literal ", name, "!"]
+          then T.unpack $ T.concat ["Undefined literal ", name, "!"]
+          else T.unpack $ T.concat ["Undefined preidcate ", pShow pd, "!"]
     else
       lift $ modify (fmap (predicates %~ S.insert pd))
   pure $ Atom isNeg pd ts
