@@ -103,7 +103,7 @@ firstBranchTerminates = program do
   fact_ "a"
   "a" <-| "a"
 
--- | Define "src/Test/programs/secondBranchTerminates.hrolog" using the DSL.
+-- | Define "src/Test/programs/simpleNumbers.hrolog" using the DSL.
 simpleNumbers :: Program
 simpleNumbers = program do
   fact_ $ atom_ "succ" ["1", "0"]
@@ -113,3 +113,10 @@ simpleNumbers = program do
   atom_ "gt" ["X", "Y"] <-| do
     atom_ "succ" ["X", "Z"]
     atom_ "gt" ["Z", "Y"]
+
+-- | Define "src/Test/programs/simpleNegation.hrolog" using the DSL.
+simpleNegation :: Program
+simpleNegation = program do
+  "a" <-| atom_ "!b" []
+  "a" <-| atom_ "!c" []
+  fact_ "b"
