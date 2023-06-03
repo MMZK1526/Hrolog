@@ -81,11 +81,11 @@ newPState cs = PState 1 False (foldr' insertRule M.empty cs)
 -- so it is always possible to get the first few solutions even if there are
 -- infinitely many.
 solve :: Program -> PQuery -> [Solution]
-solve p q = runIdentity $ solveS pure (pure ()) pure p q
+solve p q = runIdentity $ solveS True pure (pure ()) pure p q
 
 -- | Similar to @solve@, but prints out each step.
 solveIO :: Program -> PQuery -> IO [Solution]
-solveIO = solveS onNewStep onFail onBacktractEnd
+solveIO = solveS False onNewStep onFail onBacktractEnd
   where
     untagged    = renamePQuery untag
     onNewStep q = do
@@ -104,7 +104,11 @@ solveIO = solveS onNewStep onFail onBacktractEnd
 
 -- | The main function of the Prolog solver.
 --
--- It takes three functions as arguments:
+--
+-- The first argument, @quickQuit@, is a flag that indicates whether the solver
+-- should quit immediately after finding the first solution.
+--
+-- It then takes three functions as arguments:
 -- 1. @onNewStep@ is called when a new step is taken. It takes the current
 -- @PQuery@ as an argument.
 -- 2. @onFail@ is called whenever the unification fails.
@@ -118,7 +122,7 @@ solveIO = solveS onNewStep onFail onBacktractEnd
 -- in the @PQuery@ is mapped to a term. If the pure value is empty, then there
 -- is no solution.
 solveS :: Monad m
-       => (SolvePQuery -> StateT PState m a) -> StateT PState m b
+       => Bool -> (SolvePQuery -> StateT PState m a) -> StateT PState m b
        -> (SolvePQuery -> StateT PState m a) -> Program -> PQuery
        -> m [Solution]
 -- "worker" is the main function of the solver. It takes the current
@@ -128,9 +132,9 @@ solveS :: Monad m
 -- Once we have the solutions in the form of series of substitutions, we apply
 -- them to the variables in the query to get the monolithic substitutions, which
 -- describe the solutions.
-solveS onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
+solveS quickQuit onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
   = fmap (map (optimiseSub . findVarSub))
-         (evalStateT (worker M.empty query') $ newPState cs')
+         (evalStateT (worker quickQuit M.empty query') $ newPState cs')
   where
     cs'                 = renameClause (Nothing ,) <$> cs -- tagged clauses
     PQuery vars' query' = renamePQuery (Nothing ,) pquery -- tagged query
@@ -158,34 +162,45 @@ solveS onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
         reducer _ cur                       = cur
 
     -- Base case: if the current query is empty, we have found a solution.
-    worker sub []         = do
+    worker _ sub []          = do
       void $ onNewStep (PQuery vars' [])
       pIsBT .= True
       pStep += 1
       pure [[sub]]
     -- Take the first atom in the query, and try to unify it with each clause.
-    worker sub q@(t : ts) = do
+    worker qq sub q@(t : ts) = do
       allRules <- use pRules
       let rules = fromMaybe [] $ allRules M.!? Just (t ^. atomPredicate)
-      result   <- fmap concat . forM rules $ \(mH :?<- b) -> case mH of
-        Nothing -> pure [] -- Ignore constraints (for now)
-        Just h  -> do      -- Try to unify with the head "h"
+      result   <- fmap concat . forMBreak rules $ \(mH :?<- b) -> case mH of
+        Nothing -> pure $ Just [] -- Ignore constraints (for now)
+        Just h  -> do             -- Try to unify with the head "h"
           (step, isBT) <- liftM2 (,) (use pStep) (use pIsBT)
           when isBT $ onBacktrackEnd (PQuery vars' q) >> pIsBT .= False
-          -- A rename function that tags the variable with the current step
-          -- count, so that it is guaranteed to be unique.
-          let rename = renameAtom (first (const $ Just step))
-          case unifyAtom t (rename h) of
-            Nothing   -> pure [] -- Unification failed
-            Just sub' -> do      -- Unification succeeded
-              onNewStep (PQuery vars' q) >> pStep += 1
-              -- Add the body of the clause to the query, substituting the
-              -- variables using the substitution we just found.
-              let nextQuery = map (substituteAtom sub') (map rename b ++ ts)
-              -- Recursively solve the new query.
-              rest <- worker sub' nextQuery
-              pure $ (sub :) <$> rest
+          if isBT && qq
+            then pure Nothing
+            else do
+              -- A rename function that tags the variable with the current step
+              -- count, so that it is guaranteed to be unique.
+              let rename = renameAtom (first (const $ Just step))
+              case unifyAtom t (rename h) of
+                Nothing   -> pure $ Just [] -- Unification failed
+                Just sub' -> do             -- Unification succeeded
+                  onNewStep (PQuery vars' q) >> pStep += 1
+                  -- Add the body of the clause to the query, substituting the
+                  -- variables using the substitution we just found.
+                  let nextQuery = map (substituteAtom sub') (map rename b ++ ts)
+                  -- Recursively solve the new query.
+                  rest <- worker False sub' nextQuery
+                  pure . Just $ (sub :) <$> rest
       -- If "result" is empty, it means we didn't find any solution in the
       -- current branch. Backtracking happens automatically via recursion.
       when (null result) $ onFail >> pStep += 1 >> pIsBT .= True
       pure result
+
+forMBreak :: Monad m => [a] -> (a -> m (Maybe b)) -> m [b]
+forMBreak [] _ = pure []
+forMBreak (x : xs) f = do
+  r <- f x
+  case r of
+    Nothing -> pure []
+    Just y  -> (y :) <$> forMBreak xs f
