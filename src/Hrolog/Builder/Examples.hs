@@ -120,3 +120,25 @@ simpleNegation = program do
   "a" <-| atom_ "!b" []
   "a" <-| atom_ "!c" []
   fact_ "b"
+
+-- | Define "src/Test/programs/list.hrolog" using the DSL.
+list :: Program
+list = program do
+  fact_ $ atom_ "head" ["X", cons_ ["X", "XS"]]
+  fact_ $ atom_ "tail" ["XS", cons_ ["X", "XS"]]
+  fact_ $ atom_ "null" [nil]
+  atom_ "concat" ["YS", "YS"] <-| atom_ "concat" ["XS", "YS", "ZS"]
+  atom_ "concat" [cons_ ["X", "XS"], "YS", cons_ ["X", "ZS"]]
+    <-| atom_ "concat" ["XS", "YS", "ZS"]
+  fact_ $ atom_ "reverse" [nil, nil]
+  atom_ "reverse" [cons_ ["X", "XS"], "YS"]
+    <-| do
+      atom_ "reverse" ["XS", "ZS"]
+      atom_ "concat" ["ZS", cons_ ["X", nil], "YS"]
+  fact_ $ atom_ "length" [nil, "0"]
+  atom_ "length" [cons_ ["X", "XS"], s_ "N"]
+    <-| atom_ "length" ["XS", "N"]
+  where
+    nil   = "nil"
+    cons_ = func_ "cons"
+    s_    = func_ "s"
