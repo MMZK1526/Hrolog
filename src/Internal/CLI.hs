@@ -16,6 +16,7 @@ import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.State
 import           Data.Char
 import           Data.Maybe
+import           Data.List
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -50,7 +51,7 @@ runCLI = do
     Left err -> errHandler err Nothing
     Right _  -> pure ()
   where
-    cmds                 = [":load", ":reload", ":help", ":quit", "<-"]
+    cmds                 = [":load", ":reload", ":help", ":quit", "set", "<-"]
     settings             = (defaultSettings @IO) { complete = completer }
     trimStart            = dropWhile isSpace
     prefixSplit "" ys    = Just ys
@@ -123,6 +124,7 @@ feedbackloop callback = forever $ do
           InputTypePQuery q    -> handlePQuery q
           InputTypeHelp        -> handleHelp
           InputTypeQuit        -> handleQuit
+          InputTypeSetting s   -> handleSetting s
     lift $ cliErr .= Nothing -- Reset the error state
 
 
@@ -137,6 +139,7 @@ inputP = P.choice [ Just . InputTypeFilePath <$> inputFilePath
                   , Just InputTypeReload <$ inputReload
                   , Just InputTypeQuit <$ inputQuit
                   , Just InputTypeHelp <$ inputHelp
+                  , Just . InputTypeSetting <$> inputSetting
                   , fmap InputTypePQuery <$> pQuery' True ]
 
 -- | Parse a file path.
@@ -158,6 +161,23 @@ inputHelp = void $ P.try (string ":h") P.<|> string ":help"
 inputQuit :: Monad m => ParserT m ()
 inputQuit = void $ P.try (string ":q") P.<|> string ":quit"
 {-# INLINE inputQuit #-}
+
+-- | Parse a setting command.
+inputSetting :: Monad m => ParserT m QSetting
+inputSetting = do
+  void $ P.try (string ":s") P.<|> string ":set"
+  (ops, settings) <- runStateT (P.many setups) emptyQSetting
+  when (null ops) $ fail "Please provide at least one setting option."
+  unless (ops == nub ops) $
+    fail "Please do not provide duplicate setting options."
+  pure settings
+  where
+    setups = do
+      isSet  <- lift $ (True <$ P.char '+') P.<|> (False <$ P.char '-')
+      option <- lift $ string "oneAnswer"
+      oneAnswer .= Just isSet
+      pure option
+{-# INLINE inputSetting #-}
 
 -- | Parse spaces.
 space :: Monad m => ParserT m ()
@@ -243,6 +263,18 @@ handleReload = do
     -- If the file path is stored, reload the program from the file.
     Just fp -> handleLoad fp
 
+-- | Handle settings.
+handleSetting :: MonadIO m => QSetting -> InputT (StateT CLIState m) ()
+handleSetting settings = do
+  case settings ^. oneAnswer of
+    Nothing -> pure ()
+    Just b  -> do
+      lift $ cliOneAnswer .= b
+      liftIO . putStrLn $ concat ["Setting 'oneAnswer' to ", show b, "."]
+      liftIO . putStrLn $ if b
+        then "At most one answer will be returned for each query."
+        else "All answers will be returned for each query."
+
 -- | Handle parsing and solving with a query.
 handlePQuery :: MonadIO m => MonadMask m
              => PQuery -> InputT (StateT CLIState m) ()
@@ -268,10 +300,15 @@ handlePQuery q = do
               Just input -> case parse space (string ";") input of
                 Right _ -> handleSolutions sols
                 Left _  -> lift $ cliInput ?= input
-            
-      case solve prog q of
-        []   -> liftIO $ putStrLn "No solution."
-        sols -> handleSolutions sols
+      getOneAnswer <- lift $ use cliOneAnswer
+      if not getOneAnswer
+        then case solve prog q of
+          []   -> liftIO $ putStrLn "No solution."
+          sols -> handleSolutions sols
+        else liftIO $ case solveOne prog q of
+          Nothing  -> putStrLn "No solution."
+          Just sol -> T.putStrLn $ T.concat
+            ["\nSolution:\n", prettifySolution sol, "\n"]
 
 -- | Handle printing out the help message.
 handleHelp :: MonadIO m => InputT (StateT CLIState m) ()

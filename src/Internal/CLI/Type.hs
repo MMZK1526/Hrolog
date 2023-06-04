@@ -33,7 +33,19 @@ data InputType = InputTypeFilePath FilePath -- ^ Load a program from a file
                | InputTypeReload -- ^ Reload the program
                | InputTypeHelp -- ^ Print out the help message
                | InputTypeQuit -- ^ Quit the program
+               | InputTypeSetting QSetting -- ^ Change the settings
   deriving (Eq, Show)
+
+-- | The settings of the CLI.
+newtype QSetting = Setting
+  { _oneAnswer :: Maybe Bool -- ^ Whether to stop on finding the first answer
+  }
+  deriving (Eq, Show)
+makeLenses ''QSetting
+
+emptyQSetting :: QSetting
+emptyQSetting = Setting Nothing
+{-# INLINE emptyQSetting #-}
 
 -- | The state of the CLI.
 data CLIState = CLIState { _cliFilePath  :: Maybe FilePath
@@ -41,7 +53,8 @@ data CLIState = CLIState { _cliFilePath  :: Maybe FilePath
                          , _cliPQuery    :: Maybe PQuery
                          , _cliInput     :: Maybe Text
                          , _cliErr       :: Maybe (TaggedError CLIError)
-                         , _cliIteration :: Int }
+                         , _cliIteration :: Int
+                         , _cliOneAnswer :: Bool }
 makeLenses ''CLIState
 
 instance PP () CLIState where
@@ -63,7 +76,7 @@ instance PP () CLIState where
 
 -- | The initial state of the CLI.
 initCLIState :: CLIState
-initCLIState = CLIState Nothing Nothing Nothing Nothing Nothing 0
+initCLIState = CLIState Nothing Nothing Nothing Nothing Nothing 0 False
 
 instance FromSomeError CLIError where
   fromSomeError :: SomeException -> Maybe CLIError
