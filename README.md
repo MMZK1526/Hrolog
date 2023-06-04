@@ -91,6 +91,7 @@ The syntax of Hrolog is similar to that of Prolog, but with several variations a
 5. Hrolog does not allow the usage of undeclared predicates and functions. Constants can be used without declaration.
 6. Hrolog's inline comments start with `#` (compare to `%` in Prolog) and end with the end of the line. Hrolog does not have block comments.
 7. Hrolog does not have built-in operators, lists, and tuples. However, they can be defined in a prefix manner. See [here](/src/Test/programs/peanoNumbers.hrolog) for an example of addition and subtraction.
+8. Due to the lack of operators in Hrolog, digital constants does not have special meanings. They are treated as normal constants. For example, `0` is a constant, not a number.
 
 A Hrolog program consists of **clauses**, which consists of at most one **head** and zero or more **bodies**. Each of the heads and bodies is a **term**. There are three types.
 1. **Fact**: a fact is a clause with one head and no body. Its syntax is `<term> .` For example, `a.` is a fact. The semantics is that `a` is true.
