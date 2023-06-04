@@ -25,7 +25,7 @@ main = runTestTTAndExit
                 , simpleNumberTestAll
                 , aGTaIsFalse
                 , arithmeticTest
-                 ]
+                , listTest ]
 
 -- | Can pick up facts.
 canPickUpFacts :: Test
@@ -133,6 +133,24 @@ arithmeticTest = TestLabel "Arithmetic test" . TestList $
     zero   = Constant "0"
     sukk x = F (Function "s" 1) [x]
     nats   = iterate sukk zero
+
+-- | List test.
+listTest :: Test
+listTest = TestLabel "List test" . TestList $
+  [ TestLabel "List reverse" $ TestList reverseTests ]
+  where
+    reverseTest xs xs'
+      = assertSolutionFromFile "./src/Test/programs/list.hrolog"
+                               (mkPQuery [mkAtom "reverse" [xs, "Y"]])
+                               (Just . Solution $ M.fromList [("Y", xs')])
+    reverseTests = do
+      x <- [0..5 :: Int]
+      let xs  = makeList [0..x]
+      let xs' = makeList (reverse [0..x])
+      pure . TestLabel (concat ["reverse ", show xs, " = ", show xs'])
+           . TestCase $ reverseTest xs xs'
+
+    makeList = foldr (\x xs -> F (Function "cons" 2) [Constant (T.pack $ show x), xs]) "nil"
 
 
 --------------------------------------------------------------------------------
