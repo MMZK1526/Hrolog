@@ -1,13 +1,14 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
 -- | This modules contains the main function of the program. The main function
 -- in @Main.hs@ simply reexports the @runCLI@ function here.
 module Internal.CLI where
 
-import           Control.Exception (AsyncException(UserInterrupt))
+import           Control.Exception (AsyncException(UserInterrupt), IOException)
 import           Control.Lens
 import           Control.Monad
 import           Control.Monad.Catch
@@ -36,6 +37,18 @@ import           Utility.Exception
 import           Utility.Parser
 import           Utility.PP
 
+-- | Create a file to store the history of the CLI.
+initialiseAppData :: IO (Maybe FilePath)
+initialiseAppData = handler $ do
+  appDir <- getAppUserDataDirectory "hrolog"
+  createDirectoryIfMissing True appDir
+  let hisFile = appDir ++ "/.history"
+  exists <- doesFileExist hisFile
+  unless exists $ writeFile hisFile ""
+  pure $ Just hisFile
+  where
+    handler = handle $ \(_ :: IOException) -> pure Nothing
+
 -- | The main function of the program. It runs the CLI feedback loop, handling
 -- any errors that may propagate to this stage.
 runCLI :: IO ()
@@ -44,6 +57,9 @@ runCLI :: IO ()
 -- For serious and fatal errors, they will be wrapped in an "ExceptT". We read
 -- it from "result" and handle it using "errHandler".
 runCLI = do
+  historyPath <- initialiseAppData
+  let settings = (defaultSettings @IO) { complete = completer
+                                       , historyFile = historyPath }
   result <- runExceptT . void $ do
     liftIO $ putStrLn "Welcome to Hrolog!"
     evalStateT (runInputT settings $ feedbackloop (const $ pure ()))
@@ -53,7 +69,6 @@ runCLI = do
     Right _  -> pure ()
   where
     cmds                 = [":load", ":reload", ":help", ":quit", "set", "<-"]
-    settings             = (defaultSettings @IO) { complete = completer }
     trimStart            = dropWhile isSpace
     prefixSplit "" ys    = Just ys
     prefixSplit _ ""     = Nothing
