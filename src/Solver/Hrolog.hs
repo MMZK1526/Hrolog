@@ -6,7 +6,6 @@
 {-# LANGUAGE TupleSections #-}
 
 module Solver.Hrolog (
-  prettifySolution,
   solve,
   solveOne,
   solveIO,
@@ -108,12 +107,11 @@ solveIO = solveS False onNewStep onFail onBacktractEnd
     onFail      = do
       steps <- use pStep
       lift $ T.putStrLn (T.concat ["Step ", pShow steps, ":"])
-      lift $ T.putStrLn "Unification failed.\n"
+      lift $ T.putStrLn "Unification failed with all rules.\n"
     onBacktractEnd q = lift . T.putStrLn 
       $ T.concat["Backtracked to the query ", pShow (untagged q), "\n"]
 
 -- | The main function of the Prolog solver.
---
 --
 -- The first argument, @quickQuit@, is a flag that indicates whether the solver
 -- should quit immediately after finding the first solution.
@@ -204,16 +202,18 @@ solveS quickQuit onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
               case unifyAtom a (rename h) of
                 Nothing   -> pure $ Just [] -- Unification failed
                 Just sub' -> do             -- Unification succeeded
-                  onNewStep (PQuery vars' q) >> pStep += 1
                   -- Add the body of the clause to the query, substituting the
                   -- variables using the substitution we just found.
                   let nextQuery = map (substituteAtom sub') (map rename b ++ as)
+                  onNewStep (PQuery vars' nextQuery) >> pStep += 1
                   -- Recursively solve the new query.
                   rest <- worker False sub' nextQuery
                   pure . Just $ (sub :) <$> rest
       -- If "result" is empty, it means we didn't find any solution in the
       -- current branch. Backtracking happens automatically via recursion.
-      when (null result) $ onFail >> pStep += 1 >> pIsBT .= BacktrackOnFailure
+      isBT <- use pIsBT
+      when (null result && isBT /= BacktrackOnFailure) $
+        onFail >> pStep += 1 >> pIsBT .= BacktrackOnFailure
       pure result
 
 forMBreak :: Monad m => [a] -> (a -> m (Maybe b)) -> m [b]

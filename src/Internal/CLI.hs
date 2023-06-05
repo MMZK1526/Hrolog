@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -174,8 +175,11 @@ inputSetting = do
   where
     setups = do
       isSet  <- lift $ (True <$ P.char '+') P.<|> (False <$ P.char '-')
-      option <- lift $ string "oneAnswer"
-      oneAnswer .= Just isSet
+      option <- lift $ string "oneAnswer" P.<|> string "showSteps"
+      case option of
+        "showSteps" -> showSteps .= Just isSet
+        "oneAnswer" -> oneAnswer .= Just isSet
+        _           -> error "Impossible"
       pure option
 {-# INLINE inputSetting #-}
 
@@ -274,6 +278,14 @@ handleSetting settings = do
       liftIO . putStrLn $ if b
         then "At most one answer will be returned for each query."
         else "All answers will be returned for each query."
+  case settings ^. showSteps of
+    Nothing -> pure ()
+    Just b  -> do
+      lift $ cliShowSteps .= b
+      liftIO . putStrLn $ concat ["Setting 'showSteps' to ", show b, "."]
+      liftIO . putStrLn $ if b
+        then "Evaluation steps will be shown for each query."
+        else "Evaluation steps will not be shown for each query."
 
 -- | Handle parsing and solving with a query.
 handlePQuery :: MonadIO m => MonadMask m
@@ -300,12 +312,14 @@ handlePQuery q = do
               Just input -> case parse space (string ";") input of
                 Right _ -> handleSolutions sols
                 Left _  -> lift $ cliInput ?= input
+      showingSteps <- lift $ use cliShowSteps
       getOneAnswer <- lift $ use cliOneAnswer
-      if not getOneAnswer
-        then case solve prog q of
+      if
+        | showingSteps     -> liftIO $ solveIO prog q >>= print
+        | not getOneAnswer -> case solve prog q of
           []   -> liftIO $ putStrLn "No solution."
           sols -> handleSolutions sols
-        else liftIO $ case solveOne prog q of
+        | otherwise        -> liftIO $ case solveOne prog q of
           Nothing  -> putStrLn "No solution."
           Just sol -> T.putStrLn $ T.concat
             ["\nSolution:\n", prettifySolution sol, "\n"]
@@ -320,7 +334,7 @@ handleHelp = liftIO $ putStrLn "Command          | Shorthand      | Description\
 \:help            | :h             | Show the help message.\n\
 \:quit            | :q             | Quit the REPL.\n\
 \\n\
-\<setting>: [+|-]<settingName>\n\
+\<setting>: [(+|-) <settingName>]\n\
 \\n\
 \Setting Name | Description\n\
 \------------ | -----------\n\

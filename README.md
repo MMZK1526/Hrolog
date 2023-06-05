@@ -156,7 +156,7 @@ Command            | Shorthand        | Description
 `:quit`            | `:q`             | Quit the REPL.
 `:set <setting>`   | `:s <setting>`   | Set the setting. See below for details.
 
-`<setting>: [+|-]<settingName>`
+`<setting>: [(+|-) <settingName>]+`
 
 Setting Name | Description
 ------------ | -----------
