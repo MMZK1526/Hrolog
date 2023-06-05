@@ -319,6 +319,13 @@ handleHelp = liftIO $ putStrLn "Command          | Shorthand      | Description\
 \<- <query>       | <query>        | Query the program with the query.\n\
 \:help            | :h             | Show the help message.\n\
 \:quit            | :q             | Quit the REPL.\n\
+\\n\
+\<setting>: [+|-]<settingName>\n\
+\\n\
+\Setting Name | Description\n\
+\------------ | -----------\n\
+\oneAnswer    | Only compute one answer for each query. Default is false.\n\
+\\n\
 \For more information, please refer to the README at https://github.com/MMZK1526/Hrolog."
 {-# INLINE handleHelp #-}
 

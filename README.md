@@ -154,3 +154,10 @@ Command            | Shorthand        | Description
 `<- <query>`       | `<query>`        | Query the program with the query.
 `:help`            | `:h`             | Show the help message.
 `:quit`            | `:q`             | Quit the REPL.
+`:set <setting>`   | `:s <setting>`   | Set the setting. See below for details.
+
+`<setting>: [+|-]<settingName>`
+
+Setting Name | Description
+------------ | -----------
+`oneAnswer`  | Only compute one answer for each query. Default is `false`.
