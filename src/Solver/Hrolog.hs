@@ -85,26 +85,31 @@ newPState cs = PState 1 NoBacktrack (foldr' insertRule M.empty cs)
 -- infinitely many.
 solve :: Program -> PQuery -> [Solution]
 solve p q = runIdentity
-          $ solveS False (const $ pure ()) (pure ()) (const $ pure ()) p q
+          $ solveS False (\_ _ -> pure ()) (pure ()) (const $ pure ()) p q
 
 -- | Given the @Program@ and the Prolog query, return the first solution.
 solveOne :: Program -> PQuery -> Maybe Solution
 solveOne p q = listToMaybe . runIdentity
-             $ solveS True (const $ pure ()) (pure ()) (const $ pure ()) p q
+             $ solveS True (\_ _ -> pure ()) (pure ()) (const $ pure ()) p q
 
 -- | Similar to @solve@, but prints out each step.
 solveIO :: Program -> PQuery -> IO [Solution]
 solveIO = solveS False onNewStep onFail onBacktractEnd
   where
-    untagged    = renamePQuery untag
-    onNewStep q = do
+    untagged       = renamePQuery untag
+    onNewStep mR q = do
       steps <- use pStep
       lift $ putStrLn (concat ["Step ", show steps, ":"])
+      lift $ case mR of
+        Nothing -> pure ()
+        Just r  -> T.putStrLn $ T.concat [ "Unified with the rule "
+                                         , pShow (renameClause untag r)
+                                         , "\n" ]
       lift $ case _pqAtoms q of
         [] -> T.putStrLn "Unification succeeded.\n"
         _  -> T.putStrLn
             $ T.concat ["Current query: ", pShow (untagged q), "\n"]
-    onFail      = do
+    onFail         = do
       steps <- use pStep
       lift $ T.putStrLn (T.concat ["Step ", pShow steps, ":"])
       lift $ T.putStrLn "Unification failed with all rules.\n"
@@ -118,10 +123,10 @@ solveIO = solveS False onNewStep onFail onBacktractEnd
 --
 -- It then takes three functions as arguments:
 -- 1. @onNewStep@ is called when a new step is taken. It takes the current
--- @PQuery@ as an argument.
+--    matching rule and the current @PQuery@ as arguments.
 -- 2. @onFail@ is called whenever the unification fails.
 -- 3. @onBacktrackEnd@ is called when backtracking ends. It takes the current
--- @PQuery@ as an argument.
+--    @PQuery@ as an argument.
 --
 -- The fourth argument is the @Program@, and the fifth argument is the original
 -- query.
@@ -130,7 +135,9 @@ solveIO = solveS False onNewStep onFail onBacktractEnd
 -- in the @PQuery@ is mapped to a term. If the pure value is empty, then there
 -- is no solution.
 solveS :: Monad m
-       => Bool -> (SolvePQuery -> StateT PState m ()) -> StateT PState m b
+       => Bool
+       -> (Maybe SolveClause -> SolvePQuery -> StateT PState m ())
+       -> StateT PState m b
        -> (SolvePQuery -> StateT PState m ()) -> Program -> PQuery
        -> m [Solution]
 -- "worker" is the main function of the solver. It takes the current
@@ -171,7 +178,7 @@ solveS quickQuit onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
 
     -- Base case: if the current query is empty, we have found a solution.
     worker _ sub []                       = do
-      void $ onNewStep (PQuery vars' [])
+      void $ onNewStep Nothing (PQuery vars' [])
       pIsBT .= BacktrackOnSuccess
       pStep += 1
       pure [[sub]]
@@ -186,7 +193,7 @@ solveS quickQuit onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
     worker qq sub q@(a : as)              = do
       allRules <- use pRules
       let rules = fromMaybe [] $ allRules M.!? Just (a ^. atomPredicate)
-      result   <- fmap concat . forMBreak rules $ \(mH :?<- b) -> case mH of
+      result   <- fmap concat . forMBreak rules $ \r@(mH :?<- b) -> case mH of
         Nothing -> pure $ Just [] -- Ignore constraints (for now)
         Just h  -> do             -- Try to unify with the head "h"
           (step, isBT) <- liftM2 (,) (use pStep) (use pIsBT)
@@ -205,7 +212,7 @@ solveS quickQuit onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
                   -- Add the body of the clause to the query, substituting the
                   -- variables using the substitution we just found.
                   let nextQuery = map (substituteAtom sub') (map rename b ++ as)
-                  onNewStep (PQuery vars' nextQuery) >> pStep += 1
+                  onNewStep (Just r) (PQuery vars' nextQuery) >> pStep += 1
                   -- Recursively solve the new query.
                   rest <- worker False sub' nextQuery
                   pure . Just $ (sub :) <$> rest

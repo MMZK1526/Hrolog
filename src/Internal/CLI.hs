@@ -315,7 +315,13 @@ handlePQuery q = do
       showingSteps <- lift $ use cliShowSteps
       getOneAnswer <- lift $ use cliOneAnswer
       if
-        | showingSteps     -> liftIO $ solveIO prog q >>= print
+        | showingSteps     -> do
+          sols <- liftIO $ solveIO prog q
+          case sols of
+            [] -> liftIO $ putStrLn "No solution."
+            _  -> liftIO $ do
+              T.putStrLn "Solution(s): "
+              T.putStrLn . T.concat $ prettifySolution <$> sols
         | not getOneAnswer -> case solve prog q of
           []   -> liftIO $ putStrLn "No solution."
           sols -> handleSolutions sols
