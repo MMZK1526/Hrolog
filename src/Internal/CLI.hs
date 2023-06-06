@@ -18,7 +18,6 @@ import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.State
 import           Data.Char
 import           Data.Maybe
-import           Data.List
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -184,18 +183,27 @@ inputSetting = do
   void $ P.try (string ":s") P.<|> string ":set"
   (ops, settings) <- runStateT (P.many setups) emptyQSetting
   when (null ops) $ fail "Please provide at least one setting option."
-  unless (ops == nub ops) $
-    fail "Please do not provide duplicate setting options."
+  case getDupOft ops of -- Check for duplicate options
+    Nothing  -> pure ()
+    Just oft -> P.region (P.setErrorOffset oft) $
+      fail "Please do not provide duplicate setting options."
   pure settings
   where
     setups = do
+      oft    <- P.getOffset
       isSet  <- lift $ (True <$ P.char '+') P.<|> (False <$ P.char '-')
       option <- lift $ string "oneAnswer" P.<|> string "showSteps"
       case option of
         "showSteps" -> showSteps .= Just isSet
         "oneAnswer" -> oneAnswer .= Just isSet
         _           -> error "Impossible"
-      pure option
+      pure (oft, option)
+    getDupOft = go []
+      where
+        go _ [] = Nothing
+        go seen ((oft, option) : xs)
+          | option `elem` seen = Just oft
+          | otherwise          = go (option : seen) xs
 {-# INLINE inputSetting #-}
 
 -- | Parse spaces.
