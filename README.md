@@ -84,6 +84,8 @@ Finally, you can quit the REPL with `:q`.
 ## Syntax
 This section covers the syntax of Hrolog's program, query, and REPL.
 
+It only covers the syntax for *deduction*. In the future I will add *abduction* syntax.
+
 ### Program
 
 The syntax of Hrolog is similar to that of Prolog, but with several variations and limitations.
