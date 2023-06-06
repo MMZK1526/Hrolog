@@ -2,7 +2,7 @@
 
 module Main where
 
-import           Internal.CLI
+import           Hrolog.CLI (runCLI)
 
 main :: IO ()
 main = runCLI
