@@ -15,6 +15,7 @@ module Solver.Hrolog (
 import           Control.Lens
 import           Control.Monad
 import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Maybe
 import           Control.Monad.Trans.State
 import           Data.Bifunctor
 import           Data.Foldable
@@ -64,11 +65,12 @@ data PState = PState
   , _pIsBT  :: BacktrackState -- ^ If under backtracking
   -- ^ Rules by the head predicate
   , _pRules :: Map (Maybe Predicate) [SolveClause]
+  , _pEnd   :: Bool           -- ^ If the user terminates the query
   }
 $(makeLenses ''PState)
 
 newPState :: [SolveClause] -> PState
-newPState cs = PState 1 NoBacktrack (foldr' insertRule M.empty cs)
+newPState cs = PState 1 NoBacktrack (foldr' insertRule M.empty cs) False
   where
     insertRule c@(h :?<- _) m = case m M.!? p of
       Nothing  -> M.insert p [c] m
@@ -84,37 +86,39 @@ newPState cs = PState 1 NoBacktrack (foldr' insertRule M.empty cs)
 -- so it is always possible to get the first few solutions even if there are
 -- infinitely many.
 solve :: Program -> PQuery -> [Solution]
-solve p q = runIdentity
-          $ solveS False (\_ _ -> pure ()) (pure ()) (const $ pure ()) p q
+solve p = runIdentity
+        . solveS False (\_ _ -> pure True) (pure ()) (const $ pure ()) p
 
 -- | Given the @Program@ and the Prolog query, return the first solution.
 solveOne :: Program -> PQuery -> Maybe Solution
-solveOne p q = listToMaybe . runIdentity
-             $ solveS True (\_ _ -> pure ()) (pure ()) (const $ pure ()) p q
+solveOne p = listToMaybe . runIdentity
+           . solveS True (\_ _ -> pure True) (pure ()) (const $ pure ()) p
 
--- | Similar to @solve@, but prints out each step.
-solveIO :: Program -> PQuery -> IO [Solution]
-solveIO = solveS False onNewStep onFail onBacktractEnd
+-- | Similar to @solve@, but prints out each step. It takes an additional
+-- action which indicates if the solver should continue.
+solveIO :: IO Bool -> Program -> PQuery -> IO [Solution]
+solveIO cont = solveS False onNewStep onFail onBacktractEnd
   where
-    untagged       = renamePQuery untag
-    onNewStep mR q = do
+    untagged             = renamePQuery untag
+    onNewStep Nothing _  = pure True
+    onNewStep (Just r) q = do
       steps <- use pStep
       lift $ putStrLn (concat ["Step ", show steps, ":"])
-      lift $ case mR of
-        Nothing -> pure ()
-        Just r  -> T.putStrLn $ T.concat [ "Unified with the rule "
-                                         , pShow (renameClause untag r)
-                                         , "\n" ]
+      lift $ T.putStrLn $ T.concat [ "Unified with the rule "
+                                   , pShow (renameClause untag r)
+                                   , "\n" ]
       lift $ case _pqAtoms q of
         [] -> T.putStrLn "Unification succeeded.\n"
         _  -> T.putStrLn
             $ T.concat ["Current query: ", pShow (untagged q), "\n"]
-    onFail         = do
+      lift cont
+    onFail               = do
       steps <- use pStep
       lift $ T.putStrLn (T.concat ["Step ", pShow steps, ":"])
       lift $ T.putStrLn "Unification failed with all rules.\n"
-    onBacktractEnd q = lift . T.putStrLn 
-      $ T.concat["Backtracked to the query ", pShow (untagged q), "\n"]
+    onBacktractEnd q = do
+      lift . T.putStrLn $ T.concat [ "Backtracked to the query "
+                                   , pShow (untagged q), "\n" ]
 
 -- | The main function of the Prolog solver.
 --
@@ -123,7 +127,8 @@ solveIO = solveS False onNewStep onFail onBacktractEnd
 --
 -- It then takes three functions as arguments:
 -- 1. @onNewStep@ is called when a new step is taken. It takes the current
---    matching rule and the current @PQuery@ as arguments.
+--    matching rule and the current @PQuery@ as arguments. It returns a @Bool@,
+--    which indicates whether the solver should continue.
 -- 2. @onFail@ is called whenever the unification fails.
 -- 3. @onBacktrackEnd@ is called when backtracking ends. It takes the current
 --    @PQuery@ as an argument.
@@ -136,8 +141,8 @@ solveIO = solveS False onNewStep onFail onBacktractEnd
 -- is no solution.
 solveS :: Monad m
        => Bool
-       -> (Maybe SolveClause -> SolvePQuery -> StateT PState m ())
-       -> StateT PState m b
+       -> (Maybe SolveClause -> SolvePQuery -> StateT PState m Bool)
+       -> StateT PState m ()
        -> (SolvePQuery -> StateT PState m ()) -> Program -> PQuery
        -> m [Solution]
 -- "worker" is the main function of the solver. It takes the current
@@ -194,39 +199,43 @@ solveS quickQuit onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
       allRules <- use pRules
       let rules = fromMaybe [] $ allRules M.!? Just (a ^. atomPredicate)
       result   <- fmap concat . forMBreak rules $ \r@(mH :?<- b) -> case mH of
-        Nothing -> pure $ Just [] -- Ignore constraints (for now)
-        Just h  -> do             -- Try to unify with the head "h"
+        Nothing -> pure [] -- Ignore constraints (for now)
+        Just h  -> do      -- Try to unify with the head "h"
           (step, isBT) <- liftM2 (,) (use pStep) (use pIsBT)
           when (isBT /= NoBacktrack) $ do
-            onBacktrackEnd (PQuery vars' q)
+            lift (onBacktrackEnd (PQuery vars' q))
             pIsBT .= NoBacktrack
-          if isBT == BacktrackOnSuccess && qq
-            then pure Nothing
-            else do
-              -- A rename function that tags the variable with the current step
-              -- count, so that it is guaranteed to be unique.
-              let rename = renameAtom (first (const $ Just step))
-              case unifyAtom a (rename h) of
-                Nothing   -> pure $ Just [] -- Unification failed
-                Just sub' -> do             -- Unification succeeded
-                  -- Add the body of the clause to the query, substituting the
-                  -- variables using the substitution we just found.
-                  let nextQuery = map (substituteAtom sub') (map rename b ++ as)
-                  onNewStep (Just r) (PQuery vars' nextQuery) >> pStep += 1
-                  -- Recursively solve the new query.
-                  rest <- worker False sub' nextQuery
-                  pure . Just $ (sub :) <$> rest
+          guard (isBT /= BacktrackOnFailure || not qq)
+          -- A rename function that tags the variable with the current step
+          -- count, so that it is guaranteed to be unique.
+          let rename = renameAtom (first (const $ Just step))
+          case unifyAtom a (rename h) of
+            Nothing   -> pure [] -- Unification failed
+            Just sub' -> do      -- Unification succeeded
+              -- Add the body of the clause to the query, substituting the
+              -- variables using the substitution we just found.
+              let nextQuery = map (substituteAtom sub') (map rename b ++ as)
+              end <- use pEnd
+              unless end $ do
+                continue <- lift (onNewStep (Just r) (PQuery vars' nextQuery))
+                pEnd .= not continue
+                guard continue
+              pStep += 1
+              -- Recursively solve the new query.
+              rest <- lift $ worker False sub' nextQuery
+              pure $ (sub :) <$> rest
       -- If "result" is empty, it means we didn't find any solution in the
       -- current branch. Backtracking happens automatically via recursion.
       isBT <- use pIsBT
-      when (null result && isBT /= BacktrackOnFailure) $
+      end <- use pEnd
+      when (not end && null result && isBT /= BacktrackOnFailure) $
         onFail >> pStep += 1 >> pIsBT .= BacktrackOnFailure
       pure result
 
-forMBreak :: Monad m => [a] -> (a -> m (Maybe b)) -> m [b]
+forMBreak :: Monad m => [a] -> (a -> MaybeT m b) -> m [b]
 forMBreak [] _ = pure []
 forMBreak (x : xs) f = do
-  r <- f x
+  r <- runMaybeT $ f x
   case r of
     Nothing -> pure []
     Just y  -> (y :) <$> forMBreak xs f

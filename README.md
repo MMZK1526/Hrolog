@@ -23,8 +23,8 @@
    - [x] Write tests on negation
 11. [ ] Support printing out each step of the derivation
    - [x] Add setting to turn on/off printing
-   - [ ] Better printing format
-   - [ ] Print one answer at a time
+   - [x] Better printing format
+   - [x] Print one step at a time
 
 ## Introduction
 Hrolog is a [logic programming language](https://en.wikipedia.org/wiki/Logic_programming) that highly resembles [Prolog](https://en.wikipedia.org/wiki/Prolog). It will support both SLDNF-deduction and abduction as well as some logic-based learning algorithms. In the future, it may also support a Clingo-like Answer Set Programming semantics.

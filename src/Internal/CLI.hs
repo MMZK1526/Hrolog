@@ -331,7 +331,9 @@ handlePQuery q = do
       getOneAnswer <- lift $ use cliOneAnswer
       if
         | showingSteps     -> do
-          sols <- liftIO $ solveIO prog q
+          liftIO $ T.putStrLn "Press enter to evaluate the next step."
+          liftIO $ T.putStrLn "Press any other key to stop.\n"
+          sols <- liftIO $ solveIO (all isSpace <$> getLine) prog q
           case sols of
             [] -> liftIO $ putStrLn "No solution."
             _  -> liftIO $ do
