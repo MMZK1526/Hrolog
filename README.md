@@ -164,3 +164,4 @@ Command            | Shorthand        | Description
 Setting Name | Description
 ------------ | -----------
 `oneAnswer`  | Only compute one answer for each query. Default is `false`.
+`showSteps`  | Show each step of the evaluation. Default is `false`.

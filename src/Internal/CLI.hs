@@ -370,6 +370,7 @@ handleHelp = liftIO $ putStrLn "Command          | Shorthand      | Description\
 \Setting Name | Description\n\
 \------------ | -----------\n\
 \oneAnswer    | Only compute one answer for each query. Default is false.\n\
+\showSteps    | Show each step of the evaluation. Default is `false`.\n\
 \\n\
 \For more information, please refer to the README at https://github.com/MMZK1526/Hrolog."
 {-# INLINE handleHelp #-}
