@@ -1,27 +1,29 @@
 # Hrolog
 
 ## Checklist
-1. [x] Support function terms and their unification
+* [x] Support function terms and their unification
    - [x] Support function terms and parse them
    - [x] Write tests on function term parsing
    - [x] Implement function unification (without considering recursive usage)
    - [x] Use topological sort to detect recursive usage
    - [x] Write tests on unification with function terms
    - [x] Add example programs with function terms
-2. [x] Refactor `PP` to use `Text` rather than `String` for better performance
-3. [x] Optimise with map instead of list of clauses
-5. [x] More test on the CLI
-6. [x] Make a DSL builder of Hrolog programs
-7. [x] Use Haskeline for better REPL experience
+* [x] Refactor `PP` to use `Text` rather than `String` for better performance
+* [x] Optimise with map instead of list of clauses
+* [x] More test on the CLI
+* [x] Make a DSL builder of Hrolog programs
+* [x] Use Haskeline for better REPL experience
    - [x] Migrate Monad stack to include `InputT`
    - [x] Support auto-completing commands
    - [x] Only auto-complete for file names if the command is `:l`
-8. [ ] Add a timeout to each query. Allow user to set the timeout or quit with `:k`
-9.  [x] Documentation
-10. [x] Support negation
+*  [x] Documentation
+* [x] Support negation
    - [x] Implement negation as failure
    - [x] Write tests on negation
-11. [ ] Support printing out each step of the derivation
+* [x] Support negation
+   - [x] Implement negation as failure
+   - [x] Write tests on negation
+* [ ] Support printing out each step of the derivation
    - [x] Add setting to turn on/off printing
    - [x] Better printing format
    - [x] Print one step at a time
