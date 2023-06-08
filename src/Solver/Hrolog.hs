@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
@@ -22,6 +23,7 @@ import           Data.Foldable
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import           Data.Maybe
+import           Data.Set (Set)
 import qualified Data.Set as S
 import           Data.Text (Text)
 import qualified Data.Text as T
@@ -152,10 +154,12 @@ solveS :: Monad m
 -- Once we have the solutions in the form of series of substitutions, we apply
 -- them to the variables in the query to get the monolithic substitutions, which
 -- describe the solutions.
-solveS quickQuit onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
+solveS quickQuit onNewStep onFail onBacktrackEnd (Program _ vs _ cs) pquery
   = fmap (map (optimiseSub . findVarSub))
          (evalStateT (worker quickQuit M.empty query') $ newPState cs')
   where
+    -- A fresh variable.
+    initFresh           = genInitFresh (S.toList $ vs <> pquery ^. pqVariables)
     cs'                 = renameClause (Nothing ,) <$> cs -- tagged clauses
     PQuery vars' query' = renamePQuery (Nothing ,) pquery -- tagged query
     -- Apply a series of substitutions to a variable.
@@ -172,8 +176,14 @@ solveS quickQuit onNewStep onFail onBacktrackEnd (Program _ _ _ cs) pquery
       where
         -- TODO: If there are still "renamed" variables, create a fresh variable
         -- and substitute it in.
-        optimisedSubs = filter (\(v, term) -> VariableTerm v /= term) $
-          bimap snd (renameTerm snd . substituteTerm validReps) <$> subs
+        untagVarMap   = freshUntag initFresh
+                      $ S.fromList (fst <$> subs)
+                     <> S.unions (getVariables . snd <$> subs)
+        optimisedSubs = filter (\(v, term) -> VariableTerm v /= term)
+                      $ bimap (untagVarMap M.!)
+                              ( renameTerm (untagVarMap M.!)
+                              . substituteTerm validReps )
+                    <$> subs
         validReps     = foldr reducer M.empty subs
 
         reducer (iv@(Nothing, _), term) cur = case term of
@@ -239,3 +249,31 @@ forMBreak (x : xs) f = do
   case r of
     Nothing -> pure []
     Just y  -> (y :) <$> forMBreak xs f
+
+-- | Create one fresh variable from a set of variables.
+--
+-- The result is guaranteed to be different from all the variables in the set,
+-- assuming that all variables are valid, namely made of capital letters.
+genInitFresh :: [Text] -> Text
+genInitFresh vs = T.pack $ go vs'
+  where
+    vs'                    = T.unpack <$> vs
+    splits []              = ([], [])
+    splits ([] : xz)       = splits xz
+    splits ((x : xs) : sz) = let (hs, tz) = splits sz in (x : hs, xs : tz)
+    go xs                  = case splits xs of
+      ([], _)  -> "X"
+      (hs, tz) -> if 'X' `elem` hs
+        then case dropWhile (`elem` hs) ['A'..'Z'] of
+          []      -> 'X' : go tz
+          (x : _) -> [x]
+        else 'X' : go tz
+
+-- | Create fresh variable for each tagged variable.
+freshUntag :: Text -> Set (Maybe Int, Text) -> Map (Maybe Int, Text) Text
+freshUntag initFresh vs
+  = snd . (`execState` (1 :: Int, M.empty)) . forM (toList vs) $ \case
+    (Nothing, v) -> modify (second (M.insert (Nothing, v) v))
+    (Just t, v)  -> do
+      i <- gets fst
+      modify (bimap succ (M.insert (Just t, v) (initFresh <> T.pack (show i))))

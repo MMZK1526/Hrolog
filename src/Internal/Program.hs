@@ -304,9 +304,10 @@ mkPQuery as
       VariableTerm v -> pqVariables %= S.insert v
       F _ ts'        -> worker ts'
 
--- | Retrieve the set of variables from a "FunctionTerm".
-getVariables :: FunctionTerm -> Set Text
-getVariables (FTerm _ ts) = S.unions (worker <$> ts)
+-- | Retrieve the set of variables from a "Term".
+getVariables :: Ord a => Term' a -> Set a
+getVariables (VariableTerm v) = S.singleton v
+getVariables (F _ ts)         = S.unions (worker <$> ts)
   where
     worker (VariableTerm v) = S.singleton v
     worker (F _ as)         = S.unions (worker <$> as)
