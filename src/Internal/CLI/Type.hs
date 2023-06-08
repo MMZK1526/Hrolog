@@ -16,7 +16,7 @@ import           Data.Text (Text)
 import qualified Data.Text as T
 import           System.IO.Error
 
-import           Program
+import           Hrolog.Program
 import           Utility.Exception
 import           Utility.PP
 

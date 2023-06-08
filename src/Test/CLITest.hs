@@ -17,7 +17,7 @@ import           System.Process
 
 import qualified Hrolog.Builder as B
 import qualified Hrolog.Builder.Examples as E
-import           Program
+import           Hrolog.Program
 import           Internal.CLI
 import           Internal.CLI.Type
 import           Utility.Exception

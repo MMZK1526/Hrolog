@@ -7,7 +7,7 @@ module Hrolog.Builder.Examples where
 
 import           Hrolog.Builder
 
-import           Program
+import           Hrolog.Program
 
 -- | Define "src/Test/programs/peanoNumbers.hrolog" using the DSL.
 --

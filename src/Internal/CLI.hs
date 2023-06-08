@@ -27,9 +27,9 @@ import qualified Text.Megaparsec as P
 import qualified Text.Megaparsec.Char as P
 import qualified Text.Megaparsec.Char.Lexer as L
 
+import           Hrolog.Parser
+import           Hrolog.Program
 import           Internal.CLI.Type
-import           Parser
-import           Program
 import           Solver.Hrolog
 import           Text.Read (readMaybe)
 import           Utility.Exception

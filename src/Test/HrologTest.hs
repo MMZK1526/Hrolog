@@ -11,8 +11,8 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           GHC.Stack
 
+import           Hrolog.Parser
 import           Internal.Program
-import           Parser
 import           Solver.Hrolog
 import           Test.HUnit
 import           Test.HUnit.Lang
