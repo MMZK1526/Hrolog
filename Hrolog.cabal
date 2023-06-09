@@ -53,9 +53,10 @@ test-suite cliTest
         haskeline >=0.8,
         lens >=5.2,
         megaparsec >=8,
+        mtl >=2.2,
         process >=1.6,
         text >=1.2,
-        transformers >=0.5,
+        transformers >=0.5
     ghc-options: 
         -O0
 
@@ -73,7 +74,8 @@ test-suite graphTest
         HUnit,
         containers >=0.6,
         lens >=5.2,
-        transformers >=0.5,
+        mtl >=2.2,
+        transformers >=0.5
     ghc-options: 
         -O0
 
@@ -95,9 +97,10 @@ test-suite parseTest
         containers >=0.6,
         lens >=5.2,
         megaparsec >=8,
+        mtl >=2.2,
         random,
         text >=1.2,
-        transformers >=0.5,
+        transformers >=0.5
     ghc-options: 
         -O0
 
@@ -152,8 +155,9 @@ test-suite unifyTest
         haskeline >=0.8,
         exceptions >=0.10,
         lens >=5.2,
+        mtl >=2.2,
         text >=1.2,
-        transformers >=0.5,
+        transformers >=0.5
     ghc-options: 
         -O0
 
@@ -174,8 +178,9 @@ test-suite unionFindTest
         exceptions >=0.10,
         haskeline >=0.8,
         lens >=5.2,
+        mtl >=2.2,
         text >=1.2,
-        transformers >=0.5,
+        transformers >=0.5
     ghc-options: 
         -O0
 
@@ -209,6 +214,7 @@ library
         haskeline >=0.8,
         lens >=5.2,
         megaparsec >=8,
+        mtl >=2.2,
         text >=1.2,
         transformers >=0.5
     hs-source-dirs:   src
@@ -246,6 +252,7 @@ executable Hrolog
         haskeline >=0.8,
         lens >=5.2,
         megaparsec >=8,
+        mtl >=2.2,
         text >=1.2,
         transformers >=0.5
     hs-source-dirs:   src
