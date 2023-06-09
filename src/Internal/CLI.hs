@@ -7,7 +7,7 @@
 -- | This modules contains the main function of the program. The main function
 -- in @Main.hs@ simply reexports the @runCLI@ function here.
 module Internal.CLI where
-
+import Debug.Trace
 import           Control.Exception (AsyncException(UserInterrupt), IOException)
 import           Control.Lens
 import           Control.Monad
@@ -33,6 +33,7 @@ import           Internal.CLI.Type
 import           Solver.Hrolog
 import           Text.Read (readMaybe)
 import           Utility.Exception
+import           Utility.ParseCompleter
 import           Utility.Parser
 import           Utility.PP
 
@@ -76,10 +77,8 @@ runCLI = do
       | otherwise = Nothing
     completer            = completeCmd `fallbackCompletion` completeFile
     completeCmd (l, [])  = do
-      let completers = (`concatMap` cmds)
-                     $ \w -> case prefixSplit (trimStart $ reverse l) w of
-            Nothing -> []
-            Just ys -> [Completion (ys ++ " ") w False]
+      let foo        = execPC (choice $ expect <$> cmds) (trimStart $ reverse l)
+      let completers = map (\(x, y) -> Completion x y True) foo
       pure (l, completers)
     completeCmd x        = noCompletion x
     completeFile (l, []) = case listToMaybe . words $ reverse l of

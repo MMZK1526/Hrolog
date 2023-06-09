@@ -203,6 +203,7 @@ library
         Utility.Exception,
         Utility.Graph,
         Utility.PP,
+        Utility.ParseCompleter,
         Utility.Unifiers,
         Utility.UnionFind
     build-depends:
@@ -240,6 +241,7 @@ executable Hrolog
         Utility.Exception,
         Utility.Graph,
         Utility.PP,
+        Utility.ParseCompleter,
         Utility.Parser,
         Utility.Unifiers,
         Utility.UnionFind
