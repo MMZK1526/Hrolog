@@ -4,9 +4,10 @@
 
 module Utility.ParseCompleter where
 
-import           Control.Applicative
+import           Control.Applicative (Alternative(..))
 import           Control.Monad.State
 import           Control.Monad.Writer
+import           Data.Foldable (asum)
 import           Data.Maybe
 
 newtype PC a = PC (WriterT [(String, String)] (StateT String Maybe) a)
