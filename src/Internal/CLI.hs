@@ -67,7 +67,7 @@ runCLI = do
     Left err -> errHandler err Nothing
     Right _  -> pure ()
   where
-    cmds                 = [":load", ":reload", ":help", ":quit", "set", "<-"]
+    cmds                 = [":load", ":reload", ":help", ":quit", ":set", "<-"]
     trimStart            = dropWhile isSpace
     prefixSplit "" ys    = Just ys
     prefixSplit _ ""     = Nothing
