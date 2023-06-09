@@ -13,9 +13,8 @@ import           Control.Lens
 import           Control.Monad
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Class
+import           Control.Monad.State
 import           Control.Monad.Trans.Except
-import           Control.Monad.Trans.State
 import           Data.Char
 import           Data.Maybe
 import           Data.Text (Text)
@@ -68,13 +67,22 @@ runCLI = do
     Left err -> errHandler err Nothing
     Right _  -> pure ()
   where
-    cmds                 = [":load", ":reload", ":help", ":quit", ":set", "<-"]
+    cmds                 = [ ":load"
+                           , ":reload"
+                           , ":help"
+                           , ":quit"
+                           , ":set"
+                           , "<-"
+                           , ":l"
+                           , ":r"
+                           , ":h"
+                           , ":q"
+                           , ":s" ]
     trimStart            = dropWhile isSpace
     completer            = completeCmd `fallbackCompletion` completeFile
     completeCmd (l, [])  = do
       let completers = map (\(x, y) -> Completion x y True)
-                     . (`execPC` trimStart (reverse l)) $ do
-            choice $ expect <$> cmds
+                     $ (`execPC` trimStart (reverse l)) cmdsPC
       pure (l, completers)
     completeCmd x        = noCompletion x
     completeFile (l, []) = case listToMaybe . words $ reverse l of
@@ -82,6 +90,22 @@ runCLI = do
       Just ":load" -> completeFilename (l, [])
       _            -> noCompletion (l, [])
     completeFile x       = noCompletion x
+    cmdsPC               = do
+      choice $ (`map` cmds) $ \cmdStr -> do
+        mCmd <- expect cmdStr
+        notFollowedBy isAlphaNum
+        when (mCmd == Just ":s" || mCmd == Just ":set") setPC
+    setPC                = do
+      let setPC1 = do
+            eatSpace
+            choice $ fmap expect [ "+oneAnswer"
+                                 , "-oneAnswer"
+                                 , "+showSteps"
+                                 , "-showSteps" ]
+      res <- setPC1
+      case res of
+        Nothing -> pure ()
+        Just _  -> setPC
 
 -- | The CLI feedback loop. It takes an input, parses it, and executes the
 -- corresponding instruction, forever.
