@@ -6,7 +6,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 
-module Solver.Hrolog (
+module Hrolog.Solver.Deduction (
   solve,
   solveOne,
   solveIO,

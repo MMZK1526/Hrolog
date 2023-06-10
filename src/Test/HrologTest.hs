@@ -13,7 +13,7 @@ import           GHC.Stack
 
 import           Hrolog.Parser
 import           Internal.Program
-import           Solver.Hrolog
+import           Hrolog.Solver.Deduction
 import           Test.HUnit
 import           Test.HUnit.Lang
 

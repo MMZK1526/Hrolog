@@ -31,7 +31,7 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import           Hrolog.Parser
 import           Hrolog.Program
 import           Internal.CLI.Type
-import           Solver.Hrolog
+import           Hrolog.Solver.Deduction
 import           Text.Read (readMaybe)
 import           Utility.Exception
 import           Utility.ParseCompleter
