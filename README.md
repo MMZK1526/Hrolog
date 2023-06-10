@@ -23,7 +23,7 @@
 * [x] Support negation
    - [x] Implement negation as failure
    - [x] Write tests on negation
-* [ ] Support printing out each step of the derivation
+* [x] Support printing out each step of the derivation
    - [x] Add setting to turn on/off printing
    - [x] Better printing format
    - [x] Print one step at a time
