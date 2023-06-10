@@ -137,7 +137,7 @@ Here `s(X)` means the successor of `X`. Therefore, `s(s(0))` represents the numb
 ### Query
 A **query** is a special type of clause that has no head. It has the same syntax as a constraint, namely `<- <term> [, <term>]* .` except that `<-` can be omitted. For example, `<- a.` is a query. The semantics is that it is asking whether `a` is true.
 
-Let's look at the ancestor example again
+Let's look at the ancestor example again (with some additional rules):
 ```
 father(anakin, luke).
 father(anakin, leia).
@@ -147,11 +147,15 @@ ancestor(X, Y) <- father(X, Y).
 ancestor(X, Y) <- mother(X, Y).
 ancestor(X, Y) <- father(X, Z), ancestor(Z, Y).
 ancestor(X, Y) <- mother(X, Z), ancestor(Z, Y).
+
+notAncestor(X, Y) <- !ancestor(X, Y).
 ```
 
 Here, if we query `<- ancestor(shmi, luke)`, it will return "Valid". If we query `<- ancestor(anakin, X)`. It will return `X = luke` and (on the second search) `X = leia`.
 
 We can also have a query with multiple bodies. For example, `<- ancestor(X, Y), ancestor(Y, luke).` is looking for an ancestor of `luke` as well as an ancestor of ancestor of `luke`. It will return `X = shmi` and `Y = anakin`.
+
+Finally, we can also build queries around the negation operator `!`. For example, `<- notAncestor(anakin, shmi).` will return `Valid`.
 
 ### REPL
 Command            | Shorthand        | Description

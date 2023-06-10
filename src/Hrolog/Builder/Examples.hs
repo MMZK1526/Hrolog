@@ -146,3 +146,19 @@ list = program do
     nil   = "nil"
     cons_ = func_ "cons"
     s_    = func_ "s"
+
+-- | Define "src/Test/programs/ancestor.hrolog" using the DSL.
+ancestor :: Program
+ancestor = program do
+  fact_ $ atom_ "father" ["anakin", "luke"]
+  fact_ $ atom_ "father" ["anakin", "leia"]
+  fact_ $ atom_ "mother" ["shmi", "anakin"]
+  atom_ "ancestor" ["X", "Y"] <-| atom_ "father" ["X", "Y"]
+  atom_ "ancestor" ["X", "Y"] <-| atom_ "mother" ["X", "Y"]
+  atom_ "ancestor" ["X", "Y"] <-| do
+    atom_ "father" ["X", "Z"]
+    atom_ "ancestor" ["Z", "Y"]
+  atom_ "ancestor" ["X", "Y"] <-| do
+    atom_ "mother" ["X", "Z"]
+    atom_ "ancestor" ["Z", "Y"]
+  atom_ "notAncestor" ["X", "Y"] <-| atom_ "!ancestor" ["X", "Y"]

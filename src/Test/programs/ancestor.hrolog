@@ -8,3 +8,5 @@ ancestor(X, Y) <- father(X, Y).
 ancestor(X, Y) <- mother(X, Y).
 ancestor(X, Y) <- father(X, Z), ancestor(Z, Y).
 ancestor(X, Y) <- mother(X, Z), ancestor(Z, Y).
+
+notAncestor(X, Y) <- !ancestor(X, Y).
