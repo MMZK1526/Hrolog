@@ -218,7 +218,6 @@ solveS quickQuit onNewStep onFail onBTEnd onNeg (Program _ vs _ cs) pquery
     worker qq sub ((Atom True p ts) : as) = do
       pIsBT .= NoBacktrack
       subResult <- worker True M.empty [Atom False p ts]
-      -- TODO: Add handler for completing a sub-query for negation.
       case subResult of
         [] -> onNeg False >> worker qq sub as
         _  -> onNeg True >> pIsBT .= BacktrackOnFailure >> pure []
