@@ -5,11 +5,10 @@
 
 module Utility.ParseCompleter where
 
-import           Control.Applicative (Alternative(..))
+import           Control.Applicative
 import           Control.Monad.State
 import           Control.Monad.Trans.Maybe
 import           Control.Monad.Writer
-import           Data.Foldable (asum)
 
 newtype PC a
   = PC { unPC :: StateT String (MaybeT (WriterT [(String, String)] Maybe)) a }
@@ -94,7 +93,7 @@ notFollowedBy p = do
     x : _ -> when (p x) empty
 
 choice :: [PC a] -> PC a
-choice = asum
+choice = msum
 {-# INLINE choice #-}
 
 choiceAll :: [PC a] -> PC a

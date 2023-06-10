@@ -8,6 +8,7 @@
 -- in @Main.hs@ simply reexports the @runCLI@ function here.
 module Internal.CLI where
 
+import           Control.Applicative
 import           Control.Exception (AsyncException(UserInterrupt), IOException)
 import           Control.Lens
 import           Control.Monad
@@ -35,7 +36,6 @@ import           Utility.Exception
 import           Utility.ParseCompleter
 import           Utility.Parser
 import           Utility.PP
-import Control.Applicative
 
 -- | Create a file to store the history of the CLI.
 initialiseAppData :: IO (Maybe FilePath)
