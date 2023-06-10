@@ -1,33 +1,5 @@
 # Hrolog
 
-## Checklist
-* [x] Support function terms and their unification
-   - [x] Support function terms and parse them
-   - [x] Write tests on function term parsing
-   - [x] Implement function unification (without considering recursive usage)
-   - [x] Use topological sort to detect recursive usage
-   - [x] Write tests on unification with function terms
-   - [x] Add example programs with function terms
-* [x] Refactor `PP` to use `Text` rather than `String` for better performance
-* [x] Optimise with map instead of list of clauses
-* [x] More test on the CLI
-* [x] Make a DSL builder of Hrolog programs
-* [x] Use Haskeline for better REPL experience
-   - [x] Migrate Monad stack to include `InputT`
-   - [x] Support auto-completing commands
-   - [x] Only auto-complete for file names if the command is `:l`
-*  [x] Documentation
-* [x] Support negation
-   - [x] Implement negation as failure
-   - [x] Write tests on negation
-* [x] Support negation
-   - [x] Implement negation as failure
-   - [x] Write tests on negation
-* [x] Support printing out each step of the derivation
-   - [x] Add setting to turn on/off printing
-   - [x] Better printing format
-   - [x] Print one step at a time
-
 ## Introduction
 Hrolog is a [logic programming language](https://en.wikipedia.org/wiki/Logic_programming) that highly resembles [Prolog](https://en.wikipedia.org/wiki/Prolog). It will support both SLDNF-deduction and abduction as well as some logic-based learning algorithms. In the future, it may also support a Clingo-like Answer Set Programming semantics.
 
