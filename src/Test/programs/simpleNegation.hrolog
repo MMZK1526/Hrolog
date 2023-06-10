@@ -1,4 +1,4 @@
-# An exampl demostrating the use of negation (!) in Hrolog.
+# An example demostrating the use of negation (!) in Hrolog.
 
 a <- !b.
 a <- !c.
