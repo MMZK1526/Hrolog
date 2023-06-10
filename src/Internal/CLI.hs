@@ -35,6 +35,7 @@ import           Utility.Exception
 import           Utility.ParseCompleter
 import           Utility.Parser
 import           Utility.PP
+import Control.Applicative
 
 -- | Create a file to store the history of the CLI.
 initialiseAppData :: IO (Maybe FilePath)
@@ -91,21 +92,15 @@ runCLI = do
       _            -> noCompletion (l, [])
     completeFile x       = noCompletion x
     cmdsPC               = do
-      choice $ (`map` cmds) $ \cmdStr -> do
+      choiceAll $ (`map` cmds) $ \cmdStr -> do
         mCmd <- expect cmdStr
         notFollowedBy isAlphaNum
-        when (mCmd == Just ":s" || mCmd == Just ":set") setPC
-    setPC                = do
-      let setPC1 = do
-            eatSpace
-            choice $ fmap expect [ "+oneAnswer"
-                                 , "-oneAnswer"
-                                 , "+showSteps"
-                                 , "-showSteps" ]
-      res <- setPC1
-      case res of
-        Nothing -> pure ()
-        Just _  -> setPC
+        when (mCmd `elem` [":s", ":set"]) . void . many $ do
+          eatSpace
+          choiceAll $ fmap expect [ "+oneAnswer"
+                                  , "-oneAnswer"
+                                  , "+showSteps"
+                                  , "-showSteps" ]
 
 -- | The CLI feedback loop. It takes an input, parses it, and executes the
 -- corresponding instruction, forever.
