@@ -117,9 +117,13 @@ simpleNumbers = program do
 -- | Define "src/Test/programs/simpleNegation.hrolog" using the DSL.
 simpleNegation :: Program
 simpleNegation = program do
-  "a" <-| atom_ "!b" []
-  "a" <-| atom_ "!c" []
+  "a" <-| "!b"
+  "a" <-| "!c"
   fact_ "b"
+  "x" <-| ["!y", "w"]
+  "y" <-| "z"
+  fact_ "z"
+  "w" <-| "!c"
 
 -- | Define "src/Test/programs/list.hrolog" using the DSL.
 list :: Program
