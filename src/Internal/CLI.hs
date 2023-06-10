@@ -22,6 +22,7 @@ import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           System.Console.Haskeline
+import           System.Console.Haskeline.History
 import           System.Directory
 import qualified Text.Megaparsec as P
 import qualified Text.Megaparsec.Char as P
@@ -59,7 +60,8 @@ runCLI :: IO ()
 runCLI = do
   historyPath <- initialiseAppData
   let settings = (defaultSettings @IO) { complete = completer
-                                       , historyFile = historyPath }
+                                       , historyFile = historyPath
+                                       , autoAddHistory = False }
   result <- runExceptT . void $ do
     liftIO $ putStrLn "Welcome to Hrolog!"
     evalStateT (runInputT settings $ feedbackloop (const $ pure ()))
@@ -132,7 +134,7 @@ feedbackloop callback = forever $ do
         -- If the input is already stored in the state, we use it.
         Just input -> Just input <$ lift (cliInput .= Nothing)
         -- Otherwise, we prompt the user for input.
-        Nothing    -> getLine'
+        Nothing    -> getLine' True
     -- Parse the input.
     case mInput of
       Nothing    -> handleQuit
@@ -229,14 +231,16 @@ string :: Monad m => Text -> ParserT m Text
 string str = L.lexeme space $ P.string str <* P.notFollowedBy P.alphaNumChar
 
 -- | Repeatedly read input from the user until a non-empty @Text@ is read.
-getLine' :: MonadIO m => MonadMask m => InputT m (Maybe Text)
-getLine' = do
+getLine' :: MonadIO m => MonadMask m => Bool -> InputT m (Maybe Text)
+getLine' saveToHistory = do
   mInput <- fmap T.pack <$> getInputLine "> "
   case mInput of
     Nothing    -> pure Nothing
     Just input -> case parse space (pure ()) input of
-      Left _  -> pure $ Just input
-      Right _ -> getLine'
+      Left _  -> do
+        when saveToHistory $ modifyHistory (addHistory $ T.unpack input)
+        pure $ Just input
+      Right _ -> getLine' saveToHistory
 
 
 --------------------------------------------------------------------------------
@@ -340,7 +344,7 @@ handlePQuery q = do
             liftIO . T.putStrLn $ T.concat
               [ "\nSolution:\n", prettifySolution sol, "\n"
               , "Enter ';' to look for the next solution." ]
-            mInput <- getLine'
+            mInput <- getLine' False
             case mInput of
               Nothing    -> handleQuit
               -- If the user enters a semicolon, print the next solution.
