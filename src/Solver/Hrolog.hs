@@ -231,7 +231,7 @@ solveS quickQuit onNewStep onFail onBTEnd onNeg (Program _ vs _ cs) pquery
           when (isBT /= NoBacktrack) $ do
             lift (onBTEnd (PQuery vars' q))
             pIsBT .= NoBacktrack
-          guard (isBT /= BacktrackOnFailure || not qq)
+          guard (isBT /= BacktrackOnSuccess|| not qq)
           -- A rename function that tags the variable with the current step
           -- count, so that it is guaranteed to be unique.
           let rename = renameAtom (first (const $ Just step))
