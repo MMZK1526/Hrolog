@@ -25,7 +25,8 @@ main = runTestTTAndExit
                 , simpleNumberTestAll
                 , aGTaIsFalse
                 , arithmeticTest
-                , listTest ]
+                , listTest
+                , negTest ]
 
 -- | Can pick up facts.
 canPickUpFacts :: Test
@@ -151,6 +152,22 @@ listTest = TestLabel "List test" . TestList $
            . TestCase $ reverseTest xs xs'
 
     makeList = foldr (\x xs -> F (Function "cons" 2) [Constant (T.pack $ show x), xs]) "nil"
+
+-- | Simple tests on negations
+negTest :: Test
+negTest = TestLabel "Negation test" . TestCase $ do
+  assertSolutionFromFile "./src/Test/programs/simpleNegation.hrolog"
+                         (mkPQuery ["a"])
+                         (Just . Solution $ M.empty)
+  assertSolutionFromFile "./src/Test/programs/simpleNegation.hrolog"
+                         (mkPQuery ["x"])
+                         (Just . Solution $ M.empty)
+  assertSolutionFromFile "./src/Test/programs/simpleNegation.hrolog"
+                         (mkPQuery ["!a"])
+                         Nothing
+  assertSolutionFromFile "./src/Test/programs/simpleNegation.hrolog"
+                         (mkPQuery ["!x"])
+                         Nothing
 
 
 --------------------------------------------------------------------------------
