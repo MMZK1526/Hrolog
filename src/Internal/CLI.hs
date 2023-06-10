@@ -363,7 +363,7 @@ handlePQuery q = do
           case sols of
             [] -> liftIO $ putStrLn "No solution."
             _  -> liftIO $ do
-              T.putStrLn "Solution(s): "
+              T.putStrLn "\nSolution(s): "
               T.putStrLn . T.concat $ prettifySolution <$> sols
         | not getOneAnswer -> case solve prog q of
           []   -> liftIO $ putStrLn "No solution."

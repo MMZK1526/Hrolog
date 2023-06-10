@@ -89,51 +89,68 @@ newPState cs = PState 1 NoBacktrack (foldr' insertRule M.empty cs) False
 -- infinitely many.
 solve :: Program -> PQuery -> [Solution]
 solve p = runIdentity
-        . solveS False (\_ _ -> pure True) (pure ()) (const $ pure ()) p
+        . solveS False (\_ _ -> pure True)
+                       (pure ())
+                       (const $ pure ())
+                       (const $ pure ())
+                       p
 
 -- | Given the @Program@ and the Prolog query, return the first solution.
 solveOne :: Program -> PQuery -> Maybe Solution
 solveOne p = listToMaybe . runIdentity
-           . solveS True (\_ _ -> pure True) (pure ()) (const $ pure ()) p
+           . solveS True (\_ _ -> pure True)
+                         (pure ())
+                         (const $ pure ())
+                         (const $ pure ())
+                         p
 
 -- | Similar to @solve@, but prints out each step. It takes an additional
 -- action which indicates if the solver should continue.
 solveIO :: IO Bool -> Program -> PQuery -> IO [Solution]
-solveIO cont = solveS False onNewStep onFail onBacktractEnd
+solveIO cont = solveS False onNewStep onFail onBTEnd onNeg
   where
     untagged             = renamePQuery untag
     onNewStep Nothing _  = pure True
     onNewStep (Just r) q = do
       steps <- use pStep
       lift $ putStrLn (concat ["Step ", show steps, ":"])
-      lift $ T.putStrLn $ T.concat [ "Unified with the rule "
-                                   , pShow (renameClause untag r)
-                                   , "\n" ]
+      lift $ T.putStrLn $ T.concat [ "  Unified with the rule "
+                                   , pShow (renameClause untag r) ]
       lift $ case _pqAtoms q of
-        [] -> T.putStrLn "Unification succeeded.\n"
-        _  -> T.putStrLn
-            $ T.concat ["Current query: ", pShow (untagged q), "\n"]
+        []      -> T.putStrLn "  Unification succeeded."
+        (a : _) -> do
+          T.putStrLn $ T.concat ["  Current query: ", pShow (untagged q)]
+          let Atom isNeg p ts = a
+          when isNeg . T.putStrLn
+                     $ T.concat [ "  Starting a sub-query on "
+                                , pShow (renameAtom untag $ Atom False p ts)
+                                , "." ]
       lift cont
     onFail               = do
       steps <- use pStep
       lift $ T.putStrLn (T.concat ["Step ", pShow steps, ":"])
-      lift $ T.putStrLn "Unification failed with all rules.\n"
-    onBacktractEnd q = do
-      lift . T.putStrLn $ T.concat [ "Backtracked to the query "
+      lift $ T.putStrLn "  Unification failed with all rules."
+    onBTEnd q            = do
+      lift . T.putStrLn $ T.concat [ "  Backtracked to the query "
                                    , pShow (untagged q), "\n" ]
+    onNeg False          = lift $ T.putStrLn "  Sub-query on negation succeeds."
+    onNeg True           = lift $ T.putStrLn "  Sub-query on negation fails."
 
 -- | The main function of the Prolog solver.
 --
 -- The first argument, @quickQuit@, is a flag that indicates whether the solver
 -- should quit immediately after finding the first solution.
 --
--- It then takes three functions as arguments:
+-- It then takes four functions as arguments:
 -- 1. @onNewStep@ is called when a new step is taken. It takes the current
 --    matching rule and the current @PQuery@ as arguments. It returns a @Bool@,
 --    which indicates whether the solver should continue.
 -- 2. @onFail@ is called whenever the unification fails.
--- 3. @onBacktrackEnd@ is called when backtracking ends. It takes the current
+-- 3. @onBTEnd@ is called when backtracking ends. It takes the current
 --    @PQuery@ as an argument.
+-- 4. @onNeg@ is called when a negation sub-query ends. It takes a @Bool@ as an
+--    argument, which indicates whether the sub-query succeeds. Note that the
+--    original query succeeds if and only if the negation sub-query fail.
 --
 -- The fourth argument is the @Program@, and the fifth argument is the original
 -- query.
@@ -145,7 +162,10 @@ solveS :: Monad m
        => Bool
        -> (Maybe SolveClause -> SolvePQuery -> StateT PState m Bool)
        -> StateT PState m ()
-       -> (SolvePQuery -> StateT PState m ()) -> Program -> PQuery
+       -> (SolvePQuery -> StateT PState m ())
+       -> (Bool -> StateT PState m ())
+       -> Program
+       -> PQuery
        -> m [Solution]
 -- "worker" is the main function of the solver. It takes the current
 -- substitution, the current query, and returns a list of solutions, each is a
@@ -154,7 +174,7 @@ solveS :: Monad m
 -- Once we have the solutions in the form of series of substitutions, we apply
 -- them to the variables in the query to get the monolithic substitutions, which
 -- describe the solutions.
-solveS quickQuit onNewStep onFail onBacktrackEnd (Program _ vs _ cs) pquery
+solveS quickQuit onNewStep onFail onBTEnd onNeg (Program _ vs _ cs) pquery
   = fmap (map (optimiseSub . findVarSub))
          (evalStateT (worker quickQuit M.empty query') $ newPState cs')
   where
@@ -174,8 +194,6 @@ solveS quickQuit onNewStep onFail onBacktrackEnd (Program _ vs _ cs) pquery
     -- 2. If a variable is mapped to itself, we can remove the substitution.
     optimiseSub subs = Solution $ M.fromList optimisedSubs
       where
-        -- TODO: If there are still "renamed" variables, create a fresh variable
-        -- and substitute it in.
         untagVarMap   = freshUntag initFresh
                       $ S.fromList (fst <$> subs)
                      <> S.unions (getVariables . snd <$> subs)
@@ -195,7 +213,6 @@ solveS quickQuit onNewStep onFail onBacktrackEnd (Program _ vs _ cs) pquery
     worker _ sub []                       = do
       void $ onNewStep Nothing (PQuery vars' [])
       pIsBT .= BacktrackOnSuccess
-      pStep += 1
       pure [[sub]]
     -- Take the first atom in the query, and try to unify it with each clause.
     worker qq sub ((Atom True p ts) : as) = do
@@ -203,8 +220,8 @@ solveS quickQuit onNewStep onFail onBacktrackEnd (Program _ vs _ cs) pquery
       subResult <- worker True M.empty [Atom False p ts]
       -- TODO: Add handler for completing a sub-query for negation.
       case subResult of
-        [] -> worker qq sub as
-        _  -> pIsBT .= BacktrackOnFailure >> pure []
+        [] -> onNeg False >> worker qq sub as
+        _  -> onNeg True >> pIsBT .= BacktrackOnFailure >> pure []
     worker qq sub q@(a : as)              = do
       allRules <- use pRules
       let rules = fromMaybe [] $ allRules M.!? Just (a ^. atomPredicate)
@@ -213,7 +230,7 @@ solveS quickQuit onNewStep onFail onBacktrackEnd (Program _ vs _ cs) pquery
         Just h  -> do      -- Try to unify with the head "h"
           (step, isBT) <- liftM2 (,) (use pStep) (use pIsBT)
           when (isBT /= NoBacktrack) $ do
-            lift (onBacktrackEnd (PQuery vars' q))
+            lift (onBTEnd (PQuery vars' q))
             pIsBT .= NoBacktrack
           guard (isBT /= BacktrackOnFailure || not qq)
           -- A rename function that tags the variable with the current step
