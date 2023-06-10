@@ -1,6 +1,15 @@
 # Revision history for Hrolog
 
 
+## 0.1.1.0 -- 2023-06-10
+
+* Add setting options to show only the first solution as well as print out each step of the evaluation.
+  * Expand the autocomplete to include the new options.
+* Generate fresh names for new variables created during the evaluation.
+* Automatically save REPL history.
+* Various bug fixes.
+
+
 ## 0.1.0.5 -- 2023-06-03
 
 * Support negation as failure.
